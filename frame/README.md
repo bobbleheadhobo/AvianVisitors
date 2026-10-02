@@ -56,6 +56,43 @@ esphome run birdframe-usb.yaml         # first time over USB
 Use the server's IP rather than `birdnet.local`, and give the server a DHCP
 reservation so the address doesn't change.
 
+#### Building with Home Assistant's ESPHome add-on instead
+
+The firmware is four files in [`frame/esphome/`](esphome/). Copy them into the
+add-on's config folder, `/config/esphome/`, with the File editor or Studio
+Code Server add-on (paste each one), or the Samba share add-on (drag them
+into `config/esphome`):
+
+| File | Needed |
+|---|---|
+| `birdframe-usb.yaml` | the device (or `birdframe-battery.yaml`; both use the name `birdframe`, so copy only one) |
+| `common.yaml` | yes, pulled in by the device file |
+| `birdframe.h` | yes, pulled in by `common.yaml` |
+| `secrets.example.yaml` | no; add its three keys to the add-on's own `secrets.yaml` instead |
+
+Keep them side by side in `/config/esphome/`, not in a subfolder; the includes
+are relative. `common.yaml` shows up as an extra card in the dashboard;
+ignore it.
+
+1. Update the add-on to ESPHome 2026.6 or newer.
+2. In the dashboard's **Secrets** editor (top right), add `wifi_ssid`,
+   `wifi_password` and `ota_password` (any password you like). If your
+   existing secrets use other names, change the `!secret` lines in the
+   device YAML to match.
+3. Check `server:` in the device YAML is your BirdNET server's IP.
+4. Compile: on the `birdframe` card, **⋮ → Install → Manual download →
+   Factory format**. This builds the firmware without the board attached,
+   so you can do it before the hardware arrives. The first build downloads
+   the ESP-IDF toolchain and takes a while; a host with 2 GB of RAM may be
+   too small.
+5. First flash, with the board on USB and its jumper on 50-pin:
+   **Install → Plug into this computer**. That needs Chrome or Edge and
+   Home Assistant opened over HTTPS. Over plain HTTP, open
+   [web.esphome.io](https://web.esphome.io), **Connect**, and **Install** the
+   factory `.bin` from step 4.
+6. Later updates of the USB build: **Install → Wirelessly**. The battery
+   build accepts them only for 5 minutes after KEY2; otherwise use USB.
+
 | | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
 |---|---|---|
 | Checks | every 3 min, stays connected | wakes every 30 min (2 h when the battery is low), deep sleeps between |
