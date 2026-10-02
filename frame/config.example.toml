@@ -43,6 +43,28 @@ saturation = 0.6       # Inky colour saturation, 0 to 1
 mat = 0.0              # extra shrink of the content inside the A5 opening (0 = none)
 opening = 0.7071       # opening height as a panel fraction; raise toward 0.98 for a bare panel
 # panel = "el133uf1"   # force the 13.3" driver if auto-detect ever fails
+# opening_ratio = 1.41421  # opening height / width (A-series mat); clamped to the panel width
+# panel_size = [1200, 1600]  # portrait pixels; the screenshot follows this aspect
+# title_frac = 0.065   # title height, fraction of the opening height
+# collage_frac = 0.66  # max collage width, fraction of the opening width
+# gap_frac = 0.1       # title-to-collage gap, fraction of the opening height
+# shoot_label_min_px = 11  # smallest bird-name font (CSS px)
+
+# --- ESPHome frame (7.3" Spectra 6 on a XIAO EE04) --------------------------
+# Run this on the BirdNET server (install-server.sh writes it). Instead of
+# driving a panel, display.py writes frame.png, frame-names.png and
+# frame.json into export_dir for the ESP32 in frame/esphome/ to fetch. The
+# folder must sit under the web root (~/BirdSongs/Extracted) to be served.
+# output = "esphome"
+# export_dir = "~/BirdSongs/Extracted/frame"
+# base_url = "http://localhost"
+# panel_size = [480, 800]
+# opening = 0.96
+# opening_ratio = 1.6667
+# title_frac = 0.065
+# collage_frac = 0.95
+# gap_frac = 0.04
+# shoot_label_min_px = 13
 
 # --- Refresh cadence --------------------------------------------------------
 # The panel refreshes only when the species set or a count bracket changes,

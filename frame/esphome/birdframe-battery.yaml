@@ -1,0 +1,119 @@
+# AvianVisitors frame, battery powered: deep sleeps between checks.
+#   esphome run birdframe-battery.yaml   (over USB; see "Updating" below)
+#
+# Each wake: read the battery, join Wi-Fi, fetch frame.json, redraw only if
+# the birds changed, then sleep 30 min (2 h once the battery is low, with a
+# small empty-battery mark in the corner). A wake with nothing new costs a
+# few seconds of Wi-Fi; the panel holds its image with no power.
+#
+# Keys wake the board at any time:
+#   KEY0  redraw now
+#   KEY1  toggle bird names
+#   KEY2  stay awake 5 min, e.g. to flash an update over Wi-Fi
+# Updating: press KEY2, then `esphome run birdframe-battery.yaml` and pick
+# the network device; or flash over USB as the first time.
+
+substitutions:
+  name: birdframe
+  server: http://192.168.0.112
+  sleep_normal: 30min
+  sleep_low: 2h
+  low_battery_volts: "3.5"
+
+packages:
+  common: !include common.yaml
+
+esphome:
+  on_boot:
+    # Safety net: never stay awake longer than 3 minutes unless KEY2 asked to.
+    - priority: 600
+      then:
+        - delay: 180s
+        - if:
+            condition:
+              lambda: "return id(wake_reason) != birdframe::WAKE_AWAKE;"
+            then:
+              - lambda: "birdframe::hold_key_pullups();"
+              - deep_sleep.enter:
+                  id: ds
+                  sleep_duration: ${sleep_normal}
+    - priority: -100
+      then:
+        - deep_sleep.prevent: ds
+        - lambda: |-
+            id(wake_reason) = birdframe::wake_key();
+            if (id(wake_reason) == birdframe::WAKE_NAMES) {
+              id(names_on) = !id(names_on);
+              ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
+            }
+        - switch.turn_on: battery_sense_enable
+        - delay: 20ms
+        - component.update: battery_voltage
+        - switch.turn_off: battery_sense_enable
+        - lambda: |-
+            float v = id(battery_voltage).state;
+            // No reading, or USB with no cell attached: not "low".
+            id(low_battery) = !std::isnan(v) && v > 2.5f && v < ${low_battery_volts}f;
+            ESP_LOGI("birdframe", "battery %.2f V%s", v, id(low_battery) ? " (low)" : "");
+        - wait_until:
+            condition: wifi.connected
+            timeout: 20s
+        - if:
+            condition: wifi.connected
+            then:
+              - script.execute:
+                  id: check_frame
+                  force: !lambda "return id(wake_reason) == birdframe::WAKE_REFRESH || id(wake_reason) == birdframe::WAKE_NAMES;"
+              - script.wait: check_frame
+        - if:
+            condition:
+              lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
+            then:
+              - logger.log: "KEY2: staying awake 5 minutes for updates"
+              - delay: 5min
+        - lambda: |-
+            global_preferences->sync();
+            birdframe::hold_key_pullups();
+        - deep_sleep.enter:
+            id: ds
+            sleep_duration: !lambda "return id(low_battery) ? ${sleep_low} : ${sleep_normal};"
+
+globals:
+  - id: wake_reason
+    type: int
+    initial_value: "0"
+
+logger:
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+
+deep_sleep:
+  id: ds
+  esp32_ext1_wakeup:
+    mode: ANY_LOW
+    pins:
+      - GPIO2
+      - GPIO3
+      - GPIO5
+
+switch:
+  - platform: gpio
+    id: battery_sense_enable
+    pin: GPIO6
+    restore_mode: ALWAYS_OFF
+
+sensor:
+  - platform: adc
+    id: battery_voltage
+    pin: GPIO1
+    attenuation: 12db
+    update_interval: never
+    filters:
+      - multiply: 2.0

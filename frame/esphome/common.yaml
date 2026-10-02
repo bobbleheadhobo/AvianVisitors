@@ -1,0 +1,172 @@
+# Shared by birdframe-usb.yaml and birdframe-battery.yaml.
+# Hardware: Seeed XIAO ePaper Display Board EE04 (XIAO ESP32-S3 Plus) driving
+# the Seeed 7.3" Spectra 6 panel (800x480) on the 50-pin connector; set the
+# board's jumper to 50-pin.
+#
+# The BirdNET server renders the frame (frame/install-server.sh) and serves:
+#   ${server}/frame/frame.json        {"sig": ..., "sig_names": ..., ...}
+#   ${server}/frame/frame.png         names off, 480x800, six pure colours
+#   ${server}/frame/frame-names.png   names on
+# This device only downloads a PNG when the sig for its current names setting
+# differs from the one it last drew, then draws it pixel for pixel.
+
+esphome:
+  name: ${name}
+  min_version: 2026.6.0
+  includes:
+    - birdframe.h
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+http_request:
+  timeout: 15s
+  verify_ssl: false
+  useragent: AvianVisitors-frame/1.0
+
+globals:
+  # Persisted in flash so a reboot or deep sleep does not redraw for nothing.
+  - id: last_sig
+    type: std::string
+    restore_value: yes
+    max_restore_data_length: 32
+    initial_value: '""'
+  - id: names_on
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+  - id: shown_low_battery
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+  # Per run.
+  - id: low_battery
+    type: bool
+    initial_value: "false"
+  - id: pending_sig
+    type: std::string
+    initial_value: '""'
+  - id: want_draw
+    type: bool
+    initial_value: "false"
+  - id: drawn
+    type: bool
+    initial_value: "false"
+
+online_image:
+  - id: frame_img
+    url: ${server}/frame/frame.png
+    format: PNG
+    type: RGB565
+    update_interval: never
+    on_download_finished:
+      then:
+        - component.update: epd
+        # is_idle() only reads true again once the refresh state machine has
+        # started and finished, so give it a moment to start.
+        - delay: 500ms
+        - wait_until:
+            condition:
+              lambda: "return id(epd).is_idle();"
+            timeout: 90s
+        - lambda: |-
+            id(last_sig) = id(pending_sig);
+            id(shown_low_battery) = id(low_battery);
+            global_preferences->sync();
+            id(drawn) = true;
+            ESP_LOGI("birdframe", "drew frame %s", id(last_sig).c_str());
+    on_error:
+      then:
+        - lambda: |-
+            ESP_LOGW("birdframe", "image download failed; keeping the last frame");
+            id(drawn) = true;
+
+display:
+  - platform: epaper_spi
+    id: epd
+    model: 7.3in-Spectra-E6
+    cs_pin: GPIO44
+    dc_pin: GPIO10
+    reset_pin: GPIO38
+    busy_pin:
+      number: GPIO4
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    # If the image comes out corrupted, uncomment to halve the SPI clock.
+    # data_rate: 10MHz
+    rotation: 90
+    update_interval: never
+    lambda: |-
+      it.image(0, 0, id(frame_img));
+      if (id(low_battery)) {
+        birdframe::draw_low_battery(it);
+      }
+
+script:
+  # Fetch frame.json; download and draw the image when it changed, when
+  # forced, or when the low-battery mark needs to appear or clear.
+  - id: check_frame
+    mode: queued
+    max_runs: 2
+    parameters:
+      force: bool
+    then:
+      - lambda: |-
+          id(want_draw) = false;
+          id(drawn) = false;
+      - http_request.get:
+          url: ${server}/frame/frame.json
+          capture_response: true
+          max_response_buffer_size: 1kB
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    ESP_LOGW("birdframe", "frame.json returned %d", response->status_code);
+                    return;
+                  }
+                  std::string sig;
+                  json::parse_json(body, [&sig](JsonObject root) -> bool {
+                    const char *key = id(names_on) ? "sig_names" : "sig";
+                    sig = root[key] | "";
+                    return true;
+                  });
+                  if (sig.empty()) {
+                    ESP_LOGW("birdframe", "frame.json has no image yet");
+                    return;
+                  }
+                  id(pending_sig) = sig;
+                  id(want_draw) = force || sig != id(last_sig) || id(low_battery) != id(shown_low_battery);
+                  ESP_LOGI("birdframe", "server %s, shown %s, draw %s", sig.c_str(),
+                           id(last_sig).c_str(), id(want_draw) ? "yes" : "no");
+          on_error:
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "could not reach the frame server; keeping the last frame"
+      - if:
+          condition:
+            lambda: "return id(want_draw);"
+          then:
+            - online_image.set_url:
+                id: frame_img
+                url: !lambda |-
+                  return id(names_on) ? "${server}/frame/frame-names.png" : "${server}/frame/frame.png";
+            - wait_until:
+                condition:
+                  lambda: "return id(drawn);"
+                timeout: 120s
+            - online_image.release: frame_img

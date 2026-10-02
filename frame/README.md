@@ -2,6 +2,86 @@
 
 *The last 24h of birds, framed on the wall by your window.*
 
+## 7.3" Spectra 6 on a XIAO EE04 (ESPHome)
+
+This fork adds a second way to build the frame: a small 7.3" panel driven by
+an ESP32 instead of a Raspberry Pi. The BirdNET server renders the frame and
+the ESP32 just downloads and draws it.
+
+```
+BirdNET server (birdframe-server.timer, every 3 min, renders only when the birds change)
+  screenshot collage → 480×800 portrait layout → dither to the 6 inks
+  → ~/BirdSongs/Extracted/frame/{frame.png, frame-names.png, frame.json, preview*.png}
+EE04 (ESPHome): fetch /frame/frame.json → new sig? → download PNG → draw → (sleep)
+```
+
+### Hardware
+
+| Qty | Part |
+|-----|------|
+| 1 | Seeed 7.3" Spectra 6 ePaper, 800×480 (SKU 100064541) |
+| 1 | Seeed XIAO ePaper Display Board EE04, ESP32-S3 Plus (SKU 100075670) |
+| 1 | USB-C cable, or a 3.7 V LiPo on the JST 2.0 mm connector |
+
+The panel uses the **50-pin** connector: set the EE04 jumper to 50-pin before
+plugging it in.
+
+### 1. Server
+
+On the BirdNET machine:
+
+```bash
+cd ~/BirdNET-Pi/frame
+./install-server.sh
+```
+
+It installs Chromium in `frame/.venv`, writes `~/.birdframe/config.toml`
+(`output = "esphome"`, 480×800 portrait), and enables `birdframe-server.timer`.
+Check the look at `http://<server>/frame/preview.png` (names off) and
+`/frame/preview-names.png` (names on). Layout knobs are in
+[`config.example.toml`](config.example.toml); after editing the config, force
+a re-render with `frame/.venv/bin/python frame/display.py --config ~/.birdframe/config.toml --force`.
+
+### 2. ESP32
+
+Needs [ESPHome](https://esphome.io/guides/installing_esphome/) 2026.6 or newer on your computer.
+
+```bash
+cd frame/esphome
+cp secrets.example.yaml secrets.yaml   # Wi-Fi and an OTA password
+# set `server:` in the YAML to your BirdNET server's IP
+esphome run birdframe-usb.yaml         # first time over USB
+```
+
+Use the server's IP rather than `birdnet.local`, and give the server a DHCP
+reservation so the address doesn't change.
+
+| | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
+|---|---|---|
+| Checks | every 3 min, stays connected | wakes every 30 min (2 h when the battery is low), deep sleeps between |
+| Redraws | only when the server's image changes | same, plus a small empty-battery mark below ~3.5 V |
+| KEY0 | redraw now | wake and redraw |
+| KEY1 | toggle bird names | wake and toggle bird names |
+| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi |
+| Updates | over Wi-Fi any time | press KEY2 first, or use USB |
+
+Bird names are off by default. KEY1's setting survives reboots and sleep.
+The server renders both versions each time the birds change, so switching
+takes a single redraw (~20 s).
+
+A full Spectra 6 refresh takes about 20 seconds and the panel flashes while it
+redraws; that only happens when the birds change.
+
+**Troubleshooting:** a corrupted or striped image → uncomment
+`data_rate: 10MHz` in `common.yaml`. Nothing ever draws and the logs show
+the display stuck busy → check the 50-pin jumper and the ribbon cable. The
+logs (`esphome logs birdframe-usb.yaml`) print the server's and the shown sig
+on every check.
+
+---
+
+## Raspberry Pi + 13.3" Inky Impression (upstream)
+
 A [Pimoroni Inky Impression 13.3"](https://amzn.to/4xlAWr3) (Spectra 6) mirroring the live collage. A Pi screenshots the site, mats it onto an A5 opening, and pushes to the panel, refreshing only when the birds change. Build one of your own at [theodore.net/projects/AvianVisitors#frame-ous](https://theodore.net/projects/AvianVisitors/#frame-ous).
 
 ![](https://theodore.net/assets/images/AvianVisitors/final.jpg)
