@@ -1,0 +1,14 @@
+[Unit]
+Description=Render the ESPHome bird frame on a schedule
+
+[Timer]
+# Most runs only fetch the species list and skip; a render happens when the
+# birds change. The ESP32 polls frame.json on its own schedule. See
+# birdframe.timer for why both OnActiveSec and OnBootSec are set.
+OnActiveSec=1min
+OnBootSec=2min
+OnUnitActiveSec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

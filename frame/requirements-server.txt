@@ -1,0 +1,5 @@
+# Render server for an ESPHome frame: display.py + shoot.py, no panel driver.
+# install-server.sh installs these plus Playwright's Chromium.
+Pillow>=10,<12
+playwright>=1.40,<2
+tomli; python_version < "3.11"

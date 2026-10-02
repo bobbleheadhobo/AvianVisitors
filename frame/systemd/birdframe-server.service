@@ -1,0 +1,14 @@
+[Unit]
+Description=AvianVisitors frame render for an ESPHome display
+Wants=network-online.target
+After=network-online.target caddy.service
+
+[Service]
+# install-server.sh rewrites User= and the paths to match your install.
+Type=oneshot
+User=monalisa
+WorkingDirectory=/home/monalisa/AvianVisitors/frame
+ExecStart=/home/monalisa/AvianVisitors/frame/.venv/bin/python /home/monalisa/AvianVisitors/frame/display.py --config /home/monalisa/.birdframe/config.toml
+Environment=PYTHONUNBUFFERED=1
+Nice=10
+TimeoutStartSec=300
