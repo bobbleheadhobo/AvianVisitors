@@ -1,0 +1,74 @@
+# AvianVisitors frame, USB powered: checks the server every 3 minutes.
+#   esphome run birdframe-usb.yaml      (USB the first time, then over Wi-Fi)
+# Keys: KEY0 redraws now, KEY1 toggles bird names.
+
+substitutions:
+  name: birdframe
+  # The BirdNET server. An IP is more reliable than birdnet.local from an
+  # ESP32; give the server a DHCP reservation so it does not move.
+  server: http://192.168.0.112
+
+packages:
+  common: !include common.yaml
+
+logger:
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  on_connect:
+    - script.execute:
+        id: check_frame
+        force: false
+
+interval:
+  - interval: 3min
+    then:
+      - if:
+          condition: wifi.connected
+          then:
+            - script.execute:
+                id: check_frame
+                force: false
+
+binary_sensor:
+  - platform: gpio
+    id: key_refresh
+    name: Redraw
+    pin:
+      number: GPIO2
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - script.execute:
+          id: check_frame
+          force: true
+  - platform: gpio
+    id: key_names
+    name: Bird names
+    pin:
+      number: GPIO3
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+      # GPIO3 is an ESP32-S3 strapping pin; the EE04 wires KEY1 to it.
+      ignore_strapping_warning: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - lambda: |-
+          id(names_on) = !id(names_on);
+          global_preferences->sync();
+          ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
+      - script.execute:
+          id: check_frame
+          force: true
