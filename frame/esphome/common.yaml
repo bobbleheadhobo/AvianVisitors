@@ -45,7 +45,7 @@ globals:
   - id: names_on
     type: bool
     restore_value: yes
-    initial_value: "false"
+    initial_value: "true"
   - id: shown_low_battery
     type: bool
     restore_value: yes

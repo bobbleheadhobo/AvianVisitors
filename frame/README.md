@@ -65,7 +65,7 @@ reservation so the address doesn't change.
 | KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi |
 | Updates | over Wi-Fi any time | press KEY2 first, or use USB |
 
-Bird names are off by default. KEY1's setting survives reboots and sleep.
+Bird names are on by default. KEY1's setting survives reboots and sleep.
 The server renders both versions each time the birds change, so switching
 takes a single redraw (~20 s).
 
