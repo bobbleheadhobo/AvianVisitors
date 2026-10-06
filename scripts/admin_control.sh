@@ -223,6 +223,14 @@ valid_config_value() {
     EBIRD_API_KEY)
       [ "${#value}" -le 120 ] && [[ "$value" =~ ^[A-Za-z0-9_.\/+\=:-]*$ ]]
       ;;
+    # Notifications (Settings > Notifications). The notifier reads these
+    # from birdnet.conf; no value may carry shell syntax.
+    APPRISE_NOTIFY_EACH_DETECTION|APPRISE_NOTIFY_NEW_SPECIES|APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY|APPRISE_WEEKLY_REPORT)
+      [ "$value" = 0 ] || [ "$value" = 1 ]
+      ;;
+    APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES)
+      [[ "$value" =~ ^[0-9]{1,6}$ ]] && [ "$value" -le 604800 ]
+      ;;
     *) return 1 ;;
   esac
 }

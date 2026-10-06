@@ -55,6 +55,13 @@ $ALLOWED = [
     // illustration pipeline (generate.php passes them by env).
     'GEMINI_API_KEY'     => ['type' => 'secret', 'maxlen' => 200],
     'EBIRD_API_KEY'      => ['type' => 'secret', 'maxlen' => 120],
+    // Notifications. The analyzer reads its settings once, so a change
+    // restarts it like the detection settings do.
+    'APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY' => ['type' => 'bool', 'restart' => true],
+    'APPRISE_NOTIFY_NEW_SPECIES'          => ['type' => 'bool', 'restart' => true],
+    'APPRISE_NOTIFY_EACH_DETECTION'       => ['type' => 'bool', 'restart' => true],
+    'APPRISE_WEEKLY_REPORT'               => ['type' => 'bool'],
+    'APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES' => ['type' => 'int', 'min' => 0, 'max' => 604800, 'restart' => true],
 ];
 
 function read_conf(string $path): array {

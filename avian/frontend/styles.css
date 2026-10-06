@@ -1170,6 +1170,25 @@
   body.admin-on .admin-screen[data-admin-section="settings"] .admin-frame { padding-bottom: 0; }
   .settings-save-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
+  /* Notifications: the URL box and its two plain actions. */
+  .settings-notify .notify-targets { border-bottom: 0; padding-bottom: 4px; }
+  .notify-input {
+    display: block; width: 100%; box-sizing: border-box; min-height: 56px; resize: vertical;
+    padding: 8px 10px; border: 0; border-radius: 6px; background: var(--paper-2); box-shadow: var(--recess);
+    font: 12px/1.5 ui-monospace, Menlo, monospace; color: var(--ink);
+  }
+  .notify-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .notify-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 8px 0 10px; }
+  .notify-actions button {
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink); text-decoration: underline; text-underline-offset: 3px;
+  }
+  .notify-actions button:disabled { color: var(--ink-soft); cursor: default; text-decoration: none; }
+  .notify-status { font: 11px ui-monospace, Menlo, monospace; color: var(--ink-2); }
+  .notify-status.err { color: var(--bad); }
+  .notify-saved { color: var(--ink-2) !important; }
+
   /* Slider defaults: a quiet link beside the value when it has moved off
      BirdNET-Pi's shipped default, and one reset for the whole group. */
   .slider-row .value-block { display: inline-flex; align-items: baseline; gap: 10px; }

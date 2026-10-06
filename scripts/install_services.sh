@@ -102,6 +102,13 @@ EOF
     fi
     [ -f "$species_file" ] && [ ! -L "$species_file" ] && chmod g+rw "$species_file"
   done
+  # Notification targets (Settings > Notifications rewrites them in place).
+  # They are secrets, so no world access.
+  apprise_file=${my_dir}/apprise.txt
+  if [ ! -e "$apprise_file" ] && [ ! -L "$apprise_file" ]; then
+    install -o "${BIRDNET_USER}" -g "${BIRDNET_USER}" -m 0660 /dev/null "$apprise_file"
+  fi
+  [ -f "$apprise_file" ] && [ ! -L "$apprise_file" ] && chmod 0660 "$apprise_file"
   # Live listening keeps its switch and session log here (live-listen.php,
   # running as caddy).
   listen_dir=$auth_state_dir/listen

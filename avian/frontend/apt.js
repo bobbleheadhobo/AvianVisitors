@@ -12616,6 +12616,77 @@
     adminPollT = setInterval(loadArchiveStatus, 10000);
   }
 
+  // Notifications: where they go (apprise.txt, saved on its own button
+  // because it is a list of secrets, shown back only masked) and when
+  // (APPRISE_* switches, staged and saved with the other settings).
+  function notificationsSection(notify, v) {
+    if (!notify || !notify.ok) return '';
+    var saved = notify.targets || [];
+    return '</section><section class="settings-notify">'
+      + '<div class="menu-row notify-targets">'
+      + '  <div><span class="label">Notifications</span>'
+      + '  <span class="hint">where alerts go. one URL per line; for discord, paste the channel\'s webhook URL</span>'
+      + '  <span class="hint notify-saved" data-notify-saved>' + (saved.length
+        ? 'sending to ' + saved.map(adminEsc).join(', ') : 'no targets yet') + '</span></div>'
+      + '</div>'
+      + '<textarea class="notify-input" rows="2" spellcheck="false" autocomplete="off"'
+      + ' placeholder="https://discord.com/api/webhooks/…" aria-label="notification URLs, one per line" data-notify-input></textarea>'
+      + '<div class="notify-actions">'
+      + '  <button type="button" data-notify-save' + (notify.writable ? '' : ' disabled') + '>save targets</button>'
+      + '  <button type="button" data-notify-test' + (saved.length ? '' : ' disabled') + '>send test</button>'
+      + '  <span class="notify-status" data-notify-status role="status" aria-live="polite">'
+      + (notify.writable ? '' : 'apprise.txt is not writable on the station') + '</span>'
+      + '</div>'
+      + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY', 'First of each species each day', 'one alert per bird per day', v.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY)
+      + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES', 'New to the station', 'a bird never heard here before', v.APPRISE_NOTIFY_NEW_SPECIES)
+      + settingsToggle('APPRISE_NOTIFY_EACH_DETECTION', 'Every detection', 'can be dozens an hour', v.APPRISE_NOTIFY_EACH_DETECTION)
+      + settingsToggle('APPRISE_WEEKLY_REPORT', 'Weekly report', 'a summary each week', v.APPRISE_WEEKLY_REPORT);
+  }
+  function wireNotifications(root) {
+    var input = root.querySelector('[data-notify-input]');
+    if (!input) return;
+    var saveBtn = root.querySelector('[data-notify-save]');
+    var testBtn = root.querySelector('[data-notify-test]');
+    var status = root.querySelector('[data-notify-status]');
+    var savedLine = root.querySelector('[data-notify-saved]');
+    function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
+    function post(body) {
+      return adminFetch('./avian/api/notifications.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify(body),
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+          return j;
+        });
+      });
+    }
+    saveBtn.addEventListener('click', function () {
+      var text = input.value.trim();
+      if (!text && !confirm('Remove every notification target?')) return;
+      saveBtn.disabled = true;
+      say('saving...');
+      post({ action: 'save', targets: text }).then(function (j) {
+        var t = j.targets || [];
+        savedLine.textContent = t.length ? 'sending to ' + t.join(', ') : 'no targets yet';
+        input.value = '';
+        testBtn.disabled = !t.length;
+        say(t.length ? 'saved. send a test to check it' : 'targets removed');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) say(error.message, true);
+      }).then(function () { saveBtn.disabled = false; });
+    });
+    testBtn.addEventListener('click', function () {
+      testBtn.disabled = true;
+      say('sending a test...');
+      post({ action: 'test' }).then(function () {
+        say('test sent. check your channel');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) say(error.message, true);
+      }).then(function () { testBtn.disabled = false; });
+    });
+  }
+
   // Remote listening switch. Off: the live mic is LAN-only, as upstream
   // ships it. On: an unlocked admin session can listen through the proxy,
   // and every session is logged and sent to the notification targets.
@@ -12699,6 +12770,10 @@
         if (adminAuthCancelled(error)) throw error;
         return null;
       }),
+      adminJson('./avian/api/notifications.php').catch(function (error) {
+        if (adminAuthCancelled(error)) throw error;
+        return null;
+      }),
     ])
       .then(function (parts) {
         var cfg = parts[0];
@@ -12706,6 +12781,7 @@
         var birdweather = parts[2] || { ok: false };
         var archive = parts[3] || { ok: false, failure_kind: 'network' };
         var listen = parts[4];
+        var notify = parts[5];
         var v = cfg.values || {};
         var sec = cfg.secrets || {};
         var security = cfg.security || {};
@@ -12746,6 +12822,7 @@
           + stationRow(v)
           + settingsSecret('GEMINI_API_KEY', 'Gemini API key', 'for drawing birds on demand', sec.GEMINI_API_KEY)
           + settingsSecret('EBIRD_API_KEY', 'eBird API key', 'for regional species filters', sec.EBIRD_API_KEY)
+          + notificationsSection(notify, v)
           + '</section><section class="settings-retention">'
           + lanAuthRow(security)
           + remoteListenRow(listen)
@@ -12795,6 +12872,7 @@
         });
         wireLanAuthControl(adminBody, security);
         wireRemoteListenControl(adminBody);
+        wireNotifications(adminBody);
         wirePasswordChange(adminBody);
         wireSettingsAccessDismissal(adminBody);
         wireBirdweatherControl(adminBody, birdweather);
