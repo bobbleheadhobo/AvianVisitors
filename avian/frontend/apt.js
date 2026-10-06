@@ -12864,8 +12864,8 @@
     html += '</div>';
 
     // The stock BirdNET-Pi pages still live at /index.php behind the station's
-    // own login; in required-auth mode Caddy hides them entirely, so skip it.
-    if (!adminAuthMeta.required) {
+    // own login, from any address. Only the LAN-auth policy removes them.
+    if (!adminAuthMeta.lan_policy) {
       html += '<h2 class="admin-section-head">classic</h2>';
       html += '<div class="admin-actions-grid">';
       html += '<a class="admin-action" href="/index.php" target="_blank" rel="noopener">'
