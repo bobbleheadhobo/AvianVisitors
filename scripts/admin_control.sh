@@ -231,6 +231,17 @@ valid_config_value() {
     APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES)
       [[ "$value" =~ ^[0-9]{1,6}$ ]] && [ "$value" -le 604800 ]
       ;;
+    APPRISE_NOTIFICATION_TITLE)
+      # Plain text: this file is sourced as shell, so no $, quotes, backticks
+      # or backslashes (and no control characters).
+      [ "${#value}" -le 120 ] && [[ "$value" != *[\`\"\\\$]* ]] && ! [[ "$value" =~ [[:cntrl:]] ]]
+      ;;
+    BIRDNETPI_URL)
+      [ -z "$value" ] || {
+        [ "${#value}" -le 200 ] \
+          && [[ "$value" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$ ]]
+      }
+      ;;
     *) return 1 ;;
   esac
 }

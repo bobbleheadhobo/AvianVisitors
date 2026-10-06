@@ -12637,6 +12637,22 @@
       + '  <span class="notify-status" data-notify-status role="status" aria-live="polite">'
       + (notify.writable ? '' : 'apprise.txt is not writable on the station') + '</span>'
       + '</div>'
+      + '<div class="menu-row notify-message-head"><div><span class="label">Message</span>'
+      + '  <span class="hint">what each alert says. tap a variable to add it; discord reads **bold** and *italic*.'
+      + ' $image attaches the bird\'s photo</span></div></div>'
+      + '<input type="text" class="notify-title" maxlength="120" spellcheck="false" autocomplete="off" aria-label="notification title"'
+      + ' placeholder="title" value="' + adminAttr(v.APPRISE_NOTIFICATION_TITLE || '') + '" data-notify-title>'
+      + '<textarea class="notify-input notify-body" rows="7" spellcheck="false" aria-label="notification message" data-notify-body'
+      + (notify.body_writable ? '' : ' disabled') + '>' + adminEsc(notify.body || '') + '</textarea>'
+      + '<div class="notify-vars" role="group" aria-label="insert a variable">'
+      + ['$comname','$sciname','$confidencepct','$date','$time','$reason','$friendlyurl','$image','$listenurl','$confidence','$week'].map(function (k) { return '<button type="button" data-notify-var="' + k + '">' + k + '</button>'; }).join('')
+      + '</div>'
+      + '<div class="notify-actions">'
+      + '  <button type="button" data-notify-message' + (notify.body_writable ? '' : ' disabled') + '>save message</button>'
+      + '  <span class="notify-status" data-notify-message-status role="status" aria-live="polite"></span>'
+      + '</div>'
+      + settingsText('BIRDNETPI_URL', 'Station address', v.BIRDNETPI_URL || '', 200)
+      + '<p class="notify-note">where "listen here" links in alerts point, e.g. https://birds.example.com. empty uses ' + adminEsc(notify.default_site || 'the station\'s .local name') + ', which only works at home</p>'
       + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY', 'First of each species each day', 'one alert per bird per day', v.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY)
       + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES', 'New to the station', 'a bird never heard here before', v.APPRISE_NOTIFY_NEW_SPECIES)
       + settingsToggle('APPRISE_NOTIFY_EACH_DETECTION', 'Every detection', 'can be dozens an hour', v.APPRISE_NOTIFY_EACH_DETECTION)
@@ -12676,11 +12692,47 @@
         if (!adminAuthCancelled(error)) say(error.message, true);
       }).then(function () { saveBtn.disabled = false; });
     });
+    // Message: title (birdnet.conf, plain text) and body template (body.txt).
+    var bodyBox = root.querySelector('[data-notify-body]');
+    var titleBox = root.querySelector('[data-notify-title]');
+    var msgStatus = root.querySelector('[data-notify-message-status]');
+    function sayMsg(text, err) { msgStatus.textContent = text || ''; msgStatus.classList.toggle('err', !!err); }
+    root.querySelectorAll('[data-notify-var]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var v = b.dataset.notifyVar;
+        var at = bodyBox.selectionStart == null ? bodyBox.value.length : bodyBox.selectionStart;
+        var end = bodyBox.selectionEnd == null ? at : bodyBox.selectionEnd;
+        bodyBox.value = bodyBox.value.slice(0, at) + v + bodyBox.value.slice(end);
+        bodyBox.focus();
+        bodyBox.setSelectionRange(at + v.length, at + v.length);
+      });
+    });
+    var saveMsg = root.querySelector('[data-notify-message]');
+    if (saveMsg) saveMsg.addEventListener('click', function () {
+      var title = titleBox.value.trim();
+      if (/[$"`\\]/.test(title)) { sayMsg('the title is plain text: no $ variables, quotes or backslashes', true); return; }
+      saveMsg.disabled = true;
+      sayMsg('saving...');
+      post({ action: 'message', body: bodyBox.value }).then(function () {
+        return adminFetch('./avian/api/config.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+          body: JSON.stringify({ APPRISE_NOTIFICATION_TITLE: title }),
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (!r.ok || !j.ok) throw new Error((j.fields && j.fields.APPRISE_NOTIFICATION_TITLE) || j.error || ('HTTP ' + r.status));
+          });
+        });
+      }).then(function () {
+        sayMsg('saved. send a test to see it');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) sayMsg(error.message, true);
+      }).then(function () { saveMsg.disabled = false; });
+    });
     testBtn.addEventListener('click', function () {
       testBtn.disabled = true;
       say('sending a test...');
       post({ action: 'test' }).then(function () {
-        say('test sent. check your channel');
+        say('test sent with your message and the latest bird. check your channel');
       }).catch(function (error) {
         if (!adminAuthCancelled(error)) say(error.message, true);
       }).then(function () { testBtn.disabled = false; });
@@ -13801,6 +13853,38 @@
   // Initial load: if URL has a sci hash, jump to atlas, highlight, and
   // open the modal.
   if (readHash() && !educatorScopeBlocked) { go(2); highlightAtlas(readHash()); openDetailModal(readHash()); }
+
+  // "Listen here" links in notifications are /?filename=<recording>. BirdNET-Pi
+  // names recordings "<Common_Name>-<conf>-<date>-birdnet-<time>.mp3", so
+  // read the bird from the name, open its postcard, and open that recording.
+  (function openNotificationLink() {
+    var file = new URLSearchParams(location.search).get('filename');
+    if (!file || readHash() || educatorScopeBlocked) return;
+    var base = file.split('/').pop();
+    var m = base.match(/^(.+?)-\d{1,3}-\d{4}-\d{2}-\d{2}-birdnet-/);
+    if (!m) return;
+    var key = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    var wanted = key(m[1]);
+    var tries = 0;
+    (function waitForSpecies() {
+      var species = (DATA && DATA.lifelist && DATA.lifelist.species) || [];
+      if (!species.length && tries++ < 50) { setTimeout(waitForSpecies, 120); return; }
+      var hit = species.find(function (s) { return key(s.com) === wanted; });
+      if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + (hit ? '#sci=' + encodeURIComponent(hit.sci) : ''));
+      if (!hit) return;
+      go(2); highlightAtlas(hit.sci); openDetailModal(hit.sci);
+      var rowTries = 0;
+      (function openRow() {
+        var row = [].slice.call(document.querySelectorAll('#modalRecordings .rec-row')).find(function (r) {
+          return (r.dataset.file || '').split('/').pop() === base;
+        });
+        if (!row) { if (rowTries++ < 40) setTimeout(openRow, 150); return; }
+        var toggle = row.querySelector('.rec-row-toggle');
+        if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+        row.scrollIntoView({ block: 'center' });
+      })();
+    })();
+  })();
   // Admin overlay routing accepts only exact native admin section names.
   // screen with that sub-tab. Clearing the hash closes it.
   function readAdminHash() {

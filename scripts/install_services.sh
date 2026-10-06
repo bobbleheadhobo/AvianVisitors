@@ -109,6 +109,9 @@ EOF
     install -o "${BIRDNET_USER}" -g "${BIRDNET_USER}" -m 0660 /dev/null "$apprise_file"
   fi
   [ -f "$apprise_file" ] && [ ! -L "$apprise_file" ] && chmod 0660 "$apprise_file"
+  # The notification message template (Settings > Notifications > message).
+  body_file=${my_dir}/body.txt
+  [ -f "$body_file" ] && [ ! -L "$body_file" ] && chmod g+w "$body_file"
   # Live listening keeps its switch and session log here (live-listen.php,
   # running as caddy).
   listen_dir=$auth_state_dir/listen

@@ -61,6 +61,11 @@ $ALLOWED = [
     'APPRISE_NOTIFY_NEW_SPECIES'          => ['type' => 'bool', 'restart' => true],
     'APPRISE_NOTIFY_EACH_DETECTION'       => ['type' => 'bool', 'restart' => true],
     'APPRISE_WEEKLY_REPORT'               => ['type' => 'bool'],
+    // Plain text: birdnet.conf is sourced as shell, so no $ variables here
+    // (the message template in body.txt carries those).
+    'APPRISE_NOTIFICATION_TITLE'          => ['type' => 'title', 'maxlen' => 120, 'restart' => true],
+    // Base of the "listen" links in notifications ($listenurl, $friendlyurl).
+    'BIRDNETPI_URL'                       => ['type' => 'url', 'maxlen' => 200, 'restart' => true],
     'APPRISE_MINIMUM_SECONDS_BETWEEN_NOTIFICATIONS_PER_SPECIES' => ['type' => 'int', 'min' => 0, 'max' => 604800, 'restart' => true],
 ];
 
@@ -257,6 +262,20 @@ if ($method === 'POST') {
             // source. Keep shell metacharacters out before the root writer
             // repeats the same validation.
             if (!safe_string_value($v)) { $errors[$k] = 'invalid characters'; continue; }
+        } elseif ($spec['type'] === 'title') {
+            if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
+            $v = trim($v);
+            if (strlen($v) > $spec['maxlen'] || !mb_check_encoding($v, 'UTF-8')
+                || preg_match('/[\x00-\x1f\x7f`"\\\\$]/', $v)) {
+                $errors[$k] = 'plain text only, without $ " ` or \\'; continue;
+            }
+        } elseif ($spec['type'] === 'url') {
+            if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
+            $v = rtrim(trim($v), '/');
+            if ($v !== '' && (strlen($v) > $spec['maxlen']
+                || !preg_match('~\Ahttps?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?\z~', $v))) {
+                $errors[$k] = 'an address like https://birds.example.com'; continue;
+            }
         } elseif ($spec['type'] === 'secret') {
             if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
             $v = trim((string)$v);

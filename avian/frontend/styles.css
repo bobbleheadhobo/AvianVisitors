@@ -1188,6 +1188,22 @@
   .notify-status { font: 11px ui-monospace, Menlo, monospace; color: var(--ink-2); }
   .notify-status.err { color: var(--bad); }
   .notify-saved { color: var(--ink-2) !important; }
+  .notify-message-head { border-bottom: 0; padding-bottom: 4px; }
+  .notify-title {
+    display: block; width: 100%; box-sizing: border-box; min-height: 34px; margin: 0 0 8px; padding: 6px 10px;
+    border: 0; border-radius: 6px; background: var(--paper-2); box-shadow: var(--recess);
+    font: 14px ui-serif, "Iowan Old Style", Georgia, serif; color: var(--ink);
+  }
+  .notify-title:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .notify-body { min-height: 150px; }
+  .notify-vars { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 2px; }
+  .notify-vars button {
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font: 11px ui-monospace, Menlo, monospace; color: var(--ink-2);
+    text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px;
+  }
+  .notify-vars button:hover, .notify-vars button:focus-visible { color: var(--ink); text-decoration-color: currentColor; }
+  .notify-note { margin: -4px 0 10px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--ink-soft); }
 
   /* Slider defaults: a quiet link beside the value when it has moved off
      BirdNET-Pi's shipped default, and one reset for the whole group. */
