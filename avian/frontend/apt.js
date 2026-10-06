@@ -3419,9 +3419,9 @@
         + '<div class="stats-tl-label" style="bottom:calc(' + bottomPct.toFixed(1) + '% + ' + (sq + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
         + '</div>';
       // The last column always gets a stamp; drop the stride stamp just
-      // before it when the two would sit closer than a stride apart.
+      // before it only when the two labels would actually overlap.
       var lastStride = Math.floor((C - 1) / stride) * stride;
-      var crowdsLast = i === lastStride && i !== C - 1 && (C - 1 - i) < stride;
+      var crowdsLast = i === lastStride && i !== C - 1 && (C - 1 - i) * (plotW / C) < stampW;
       var showStamp = ((i % stride === 0) && !crowdsLast) || (i === C - 1);
       var lab = showStamp ? fmtTs(parseTs(s.last_seen)) : '';
       if (lab) xaxis += '<span class="stats-tl-xtick" style="left:' + centerPct.toFixed(3) + '%">' + lab + '</span>';
@@ -13888,23 +13888,27 @@
   // steps back over that entry so it never lingers as a dead Back press.
   // Postcards opened through #sci= already own a hash entry and the router
   // closes them on Back.
-  var postcardHistoryPushed = false;
+  // Each pushed entry carries a unique token, so an entry left over from an
+  // earlier page load (reload, Forward) is never mistaken for the live one.
+  var postcardHistoryToken = '';
   function pushPostcardHistory() {
-    if (postcardHistoryPushed || !window.history || typeof history.pushState !== 'function') return;
-    var state = Object.assign({}, history.state || {}, { avPostcard: true });
+    if (postcardHistoryToken || !window.history || typeof history.pushState !== 'function') return;
+    var token = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    var state = Object.assign({}, history.state || {}, { avPostcard: token });
     history.pushState(state, '', location.href);
-    postcardHistoryPushed = true;
+    postcardHistoryToken = token;
   }
   function releasePostcardHistory() {
-    if (!postcardHistoryPushed) return;
-    postcardHistoryPushed = false;
+    if (!postcardHistoryToken) return;
+    var token = postcardHistoryToken;
+    postcardHistoryToken = '';
     // Only step back while our own entry is current; if something else has
     // navigated since (a hash route), leave history alone.
-    if (history.state && history.state.avPostcard) history.back();
+    if (history.state && history.state.avPostcard === token) history.back();
   }
   window.addEventListener('popstate', function (ev) {
-    if (!postcardHistoryPushed || (ev.state && ev.state.avPostcard)) return;
-    postcardHistoryPushed = false;
+    if (!postcardHistoryToken || (ev.state && ev.state.avPostcard === postcardHistoryToken)) return;
+    postcardHistoryToken = '';
     closePostcard();
   });
   function clearSciHash() {
@@ -14104,6 +14108,10 @@
     if (!postcardModal) postcardModal = document.getElementById('postcard-modal');
     if (!postcardSlot && postcardModal) postcardSlot = postcardModal.querySelector('.postcard-stamp-slot');
     if (!postcardModal) return;
+    // The phone sheet scrolls and the hidden modal keeps its offset; every
+    // postcard starts at the top.
+    var sheetEl = postcardModal.querySelector('.postcard-sheet');
+    if (sheetEl) sheetEl.scrollTop = 0;
     resetPostcardDrawer();
     if (!Number.isFinite(postcardShellSequence)) postcardShellSequence = 0;
     if (!Number.isFinite(postcardOpenSequence)) postcardOpenSequence = 0;
@@ -14354,7 +14362,7 @@
     if (!postcardModal || !postcardSlot || !card) return jumpToSci(card && card.dataset.sci);
     if (!privateEducatorCardCurrent(card)) { clearSciHash(); return false; }
     options = options || {};
-    if (!options.preserveHash) { clearSciHash(); pushPostcardHistory(); }
+    if (!options.preserveHash) clearSciHash();
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = 0;
     releasePostcardFlight();
@@ -14362,6 +14370,7 @@
     setPostcardAtlasSource('stamps');
     var fit = card.querySelector('.stamp-fit');
     if (!fit) return jumpToSci(card.dataset.sci);
+    if (!options.preserveHash) pushPostcardHistory();
     activePostcardSci = card.dataset.sci || '';
     populatePostcard(
       activePostcardSci,
