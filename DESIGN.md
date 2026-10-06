@@ -260,10 +260,12 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 ### Classic BirdNET-Pi Pages
 - **What:** The stock pages at `/index.php` (Overview, Today's Detections, charts, reports, Recordings, Tools and its sub-pages), restyled in this system by `homepage/static/avian-classic.css`. That stylesheet loads after the stock `style.css` / `dark-style.css` and only overrides them. `avian-classic.js` applies the collage's saved light/dark choice (`bird:theme:v2`) before first paint.
 - **Head:** Return pill ("collage") top-left, "live audio" pill top-right, site name as the italic overline, and "BIRDNET-PI" as the display title.
-- **View list:** One Track-and-Thumb row of tracked mono labels. On phones it scrolls sideways and the current view is scrolled into sight, with no hamburger.
+- **View list:** On desktop, one Track-and-Thumb row of tracked mono labels.
+- **Narrow screens (≤1100px):** The stock hamburger becomes a "menu · current view" pill that opens a side drawer of serif links. The current view is bold. Escape, a tap outside, or picking a view closes it. Tools sub-pages and Recordings-by-date mark their parent view.
 - **Tables:** Hairline ledgers with no fills, mono labels in the header row, and mono figures for counts.
 - **Actions:** Raised paper pills in tracked mono. Reboot, shutdown and clear-data are set in Danger ink.
-- **Charts:** The generated daily charts are drawn in greys on white (`scripts/daily_plot.py`). They're shown with `grayscale` + `multiply` on paper, and inverted + `screen` on charcoal.
+- **Charts:** `scripts/daily_plot.py` draws a printed ledger in one ink: species rows (most heard first) with a serif name, a bar for the day's count, and a 24-hour strip of squares sized by detections per hour. The current hour gets a faint band and a bold tick, and the header is a mono label line. It renders at 200 dpi and shows at 960px. On phones it keeps 800px and scrolls sideways. On the page it's `grayscale` + `multiply` on paper, and inverted + `screen` on charcoal.
+- **Risky actions:** System Controls lists the safe actions first. Reboot, Shutdown and Clear All Data sit last, under a hairline, as Danger outlines rather than raised paper. On Today's Detections, delete sits at the bottom of each row, away from "open".
 - **Out of reach:** Species Stats (Streamlit) and View Log are separate apps inside frames, so they keep their own styling.
 
 ## Do's and Don'ts

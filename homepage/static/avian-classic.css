@@ -26,6 +26,9 @@
   --ink-2:    #4a3f31;
   --ink-soft: #908576;
   --quiet:    color-mix(in srgb, var(--ink-soft) 70%, var(--ink-2));
+  /* Secondary text that sits on the recessed paper-2 controls, where
+     --quiet only reaches 4.3:1. */
+  --quiet-strong: color-mix(in srgb, var(--ink-soft) 40%, var(--ink-2));
   --danger:   #9b3f37;
   --hairline: rgba(26,22,18,0.14);
   --pill:     #fcfcfb;
@@ -110,6 +113,9 @@ small * { font-size: inherit !important; }
 [style*="color:red"], [style*="color: red"] { color: var(--danger) !important; }
 [style*="color:blue"], [style*="color: blue"] { color: var(--ink) !important; }
 [style*="color:orange"], [style*="color: orange"], [style*="color:#fc6603"] { color: var(--danger) !important; }
+/* Week-over-week deltas: the sign already says which way; a quiet week
+   shouldn't read as an error. */
+small [style*="color:red"], small [style*="color:green"] { color: var(--quiet) !important; }
 
 /* Little utility icons: info, wiki, chart, delete, open, sort. Printed in
    ink like everything else; bird photos and spectrograms keep color. */
@@ -130,8 +136,18 @@ img[src$="delete.svg"]:hover, img[src$="copy.png"]:hover { opacity: 1; }
 img[src*="Charts/"] {
   filter: grayscale(1);
   mix-blend-mode: multiply;
+  display: block;
+  width: 960px;
   max-width: 100%;
   height: auto;
+  margin: 0 auto;
+}
+/* On phones the chart keeps a readable size and scrolls sideways. */
+@media (max-width: 700px) {
+  .overview .chart, .history.centered { overflow-x: auto; overscroll-behavior-x: contain; }
+  /* Fade the right edge so it reads as "more this way". */
+  .overview .chart { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+  img[src*="Charts/"] { width: 800px; max-width: none; margin: 0; }
 }
 [data-theme="dark"] img[src*="Charts/"] { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
 
@@ -158,7 +174,7 @@ body:has(> .banner) .banner { display: contents; }
   border: 0; border-radius: 999px;
   background: var(--paper-2);
   box-shadow: var(--recess);
-  color: var(--quiet);
+  color: var(--quiet-strong);
   font: 500 11px/1 var(--mono);
   letter-spacing: 0.18em;
   text-transform: lowercase;
@@ -167,7 +183,7 @@ body:has(> .banner) .banner { display: contents; }
   cursor: pointer;
   transition: color 200ms ease;
 }
-.av-return:visited { color: var(--quiet); }
+.av-return:visited { color: var(--quiet-strong); }
 .av-return:hover, .banner .stream button:hover { color: var(--ink); }
 .av-return svg { width: 10px; height: 10px; flex: none; }
 .av-return {
@@ -261,7 +277,7 @@ body:has(.views) { padding: 4px 20px 48px; }
   padding: 0 14px;
   border-radius: 999px;
   background: transparent;
-  color: var(--quiet);
+  color: var(--quiet-strong);
   font: 600 11px/1 var(--mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -272,20 +288,86 @@ body:has(.views) { padding: 4px 20px 48px; }
 .topnav .button-hover[name="view"] { background: var(--pill) !important; box-shadow: var(--raised); color: var(--ink); }
 .topnav button.icon { display: none; }
 .updatenumber, form#views button .updatenumber {
-  display: inline-block;
-  width: auto !important; min-width: 18px;
-  margin-left: 6px; padding: 0 5px;
-  border-radius: 999px;
-  background: var(--danger);
-  color: var(--paper);
-  font: 600 11px/18px var(--mono);
+  display: inline;
+  position: static;
+  width: auto !important;
+  margin-left: 6px; padding: 0;
+  background: none;
+  color: var(--danger);
+  font: 700 11px/1 var(--mono);
   letter-spacing: 0;
 }
 
-@media (max-width: 1000px) {
+/* Below desktop width the ten views don't fit one row. The stock
+   hamburger (.icon, which toggles .responsive via myFunction) becomes a
+   "menu · current view" pill that opens the list as a side drawer.
+   avian-classic.js labels the pill and handles Escape, scrim and focus. */
+@media (max-width: 1100px) {
   body:has(.views) { padding: 2px 12px 40px; }
-  .topnav { width: auto; max-width: none; margin: 2px -12px 22px; border-radius: 0; padding: 4px 8px; }
+  form#views:has(> .topnav) { min-height: calc(var(--ctl-h) + 26px); }
+  .topnav {
+    display: flex; justify-content: center;
+    width: auto; max-width: none;
+    margin: 4px 0 22px; padding: 0;
+    overflow: visible;
+    background: none; box-shadow: none !important; border-radius: 0;
+  }
+  .topnav button[name="view"] { display: none; }
+  .topnav button.icon {
+    display: inline-flex; align-items: center; gap: 10px;
+    width: auto; min-height: var(--ctl-h); margin: 0;
+    padding: 0 16px 0 14px;
+    border-radius: 999px;
+    background: var(--paper-2);
+    box-shadow: var(--recess);
+    color: var(--ink);
+    font: 600 11px/1 var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .topnav button.icon img { width: 14px; height: 14px; opacity: .85; }
+  .topnav button.icon::after { content: attr(data-label); }
+
+  .topnav.responsive {
+    position: fixed; inset: 0 auto 0 0; z-index: 50;
+    flex-direction: column; justify-content: flex-start; gap: 2px;
+    width: min(300px, 84vw);
+    margin: 0; padding: 14px 12px 24px;
+    overflow-y: auto; overscroll-behavior: contain;
+    background: var(--paper);
+    border-radius: 0 14px 14px 0;
+    box-shadow: var(--edge-lg) !important;
+    animation: av-drawer 320ms var(--ease);
+  }
+  .topnav.responsive button.icon {
+    order: -1;
+    align-self: flex-start;
+    margin: 0 0 10px;
+    color: var(--quiet-strong);
+  }
+  .topnav.responsive button.icon::after { content: "close"; }
+  .topnav.responsive button[name="view"] {
+    display: flex; justify-content: flex-start;
+    width: 100%; min-height: 44px; padding: 0 12px;
+    border-radius: 6px;
+    font: 400 18px/1.2 var(--serif);
+    letter-spacing: normal; text-transform: none;
+    color: var(--ink-2);
+  }
+  .topnav.responsive button[name="view"]:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  .topnav.responsive .button-hover[name="view"] {
+    background: none !important; box-shadow: none;
+    color: var(--ink); font-weight: 700;
+  }
+  body:has(.topnav.responsive) { overflow: hidden; }
+  body:has(.topnav.responsive)::after {
+    content: ""; position: fixed; inset: 0; z-index: 40;
+    background: color-mix(in srgb, var(--paper) 40%, transparent);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
 }
+@keyframes av-drawer { from { transform: translateX(-100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .topnav.responsive { animation: none; } }
 
 /* ---- Tables become ledgers ------------------------------------------- */
 
@@ -336,7 +418,7 @@ td[style*="background-color:transparent"] { box-shadow: none !important; vertica
 #todaystats td button:hover { color: var(--ink); text-decoration-color: currentColor; }
 .overview-stats .left-column { flex: 0 0 auto; padding: 0 28px 0 0; }
 .overview-stats .left-column table { margin: 6px 0 0; }
-.overview-stats .left-column th { text-align: left; padding-left: 0; max-width: 9em; }
+.overview-stats .left-column th { text-align: left; padding-left: 0; max-width: 12em; }
 .overview-stats .left-column td { text-align: right; padding-right: 0; }
 .overview-stats .right-column { margin-right: 0; min-width: 0; }
 
@@ -402,8 +484,15 @@ button:hover { color: var(--ink); }
 .centered_image_container .a2, .centered_image_container b .a2 { font-size: 18px !important; text-decoration-color: transparent; }
 .centered_image_container i { font-size: 15px !important; }
 .centered_image_container b:last-of-type { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
-.copyimage { top: 14px; right: 12px; width: 20px !important; height: 20px !important; }
-.copyimage[style*="right:45px"] { right: 44px !important; }
+.copyimage {
+  top: 8px; right: 6px;
+  width: 20px !important; height: 20px !important;
+  padding: 6px; box-sizing: content-box;
+}
+/* Delete sits at the bottom of the row, well away from "open". */
+.copyimage[style*="right:45px"] { top: auto; bottom: 8px; right: 6px !important; }
+.centered_image_container + br { display: none; }
+pre:empty { display: none; }
 .custom-audio-player { margin: 10px 0 0 92px; max-width: 520px; }
 
 #searchterm, #species_searchterm {
@@ -504,7 +593,7 @@ input:not([type]), select, textarea {
   box-shadow: var(--recess);
   font: 400 15px/1.3 var(--serif);
 }
-input::placeholder, textarea::placeholder { color: var(--quiet); opacity: 1; }
+input::placeholder, textarea::placeholder { color: var(--quiet-strong); opacity: 1; }
 select[multiple] { padding: 6px; border-radius: 8px; width: 100%; }
 select[multiple] option { padding: 4px 6px; border-radius: 4px; }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; vertical-align: -2px; margin: 0 6px 0 0; }
@@ -551,7 +640,10 @@ textarea { font: 13px/1.5 var(--mono); }
   color: var(--ink);
 }
 .settings { max-width: 880px; margin: 0 auto; padding: 0; }
-.settingstable { width: 100%; margin: 0 auto; }
+.settingstable { width: 100%; margin: 0 auto; table-layout: fixed; }
+.settingstable td, .settings p, .settings dl, .settings dd, .settings label { overflow-wrap: anywhere; min-width: 0; }
+.settings input:not([type="checkbox"]):not([type="radio"]), .settings select, .settings textarea { max-width: 100%; }
+.settings p, .settings dl { max-width: 66ch; }
 .settingstable td { padding: 22px 2px; text-align: left; line-height: 1.6; }
 .settingstable h2, .settings h2 {
   margin: 0 0 10px;
@@ -565,9 +657,28 @@ textarea { font: 13px/1.5 var(--mono); }
 .settings p { margin-left: 0; }
 .plaintable td { padding: 4px 0; }
 
-.systemcontrols { max-width: 420px; margin: 0 auto; }
-.systemcontrols button { display: flex; width: 100%; margin: 12px auto; }
+.systemcontrols { display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; }
+.systemcontrols > form { display: contents; }
+.systemcontrols button { display: flex; width: 100%; margin: 8px auto; }
 .systemcontrols #container { position: relative; }
+/* Safe actions first; reboot, shutdown and clear-all-data last, set apart
+   under a rule and drawn as outlines rather than raised paper. */
+.systemcontrols > form > div:has(#updatebtn) { order: 1; }
+.systemcontrols > #container { order: 2; }
+.systemcontrols > div:has(a[href*="backup"]) { order: 3; }
+.systemcontrols > form > div:has(button[value="sudo reboot"]) {
+  order: 10; margin-top: 28px; padding-top: 20px;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.systemcontrols > form > div:has(button[value*="shutdown"]) { order: 11; }
+.systemcontrols > form > div:has(button[value*="clear_all_data"]) { order: 12; }
+.systemcontrols > :not(form):not(#container):not(div) { order: 20; }
+.systemcontrols button[value="sudo reboot"],
+.systemcontrols button[value*="shutdown"],
+.systemcontrols button[value*="clear_all_data"] {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent);
+}
 .servicecontrols { max-width: 760px; margin: 0 auto; }
 .servicecontrols h3 { margin-top: 26px; }
 .servicecontrols button { width: auto; }
@@ -601,6 +712,11 @@ dd { color: var(--ink-2); }
 .history.centered form { gap: 8px; align-items: center; }
 .history.centered input { margin-right: 0; }
 .history.centered > img { display: block; margin: 18px auto; }
+/* The stock page always looks for a second "bottom species" chart that is
+   never drawn, then says "No Charts For <date>" under a chart. Hide that
+   line when the main chart is there. */
+.history.centered > img[src*="Charts/"] ~ hr,
+.history.centered > img[src*="Charts/"] ~ hr + p { display: none; }
 
 /* ---- Dialogs and popovers -------------------------------------------- */
 

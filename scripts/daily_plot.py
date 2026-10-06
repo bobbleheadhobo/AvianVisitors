@@ -2,7 +2,6 @@ import argparse
 import gc
 import os
 import sqlite3
-import textwrap
 from datetime import datetime
 from time import sleep
 
@@ -10,11 +9,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib import rcParams
-from matplotlib.colors import LogNorm
 
 from utils.helpers import DB_PATH, FONT_DIR, get_settings, get_font
 
@@ -38,154 +34,112 @@ def get_data(now=None):
     return df, now
 
 
-# Function to show value on bars - from https://stackoverflow.com/questions/43214978/seaborn-barplot-displaying-values
-def show_values_on_bars(ax, label):
-    conf = get_settings()
-
-    for i, p in enumerate(ax.patches):
-        x = p.get_x() + p.get_width() * 0.9
-        y = p.get_y() + p.get_height() / 2
-        # Species confidence
-        # value = '{:.0%}'.format(label.iloc[i])
-        # Species Count Total
-        value = '{:n}'.format(p.get_width())
-        bbox = {'facecolor': 'lightgrey', 'edgecolor': 'none', 'pad': 1.0}
-        if conf['COLOR_SCHEME'] == "dark":
-            color = 'black'
-        else:
-            color = 'darkgreen'
-
-        ax.text(x, y, value, bbox=bbox, ha='center', va='center', size=9, color=color)
+# Avian Visitors chart: a printed ledger in one ink. One row per species,
+# most heard first: common name, a bar whose length is the day's count, and
+# a 24-hour strip of squares sized by detections in that hour. The page
+# shows it grayscale on paper (multiply) or inverted on charcoal (screen),
+# so everything here is drawn as ink on white.
+INK = '#1a1612'
+QUIET = '#6b6050'
+HAIRLINE = '#dedad2'
+NOW_BAND = '#efede8'
+ROW_IN = 0.34       # row height, inches
+WIDTH_IN = 9.6      # rendered at 200 dpi, shown at ~960 CSS px
 
 
-def wrap_width(txt):
-    # try to estimate wrap width
-    w = 16
-    for c in txt:
-        if c in ['M', 'm', 'W', 'w']:
-            w -= 0.33
-        if c in ['I', 'i', 'j', 'l']:
-            w += 0.33
-    return round(w)
+def chart_fonts():
+    """Serif names and mono figures, unless the database language needs
+    one of the bundled Noto faces to render its names."""
+    family = get_font()['font.family']
+    if family == 'Roboto Flex':
+        return 'STIXGeneral', 'DejaVu Sans Mono'  # both ship with matplotlib
+    return family, 'DejaVu Sans Mono'
 
 
 def create_plot(df_plt_today, now, is_top=None):
+    counts = df_plt_today['Sci_Name'].value_counts()
     if is_top is not None:
-        readings = 10
-        if is_top:
-            plt_selection_today = (df_plt_today['Sci_Name'].value_counts()[:readings])
-        else:
-            plt_selection_today = (df_plt_today['Sci_Name'].value_counts()[-readings:])
+        counts = counts[:10] if is_top else counts[-10:]
+    if is_top is False:
+        name, scope = "Combo2", "least heard"
     else:
-        plt_selection_today = df_plt_today['Sci_Name'].value_counts()
-        readings = len(df_plt_today['Sci_Name'].value_counts())
+        name, scope = "Combo", "most heard" if is_top else "all species"
 
-    df_plt_selection_today = df_plt_today[df_plt_today.Sci_Name.isin(plt_selection_today.index)]
-
-    conf = get_settings()
-
-    # Set up plot axes and titles
-    height = max(readings / 3, 0) + 1.06
-    if conf['COLOR_SCHEME'] == "dark":
-        facecolor = 'darkgrey'
-    else:
-        facecolor = 'white'  # Avian Visitors: printed in ink on the paper page
-
-    f, axs = plt.subplots(1, 2, figsize=(10, height), gridspec_kw=dict(width_ratios=[3, 6]), facecolor=facecolor)
-
-    # generate y-axis order for all figures based on frequency
-    freq_order = df_plt_selection_today['Sci_Name'].value_counts().index
-
-    # make color for max confidence --> this groups by name and calculates max conf
-    confmax = df_plt_selection_today.groupby('Sci_Name')['Confidence'].max()
-    # reorder confmax to detection frequency order
-    confmax = confmax.reindex(freq_order)
-
-    # norm values for color palette
-    norm = plt.Normalize(confmax.values.min(), confmax.values.max())
-    if is_top or is_top is None:
-        # Set Palette for graphics
-        if conf['COLOR_SCHEME'] == "dark":
-            pal = "Greys"
-            colors = plt.cm.Greys(norm(confmax)).tolist()
-        else:
-            pal = "Greys"
-            # Floor the scale so the lowest-confidence bar never fades to white.
-            colors = plt.cm.Greys(0.25 + 0.75 * norm(confmax)).tolist()
-        if is_top:
-            plot_type = "Top"
-        else:
-            plot_type = 'All'
-        name = "Combo"
-    else:
-        # Set Palette for graphics
-        pal = "Reds"
-        colors = plt.cm.Reds(norm(confmax)).tolist()
-        plot_type = "Bottom"
-        name = "Combo2"
-
-    # Generate frequency plot
-    plot = sns.countplot(y='Sci_Name', hue='Sci_Name', legend=False, data=df_plt_selection_today,
-                         palette=dict(zip(confmax.index, colors)), order=freq_order, ax=axs[0], edgecolor='lightgrey')
-
-    # Prints Max Confidence on bars
-    show_values_on_bars(axs[0], confmax)
-
-    # Try plot grid lines between bars - problem at the moment plots grid lines on bars - want between bars
+    df = df_plt_today[df_plt_today.Sci_Name.isin(counts.index)]
+    order = list(counts.index)
+    rows = len(order)
     names_key = df_plt_today.sort_values('Time', ascending=False).groupby('Sci_Name').first()['Com_Name']
-    common_names = [names_key[tick_label.get_text()] for tick_label in plot.get_yticklabels()]
-    yticklabels = ['\n'.join(textwrap.wrap(ticklabel, wrap_width(ticklabel))) for ticklabel in common_names]
-    # Next two lines avoid a UserWarning on set_ticklabels() requesting a fixed number of ticks
-    yticks = plot.get_yticks()
-    plot.set_yticks(yticks)
-    plot.set_yticklabels(yticklabels, fontsize=10)
-    plot.set(ylabel=None)
-    plot.set(xlabel="Detections")
+    hours = pd.crosstab(df['Sci_Name'], df['Hour of Day']).reindex(index=order, columns=range(24), fill_value=0)
 
-    # Generate crosstab matrix for heatmap plot
-    heat = pd.crosstab(df_plt_selection_today['Sci_Name'], df_plt_selection_today['Hour of Day'])
+    serif, mono = chart_fonts()
+    head_in, foot_in = 0.86, 0.46
+    height = head_in + rows * ROW_IN + foot_in
+    f = plt.figure(figsize=(WIDTH_IN, height), facecolor='white')
 
-    # Order heatmap Birds by frequency of occurrance
-    heat.index = pd.CategoricalIndex(heat.index, categories=freq_order)
-    heat.sort_index(level=0, inplace=True)
+    # Column plan (fractions of the figure width).
+    name_x, bar_x0, bar_x1, strip_x0, strip_x1 = 0.02, 0.255, 0.405, 0.43, 0.985
+    bottom = foot_in / height
+    top = 1 - head_in / height
+    ax = f.add_axes([0, bottom, 1, top - bottom])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(rows, 0)
+    ax.axis('off')
 
-    hours_in_day = pd.Series(data=range(0, 24))
-    heat_frame = pd.DataFrame(data=0, index=heat.index, columns=hours_in_day)
-    heat = (heat+heat_frame).fillna(0)
-    # mask out zeros, so they do not show up in the final plot. this happens when max count/h is one
-    heat[heat == 0] = np.nan
+    cell = (strip_x1 - strip_x0) / 24
+    hour_x = [strip_x0 + cell * (h + 0.5) for h in range(24)]
 
-    # Generatie heatmap plot
-    plot = sns.heatmap(heat, norm=LogNorm(),  annot=True,  annot_kws={"fontsize": 7}, fmt="g", cmap=pal, square=False,
-                       cbar=False, linewidths=0.5, linecolor="Grey", ax=axs[1], yticklabels=False)
+    # Current hour: a faint band down the strip and a bold tick below.
+    if now.date() == datetime.now().date():
+        ax.add_patch(plt.Rectangle((strip_x0 + cell * now.hour, 0), cell, rows, facecolor=NOW_BAND, edgecolor='none', zorder=0))
 
-    # Set color and weight of tick label for current hour
-    for label in plot.get_xticklabels():
-        if int(label.get_text()) == now.hour:
-            if conf['COLOR_SCHEME'] == "dark":
-                label.set_color('white')
-            else:
-                label.set_fontweight('bold')
+    # Hairline hour grid and row rules.
+    for h in range(25):
+        x = strip_x0 + cell * h
+        ax.plot([x, x], [0, rows], color=HAIRLINE, lw=0.6 if h % 6 else 1.0, zorder=1)
+    for r in range(rows + 1):
+        ax.plot([name_x, strip_x1], [r, r], color=HAIRLINE, lw=0.6, zorder=1)
 
-    plot.set_xticklabels(plot.get_xticklabels(), rotation=0, size=8)
+    max_count = max(int(counts.max()), 1)
+    max_hour = max(int(hours.values.max()), 1)
+    for r, sci in enumerate(order):
+        y = r + 0.5
+        com = names_key.get(sci, sci)
+        if len(com) > 28:
+            com = com[:27] + '…'
+        ax.text(name_x, y, com, ha='left', va='center', fontsize=11.5, family=serif, color=INK)
+        n = int(counts[sci])
+        length = (bar_x1 - bar_x0) * n / max_count
+        ax.add_patch(plt.Rectangle((bar_x0, y - 0.13), max(length, 0.004), 0.26, facecolor=INK, edgecolor='none', zorder=2))
+        ax.text(bar_x0 + length + 0.006, y, str(n), ha='left', va='center', fontsize=10.5, family=mono, color=INK)
+        for h in range(24):
+            k = int(hours.at[sci, h])
+            if not k:
+                continue
+            # True squares (sized in inches); side grows with sqrt(count) so
+            # area tracks detections.
+            side_in = min(cell * WIDTH_IN, ROW_IN) * (0.34 + 0.5 * ((k / max_hour) ** 0.5))
+            w, hgt = side_in / WIDTH_IN, side_in / ROW_IN
+            ax.add_patch(plt.Rectangle((hour_x[h] - w / 2, y - hgt / 2), w, hgt, facecolor=INK, edgecolor='white', lw=0.6, zorder=3))
 
-    # Set heatmap border
-    for _, spine in plot.spines.items():
-        spine.set_visible(True)
+    # Header: what this is, in the Stats label voice.
+    total = int(counts.sum())
+    f.text(name_x, 1 - 0.3 / height, f"{now.strftime('%A %-d %B').upper()}  ·  {scope.upper()}",
+           ha='left', va='center', fontsize=10, family=mono, color=INK, fontweight='bold')
+    f.text(strip_x1, 1 - 0.3 / height, f"{rows} SPECIES  ·  {total} DETECTIONS  ·  UPDATED {now.strftime('%H:%M')}",
+           ha='right', va='center', fontsize=10, family=mono, color=QUIET)
+    f.text(bar_x0, top + 0.08 / height, "HEARD", ha='left', va='bottom', fontsize=9.5, family=mono, color=QUIET)
+    f.text(strip_x0, top + 0.08 / height, "BY HOUR", ha='left', va='bottom', fontsize=9.5, family=mono, color=QUIET)
 
-    plot.set(ylabel=None)
-    plot.set(xlabel="Hour of Day")
-    # Set combined plot layout and titles
-    y = 1 - 8 / (height * 100)
-    plt.suptitle(f"{plot_type} {readings} Last Updated: {now.strftime('%Y-%m-%d %H:%M')}", y=y)
-    f.tight_layout()
-    top = 1 - 40 / (height * 100)
-    f.subplots_adjust(left=0.125, right=0.9, top=top, wspace=0)
+    # Hour ticks under the strip, every third hour plus the current one.
+    is_today = now.date() == datetime.now().date()
+    ticks = set(range(0, 24, 3)) | ({now.hour} if is_today else set())
+    for h in sorted(ticks):
+        current = is_today and h == now.hour
+        f.text(hour_x[h], bottom - 0.16 / height, f"{h:02d}", ha='center', va='top', fontsize=10, family=mono,
+               color=INK if current else QUIET, fontweight='bold' if current else 'normal')
 
-    # Save combined plot
     save_name = os.path.expanduser(f"~/BirdSongs/Extracted/Charts/{name}-{now.strftime('%Y-%m-%d')}.png")
-    plt.savefig(save_name)
-    plt.show()
+    plt.savefig(save_name, dpi=200, facecolor='white')
     plt.close(f)
     gc.collect()
 

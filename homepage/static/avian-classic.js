@@ -30,12 +30,60 @@
   });
   try { window.matchMedia(query).addEventListener('change', apply); } catch (e) {}
 
-  // On narrow screens the view list is one scrolling row; bring the
-  // current view into sight instead of leaving it off the right edge.
   document.addEventListener('DOMContentLoaded', function () {
     var nav = document.getElementById('myTopnav');
-    var current = nav && nav.querySelector('.button-hover');
-    if (!current || nav.scrollWidth <= nav.clientWidth) return;
-    nav.scrollLeft = current.offsetLeft - (nav.clientWidth - current.offsetWidth) / 2;
+    if (!nav) return;
+    var views = nav.querySelectorAll('button[name="view"]');
+    var icon = nav.querySelector('button.icon');
+
+    // The stock script marks the current view by matching the last query
+    // value, which misses Tools sub-pages and Recordings by date/species.
+    // Fall back to the view= parameter, and treat any view that isn't in
+    // the list (Settings, Services, System Controls...) as part of Tools.
+    var current = nav.querySelector('.button-hover');
+    if (!current) {
+      var view = new URLSearchParams(location.search).get('view');
+      var match = null, tools = null;
+      views.forEach(function (b) {
+        if (b.value === view) match = b;
+        if (b.value === 'Tools') tools = b;
+      });
+      current = match || (view ? tools : views[0]);
+      if (current) current.classList.add('button-hover');
+    }
+    if (current) current.setAttribute('aria-current', 'page');
+
+    // Narrow screens: the hamburger becomes "menu · <current view>" and
+    // opens the list as a side drawer (see avian-classic.css).
+    if (icon) {
+      var label = current ? current.textContent.replace(/\s+\d+\s*$/, '').trim() : '';
+      icon.setAttribute('data-label', label ? 'menu \u00b7 ' + label : 'menu');
+      icon.setAttribute('aria-label', 'views menu');
+      icon.setAttribute('aria-expanded', 'false');
+      var img = icon.querySelector('img');
+      if (img) img.alt = '';
+      var isOpen = function () { return nav.classList.contains('responsive'); };
+      var close = function () {
+        if (!isOpen()) return;
+        nav.classList.remove('responsive');
+        icon.setAttribute('aria-expanded', 'false');
+        icon.focus();
+      };
+      icon.addEventListener('click', function () {
+        // The stock onclick has already toggled .responsive.
+        var open = isOpen();
+        icon.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) (nav.querySelector('.button-hover') || views[0]).focus();
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+      document.addEventListener('click', function (e) {
+        if (isOpen() && !nav.contains(e.target)) close();
+      });
+    }
+
+    // Wide screens: if the row ever overflows, keep the current view in sight.
+    if (current && nav.scrollWidth > nav.clientWidth) {
+      nav.scrollLeft = current.offsetLeft - (nav.clientWidth - current.offsetWidth) / 2;
+    }
   });
 })();
