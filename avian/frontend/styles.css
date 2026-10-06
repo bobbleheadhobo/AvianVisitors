@@ -2976,9 +2976,66 @@ body.postcard-open { overflow: hidden; }
   }
   a.admin-action:hover .run { color: var(--ink); }
   /* Room for the badge so a long title cannot run under it. */
-  a.admin-action h4, a.admin-action p { padding-right: 84px; }
+  .admin-action:has(> .run) > h4, .admin-action:has(> .run) > p { padding-right: 84px; }
+  /* Your data: two by two, so the longer backup and restore notes read as
+     sentences rather than a narrow column. */
+  .admin-actions-grid.data-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
   .admin-action a.run { display: inline-block; text-decoration: none; }
   .admin-action button.run[disabled] { opacity: .5; cursor: wait; }
+  .admin-action .run.danger { color: var(--bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 55%, transparent); }
+  .admin-action .state.err, .admin-action .out.err { color: var(--bad); }
+
+  /* Species lists: a ledger of names with a quiet "remove", and a search
+     field whose suggestions float on paper beneath it. */
+  .species-list { display: flex; flex-direction: column; }
+  .species-list[data-active] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--caution) 75%, transparent), var(--edge); }
+  .species-entries { list-style: none; margin: 0 0 10px; padding: 0; }
+  .species-entries li {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--hairline) 70%, transparent);
+    font: 13.5px/1.3 ui-serif, "Iowan Old Style", Georgia, serif; color: var(--ink);
+  }
+  .species-entries li:first-child { border-top: 0; }
+  .species-entries i, .species-suggest i { color: var(--ink-soft); font-size: 12px; }
+  .species-entries .species-none, .species-suggest .species-none {
+    font: 11px ui-monospace, Menlo, monospace; color: var(--ink-soft); letter-spacing: 0.04em;
+  }
+  .species-remove {
+    flex: none; background: none; border: 0; padding: 2px 0; cursor: pointer;
+    font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.04em;
+    color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px;
+  }
+  .species-remove:hover { color: var(--bad); }
+  .species-add { position: relative; margin-top: auto; }
+  .species-add input {
+    width: 100%; box-sizing: border-box; min-height: 34px; padding: 6px 10px;
+    border: 0; border-radius: 6px; background: var(--paper-2); box-shadow: var(--recess);
+    font: 13px ui-serif, "Iowan Old Style", Georgia, serif; color: var(--ink);
+  }
+  .species-add input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .species-suggest {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 4;
+    list-style: none; margin: 0; padding: 4px; max-height: 260px; overflow-y: auto;
+    background: var(--paper); border-radius: 8px;
+    box-shadow: var(--edge), 0 8px 24px rgba(26,22,18,0.12);
+  }
+  .species-suggest button {
+    display: flex; align-items: baseline; gap: 6px; width: 100%; text-align: left;
+    background: none; border: 0; border-radius: 4px; padding: 7px 8px; cursor: pointer;
+    font: 13.5px ui-serif, "Iowan Old Style", Georgia, serif; color: var(--ink);
+  }
+  .species-suggest button:hover, .species-suggest button:focus-visible { outline: 1px solid var(--ink-soft); outline-offset: -1px; }
+  .species-suggest .heard { margin-left: auto; font: 10.5px ui-monospace, Menlo, monospace; color: var(--ok); white-space: nowrap; }
+
+  /* Restore: a thin progress rule and two plain choices once staged. */
+  .restore-progress { display: block; width: 100%; height: 4px; margin: 4px 0 8px; accent-color: var(--ink); }
+  .restore-actions { display: flex; gap: 14px; align-items: center; margin: 4px 0 6px; }
+  .restore-actions button {
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.08em; text-transform: uppercase;
+    text-decoration: underline; text-underline-offset: 3px; color: var(--ink-2);
+  }
+  .restore-actions .restore-go { color: var(--bad); font-weight: 700; }
   .admin-action .out {
     margin-top: 10px; font: 10.5px ui-monospace, Menlo, monospace;
     color: var(--ink-soft); white-space: pre-wrap;

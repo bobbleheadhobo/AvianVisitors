@@ -13123,7 +13123,7 @@
     html += '</div>';
 
     html += '<h2 class="admin-section-head">your data</h2>';
-    html += '<div class="admin-actions-grid">';
+    html += '<div class="admin-actions-grid data-grid">';
     function dataCard(title, desc, what) {
       var snapshot = educatorExportSnapshot(what);
       var directRequired = educatorSavedExportNeedsDirect(snapshot);
@@ -13138,6 +13138,61 @@
     }
     html += dataCard('detections', 'every detection as csv: date, species, confidence, file', 'detections');
     html += dataCard('recordings', 'every clip as tar, by date and species. can run to many gb', 'recordings');
+    html += '<a class="admin-action" href="./avian/api/station.php?backup=1" download data-backup>'
+      + '<span class="run">download</span>'
+      + '<h4>full backup</h4>'
+      + '<p>detections, settings, species lists, charts and recordings in one file, to restore here or on a new station.'
+      + ' recording pauses while it is written. <span data-backup-size></span></p>'
+      + '</a>';
+    html += '<div class="admin-action" data-restore>'
+      + '<button type="button" class="run" data-restore-pick>choose</button>'
+      + '<h4>restore a backup</h4>'
+      + '<p>replaces this station\'s detections, settings and recordings with those in a full backup</p>'
+      + '<input type="file" accept=".tar,application/x-tar" data-restore-file hidden>'
+      + '<progress class="restore-progress" max="1" value="0" hidden></progress>'
+      + '<div class="restore-actions" hidden>'
+      + '<button type="button" class="restore-go" data-restore-go>restore now</button>'
+      + '<button type="button" class="restore-discard" data-restore-discard>discard</button>'
+      + '</div>'
+      + '<span class="state out" data-restore-status role="status" aria-live="polite"></span>'
+      + '</div>';
+    html += '</div>';
+
+    html += '<h2 class="admin-section-head">species lists</h2>';
+    html += '<div class="admin-actions-grid species-lists">';
+    [
+      ['exclude', 'never log', 'the analyzer drops these, however sure it is. use it for a bird it keeps getting wrong'],
+      ['include', 'only log', 'when anything is listed here, every other species is dropped. leave empty to log everything'],
+      ['whitelist', 'always allow', 'logged even when the range filter says they don\'t live here'],
+    ].forEach(function (l) {
+      html += '<div class="admin-action species-list" data-species-list="' + l[0] + '">'
+        + '<h4>' + l[1] + '</h4>'
+        + '<p>' + adminEsc(l[2]) + '</p>'
+        + '<ul class="species-entries" data-entries><li class="species-none">loading...</li></ul>'
+        + '<div class="species-add">'
+        + '<input type="search" autocomplete="off" spellcheck="false" placeholder="add a species"'
+        + ' aria-label="add a species to ' + l[1] + '" aria-autocomplete="list" data-species-search>'
+        + '<ul class="species-suggest" role="listbox" data-suggest hidden></ul>'
+        + '</div>'
+        + '<span class="state out" data-species-status role="status" aria-live="polite"></span>'
+        + '</div>';
+    });
+    html += '</div>';
+
+    html += '<h2 class="admin-section-head">station</h2>';
+    html += '<div class="admin-actions-grid">';
+    html += '<div class="admin-action" data-power-card>'
+      + '<button type="button" class="run" data-power="reboot">reboot</button>'
+      + '<h4>reboot the station</h4>'
+      + '<p>restarts the whole station. back in a minute or two</p>'
+      + '<span class="state out" role="status" aria-live="polite"></span>'
+      + '</div>';
+    html += '<div class="admin-action" data-power-card>'
+      + '<button type="button" class="run danger" data-power="poweroff">shut down</button>'
+      + '<h4>shut down the station</h4>'
+      + '<p>stays off until it is powered on again (or started again on its host)</p>'
+      + '<span class="state out" role="status" aria-live="polite"></span>'
+      + '</div>';
     html += '</div>';
 
     // The stock BirdNET-Pi pages still live at /index.php behind the station's
@@ -13307,6 +13362,249 @@
       });
     });
     loadMaintenance();
+    wireSpeciesLists(adminBody);
+    wireStationControls(adminBody);
+  }
+
+  // ---- Tools: species lists ----
+  function speciesPost(body) {
+    return adminFetch('./avian/api/species-lists.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  function wireSpeciesLists(root) {
+    var cards = {};
+    root.querySelectorAll('[data-species-list]').forEach(function (card) { cards[card.dataset.speciesList] = card; });
+    function paint(list, entries, writable) {
+      var card = cards[list];
+      if (!card) return;
+      var ul = card.querySelector('[data-entries]');
+      ul.innerHTML = entries.length ? entries.map(function (e) {
+        return '<li><span class="species-name">' + adminEsc(e.com) + ' <i>' + adminEsc(e.sci) + '</i></span>'
+          + '<button type="button" class="species-remove" data-sci="' + adminAttr(e.sci) + '"'
+          + ' aria-label="remove ' + adminAttr(e.com) + '">remove</button></li>';
+      }).join('') : '<li class="species-none">none</li>';
+      if (list === 'include') card.toggleAttribute('data-active', entries.length > 0);
+      var input = card.querySelector('[data-species-search]');
+      if (writable === false) {
+        input.disabled = true;
+        input.placeholder = 'list file is not writable';
+      }
+    }
+    adminJson('./avian/api/species-lists.php').then(function (j) {
+      Object.keys(cards).forEach(function (list) {
+        paint(list, (j.lists && j.lists[list]) || [], j.writable ? j.writable[list] : true);
+      });
+    }).catch(function (error) {
+      if (adminAuthCancelled(error)) return;
+      Object.keys(cards).forEach(function (list) {
+        cards[list].querySelector('[data-entries]').innerHTML = '<li class="species-none">lists unavailable</li>';
+      });
+    });
+    Object.keys(cards).forEach(function (list) {
+      var card = cards[list];
+      var input = card.querySelector('[data-species-search]');
+      var suggest = card.querySelector('[data-suggest]');
+      var status = card.querySelector('[data-species-status]');
+      var timer = null, seq = 0;
+      function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
+      function closeSuggest() { suggest.hidden = true; suggest.innerHTML = ''; input.removeAttribute('aria-expanded'); }
+      function change(action, sci) {
+        say(action === 'add' ? 'adding...' : 'removing...');
+        speciesPost({ action: action, list: list, sci: sci }).then(function (j) {
+          paint(list, j.entries || []);
+          say(action === 'add' ? 'added' : 'removed');
+          setTimeout(function () { say(''); }, 1600);
+        }).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          say(error.message, true);
+        });
+      }
+      input.addEventListener('input', function () {
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { closeSuggest(); return; }
+        timer = setTimeout(function () {
+          var mine = ++seq;
+          adminJson('./avian/api/species-lists.php?q=' + encodeURIComponent(q)).then(function (j) {
+            if (mine !== seq) return;
+            var rows = j.results || [];
+            suggest.innerHTML = rows.length ? rows.map(function (r) {
+              return '<li role="option"><button type="button" data-add="' + adminAttr(r.sci) + '">'
+                + adminEsc(r.com) + ' <i>' + adminEsc(r.sci) + '</i>'
+                + (r.heard ? '<span class="heard">heard ' + r.heard + '</span>' : '') + '</button></li>';
+            }).join('') : '<li class="species-none">no species match</li>';
+            suggest.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+          }).catch(function () { });
+        }, 180);
+      });
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { closeSuggest(); return; }
+        if (event.key === 'ArrowDown') {
+          var first = suggest.querySelector('button');
+          if (first) { event.preventDefault(); first.focus(); }
+        }
+      });
+      suggest.addEventListener('keydown', function (event) {
+        var buttons = [].slice.call(suggest.querySelectorAll('button'));
+        var i = buttons.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' && i < buttons.length - 1) { event.preventDefault(); buttons[i + 1].focus(); }
+        if (event.key === 'ArrowUp') { event.preventDefault(); (i > 0 ? buttons[i - 1] : input).focus(); }
+        if (event.key === 'Escape') { closeSuggest(); input.focus(); }
+      });
+      suggest.addEventListener('click', function (event) {
+        var b = event.target.closest('[data-add]');
+        if (!b) return;
+        change('add', b.dataset.add);
+        input.value = '';
+        closeSuggest();
+        input.focus();
+      });
+      card.querySelector('[data-entries]').addEventListener('click', function (event) {
+        var b = event.target.closest('.species-remove');
+        if (b) change('remove', b.dataset.sci);
+      });
+      document.addEventListener('click', function (event) {
+        if (document.body.contains(card) && !card.contains(event.target)) closeSuggest();
+      });
+    });
+  }
+
+  // ---- Tools: backup, restore, reboot, shut down ----
+  function stationPost(body) {
+    return adminFetch('./avian/api/station.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  function wireStationControls(root) {
+    var size = root.querySelector('[data-backup-size]');
+    if (size) adminJson('./avian/api/station.php?size=1').then(function (j) {
+      if (j && j.ok) size.textContent = 'about ' + adminFmtBytes(j.bytes) + '.';
+    }).catch(function () { });
+
+    var card = root.querySelector('[data-restore]');
+    if (card) {
+      var file = card.querySelector('[data-restore-file]');
+      var pick = card.querySelector('[data-restore-pick]');
+      var bar = card.querySelector('.restore-progress');
+      var actions = card.querySelector('.restore-actions');
+      var status = card.querySelector('[data-restore-status]');
+      var CHUNK = 4 * 1024 * 1024;
+      var pollT = null;
+      var say = function (text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); };
+      var staged = function (bytes) {
+        actions.hidden = !bytes;
+        if (bytes) say(adminFmtBytes(bytes) + ' uploaded. nothing has changed yet.');
+      };
+      function poll() {
+        clearTimeout(pollT);
+        adminJson('./avian/api/station.php?restore=1').then(function (j) {
+          if (!document.body.contains(card)) return;
+          if (j.state === 'running') {
+            say('restoring... recording is paused. ' + (j.log ? j.log.split('\n').pop() : ''));
+            pick.disabled = true;
+            pollT = setTimeout(poll, 3000);
+            return;
+          }
+          pick.disabled = false;
+          if (j.state === 'complete') say('restore finished. reload the page to see the restored station.');
+          else if (j.state === 'failed') say('restore failed: ' + (j.log || 'see the logs'), true);
+          staged(j.staged_bytes);
+        }).catch(function () { });
+      }
+      poll();
+      pick.addEventListener('click', function () { file.click(); });
+      file.addEventListener('change', function () {
+        var f = file.files && file.files[0];
+        if (!f) return;
+        pick.disabled = true;
+        actions.hidden = true;
+        bar.hidden = false;
+        bar.value = 0;
+        var offset = 0;
+        function next() {
+          var slice = f.slice(offset, offset + CHUNK);
+          adminFetch('./avian/api/station.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/octet-stream', 'X-Avian-Action': '1',
+              'X-Upload-Offset': String(offset), 'X-Upload-Total': String(f.size),
+            },
+            body: slice,
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+              if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+              offset = j.have;
+              bar.value = offset / f.size;
+              say('uploading ' + adminFmtBytes(offset) + ' of ' + adminFmtBytes(f.size) + '...');
+              if (offset < f.size) next();
+              else { bar.hidden = true; pick.disabled = false; staged(offset); }
+            });
+          }).catch(function (error) {
+            if (adminAuthCancelled(error)) return;
+            bar.hidden = true;
+            pick.disabled = false;
+            say('upload failed: ' + error.message, true);
+          });
+        }
+        say('uploading...');
+        next();
+        file.value = '';
+      });
+      card.querySelector('[data-restore-go]').addEventListener('click', function () {
+        if (!confirm('Restore this backup? It replaces every detection, setting and recording on this station. Recording pauses until it finishes.')) return;
+        actions.hidden = true;
+        say('starting the restore...');
+        stationPost({ action: 'restore-start', confirm: 'restore-backup' }).then(poll).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          say(error.message, true);
+          poll();
+        });
+      });
+      card.querySelector('[data-restore-discard]').addEventListener('click', function () {
+        stationPost({ action: 'restore-clear', confirm: 'discard-upload' }).then(function () {
+          actions.hidden = true;
+          say('upload discarded');
+        }).catch(function (error) { if (!adminAuthCancelled(error)) say(error.message, true); });
+      });
+    }
+
+    root.querySelectorAll('[data-power]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var verb = button.dataset.power;
+        var prompt = verb === 'reboot'
+          ? 'Reboot the station? Recording stops for a minute or two.'
+          : 'Shut the station down? It stays off until it is powered on again.';
+        if (!confirm(prompt)) return;
+        var out = button.closest('[data-power-card]').querySelector('.state');
+        button.disabled = true;
+        out.textContent = verb === 'reboot' ? 'rebooting in a few seconds...' : 'shutting down in a few seconds...';
+        stationPost({ action: verb, confirm: verb === 'reboot' ? 'reboot-station' : 'shut-down-station' }).then(function () {
+          out.textContent = verb === 'reboot'
+            ? 'rebooting. this page will reconnect when the station is back.'
+            : 'shutting down. the station is going offline.';
+        }).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          button.disabled = false;
+          out.textContent = error.message;
+        });
+      });
+    });
   }
 
   // Initial load: if URL has a sci hash, jump to atlas, highlight, and
