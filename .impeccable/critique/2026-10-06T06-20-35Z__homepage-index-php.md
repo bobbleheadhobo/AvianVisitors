@@ -10,6 +10,7 @@ target_fingerprint: "sha256:65b18c71a11d6136d48865622eda35c2757215ad9309fc8d3e56
 target_path: /home/avian/BirdNET-Pi/homepage/index.php
 timestamp: 2026-10-06T06-20-35Z
 slug: homepage-index-php
+closed: true
 ---
 # Critique: classic BirdNET-Pi pages, after the Avian Visitors restyle (2026-10-06)
 

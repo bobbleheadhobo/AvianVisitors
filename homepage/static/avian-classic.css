@@ -497,6 +497,19 @@ button:hover { color: var(--ink); }
 .centered_image_container + br { display: none; }
 pre:empty { display: none; }
 .custom-audio-player { margin: 10px 0 0 92px; max-width: 520px; }
+/* "Confidence: 87%" cell: a tracked mono label over a mono figure, like
+   every other measure, instead of a bold serif label jammed on the value. */
+#detections_table td:has(> b:first-child) { font: 15px/1.3 var(--mono); color: var(--ink); white-space: nowrap; }
+#detections_table td > b:first-child {
+  display: block; margin-bottom: 4px;
+  font: 600 10.5px/1.2 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--quiet-strong);
+}
+#detections_table audio { width: 100%; max-width: 300px; height: 40px; color-scheme: light; }
+[data-theme="dark"] #detections_table audio { color-scheme: dark; }
+audio::-webkit-media-controls-panel { background: var(--paper-2); }
+/* The live spectrogram is data, so it keeps its colors, but at a size that
+   lets it sit under the detections instead of filling the screen. */
+#spectrogramimage { display: block; width: 100%; max-width: 720px; height: auto; margin: 0 auto; border-radius: 8px; }
 
 #searchterm, #species_searchterm {
   margin-left: 8px;
@@ -601,6 +614,18 @@ select[multiple] { padding: 6px; border-radius: 8px; width: 100%; }
 select[multiple] option { padding: 4px 6px; border-radius: 4px; }
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; vertical-align: -2px; margin: 0 6px 0 0; }
 textarea { font: 13px/1.5 var(--mono); }
+/* Stock Settings tags its selects and the notification-body textarea with
+   .testbtn (a button class). Keep them fields: same recess as every input. */
+select.testbtn, textarea.testbtn {
+  display: inline-block; min-height: 34px; padding: 6px 10px; border-radius: 6px;
+  background: var(--paper-2) !important; box-shadow: var(--recess);
+  font: 400 15px/1.3 var(--serif); letter-spacing: normal; text-transform: none; white-space: normal;
+}
+select.testbtn:hover, textarea.testbtn:hover { background: var(--paper-2) !important; box-shadow: var(--recess); transform: none; }
+textarea.testbtn { display: block; font: 13px/1.5 var(--mono); }
+select { cursor: pointer; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 .exclude_species_list_option_highlight { background: var(--paper-3); color: var(--ink); font-weight: 600; }
 #showpassword, #newrtspstream { background: var(--paper-2); box-shadow: var(--recess); border-radius: 4px; }
 
@@ -659,6 +684,29 @@ textarea { font: 13px/1.5 var(--mono); }
 .settings label { font-weight: 500; }
 .settings p { margin-left: 0; }
 .plaintable td { padding: 4px 0; }
+.settingstable.plaintable { table-layout: auto; width: auto; min-width: min(520px, 100%); margin: 0; }
+.settingstable.plaintable td { padding: 8px 12px 8px 0; vertical-align: middle; box-shadow: none; }
+.settingstable.plaintable tr + tr > td { box-shadow: none; }
+.settingstable.plaintable tr { box-shadow: inset 0 -1px 0 var(--hairline); }
+.settingstable.plaintable td:first-child { width: 9em; }
+.settingstable.plaintable td:last-child:not(:nth-child(2)) { color: var(--quiet-strong); font-style: italic; overflow-wrap: normal; white-space: nowrap; }
+@media (max-width: 700px) {
+  .settingstable.plaintable td:first-child { width: auto; white-space: nowrap; }
+  .settings input[name="site_name"] { width: 100%; }
+}
+.settings input[name="latitude"], .settings input[name="longitude"] { width: 9em !important; font-family: var(--mono); font-size: 14px; }
+
+/* Save is the one primary action: ink on paper, set apart from the
+   secondary Advanced Settings link and from the last section. */
+.settings .float { display: inline-block; margin: 0 8px 0 0; }
+.settings form#basicform > br:last-of-type, .settings form#basicform > br + br { display: none; }
+.settings form#basicform .float { margin-top: 8px; }
+.settings #basicformsubmit {
+  background: var(--ink) !important; color: var(--paper);
+  box-shadow: var(--lift);
+}
+.settings #basicformsubmit:hover { background: var(--ink) !important; color: var(--paper); }
+.settings #basicformsubmit.disabled { opacity: .6; pointer-events: none; }
 
 .systemcontrols { display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; }
 .systemcontrols > form { display: contents; }
