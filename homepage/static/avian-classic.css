@@ -142,12 +142,15 @@ img[src*="Charts/"] {
   height: auto;
   margin: 0 auto;
 }
-/* On phones the chart keeps a readable size and scrolls sideways. */
+picture:has(> img[src*="Charts/"]) { display: block; }
+/* On phones a chart with a stacked phone layout (<source>) fills the column.
+   An older wide-only chart keeps a readable size and scrolls sideways. */
 @media (max-width: 700px) {
   .overview .chart, .history.centered { overflow-x: auto; overscroll-behavior-x: contain; }
   /* Fade the right edge so it reads as "more this way". */
-  .overview .chart { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+  .overview .chart:not(:has(source)) { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
   img[src*="Charts/"] { width: 800px; max-width: none; margin: 0; }
+  source + img[src*="Charts/"] { width: 100%; max-width: 480px; margin: 0 auto; }
 }
 [data-theme="dark"] img[src*="Charts/"] { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
 
@@ -711,12 +714,16 @@ dd { color: var(--ink-2); }
 /* Daily charts date picker row. */
 .history.centered form { gap: 8px; align-items: center; }
 .history.centered input { margin-right: 0; }
-.history.centered > img { display: block; margin: 18px auto; }
-/* The stock page always looks for a second "bottom species" chart that is
-   never drawn, then says "No Charts For <date>" under a chart. Hide that
-   line when the main chart is there. */
-.history.centered > img[src*="Charts/"] ~ hr,
-.history.centered > img[src*="Charts/"] ~ hr + p { display: none; }
+.history.centered > img, .history.centered > picture { display: block; margin: 18px auto; }
+.history.centered .day-step { display: flex; justify-content: center; gap: 10px; margin: 12px 0 0; }
+.history.centered .day-step a {
+  display: inline-flex; align-items: center; min-height: var(--ctl-h); padding: 0 14px;
+  border-radius: 999px; background: var(--paper); box-shadow: var(--edge);
+  color: var(--ink); font: 13px/1 var(--mono); letter-spacing: .02em; text-decoration: none;
+}
+.history.centered .day-step a:hover { box-shadow: var(--lift); }
+.history.centered .day-step a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.history.centered .chart-note { margin: 28px auto; color: var(--quiet-strong); font-family: var(--serif); font-style: italic; }
 
 /* ---- Dialogs and popovers -------------------------------------------- */
 
