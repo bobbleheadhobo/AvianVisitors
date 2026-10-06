@@ -3360,7 +3360,9 @@
     // gridline; capped so a few species don't render as giant blocks.
     var sq = Math.max(6, Math.min(colW, isMobile ? 60 : 48));
     var LABEL_GAP = 6;       // px between a square's top and its label
-    var SPAN = 0.55;         // squares occupy the bottom this fraction of
+    // Phones read the rotated labels at 11px, so the squares stop lower to
+    // leave the tallest column's names room under the top edge.
+    var SPAN = isMobile ? 0.5 : 0.55;   // squares occupy the bottom this fraction of
     // the plot by count (y = quantity); the
     // rotated label floats just above each square.
 

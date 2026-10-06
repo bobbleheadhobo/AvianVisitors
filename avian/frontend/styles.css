@@ -1269,7 +1269,7 @@
   .stats-date-nav button svg { width: 12px; height: 12px; display: block; }
   .stats-date-nav .stats-date-label {
     min-width: 68px; padding: 0 3px;
-    font: 600 12.5px/1.2 ui-serif, "Iowan Old Style", Georgia, serif;
+    font: 600 15px/1.2 ui-serif, "Iowan Old Style", Georgia, serif;
     color: var(--ink); letter-spacing: 0.015em;
   }
   .stats-date-nav button:active:not(:disabled) { transform: scale(.96); }
@@ -1301,7 +1301,7 @@
   .stats-calendar-head button { min-width: 26px; width: 26px; height: 26px; }
   .stats-calendar-head > span {
     text-align: center;
-    font: 500 10px/1.2 "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font: 500 12px/1.2 ui-monospace, "SF Mono", Menlo, monospace;
     letter-spacing: .03em;
   }
   .stats-calendar-week, .stats-calendar-days {
@@ -1311,15 +1311,15 @@
   .stats-calendar-week { margin-bottom: 3px; }
   .stats-calendar-week span {
     text-align: center;
-    font: 7.5px/1 "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--ink-soft); letter-spacing: .08em;
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--stats-quiet); letter-spacing: .08em;
   }
   .stats-calendar-days span { height: 28px; }
   .stats-calendar-days button {
     position: relative; min-width: 28px; width: 28px; height: 28px; padding: 0;
     border: 0; border-radius: 50%; background: transparent;
     color: var(--ink); cursor: pointer;
-    font: 500 9.5px/1 "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font: 500 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
     font-variant-numeric: tabular-nums;
     transition: color 120ms ease, background 120ms ease, transform 120ms cubic-bezier(.23,1,.32,1);
   }
@@ -1340,8 +1340,8 @@
   }
   .stats-calendar-foot button {
     min-width: 0; height: 22px; padding: 0 2px;
-    font: 8px/1 "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--ink-soft); letter-spacing: .08em;
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--stats-quiet); letter-spacing: .08em;
   }
   @media (hover: hover) and (pointer: fine) {
     .stats-date-nav button:hover:not(:disabled) { color: var(--ink); }
@@ -1355,6 +1355,10 @@
   /* Stats grid: charts stack on the LEFT, text sections on the RIGHT.
      Each chart is a full-bleed card; each text section is a list with
      subtle separators. Sized to fit the viewport without scrolling. */
+  /* Secondary text in Stats (captions, ticks, scientific names, counts).
+     --ink-soft alone sits near 3.6:1 on paper; pulling it 30% toward
+     --ink-2 clears 4.5:1 in both themes without changing its tone. */
+  #v1 { --stats-quiet: color-mix(in srgb, var(--ink-soft) 70%, var(--ink-2)); }
   .stats-grid {
     position: relative;
     flex: 1 1 auto; min-height: 0;
@@ -1381,9 +1385,6 @@
   @media (max-width: 700px) {
     .stats-calendar { width: min(252px, calc(100vw - 40px)); }
     .stats-timeline { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-    .stats-tl-label { font-size: 11px; }
-    .stats-tl-label .sci { font-size: 9px; }
-    .stats-tl-xtick { font-size: 8px; }
   }
   /* Desktop two-column: size the grid to the side panel's content height
      (the timeline stretches to match it). Top-anchored, not vertically
@@ -1410,7 +1411,8 @@
   }
   .stats-tl-ytick {
     position: absolute; right: 5px;
-    font: 8px/1 "SF Mono", Menlo, monospace; color: var(--ink-soft);
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
+    font-variant-numeric: tabular-nums;
     transform: translateY(50%);
   }
   .stats-tl-ytick::after {
@@ -1478,7 +1480,7 @@
        so the name reads up the middle of each block. */
     transform: rotate(-90deg) translateY(50%);
     white-space: nowrap;
-    font: 10px/1.15 ui-serif, "Iowan Old Style", Georgia, serif;
+    font: 12px/1.15 ui-serif, "Iowan Old Style", Georgia, serif;
     color: var(--ink);
     transition: transform 130ms ease;
   }
@@ -1488,7 +1490,7 @@
   }
   .stats-tl-label .sci {
     display: block;
-    font-style: italic; color: var(--ink-soft); font-size: 8.5px;
+    font-style: italic; color: var(--stats-quiet); font-size: 11px;
     transition: color 130ms ease;
   }
   /* Ticks live inside .stats-tl-plot so their left:% aligns with the
@@ -1497,7 +1499,7 @@
   .stats-tl-xtick {
     position: absolute; bottom: -19px;
     transform: translateX(-50%);
-    font: 7px/1 "SF Mono", Menlo, monospace; color: var(--ink-soft);
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
     white-space: nowrap;
   }
   .stats-data-empty {
@@ -1507,14 +1509,14 @@
   .stats-data-empty,
   .window-empty {
     text-align: center;
-    font: 11px/1.4 "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--ink-soft);
+    font: 11px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--stats-quiet);
     text-transform: lowercase; letter-spacing: 0.18em;
     white-space: nowrap;
   }
   @media (max-width: 350px) {
     .stats-data-empty,
-    .window-empty { font-size: 10px; letter-spacing: 0.14em; }
+    .window-empty { letter-spacing: 0.1em; }
   }
   .stats-timeline > .stats-data-empty { position: absolute; inset: 0; }
   /* Trim note - shown when the plot can't fit every species column and
@@ -1523,7 +1525,7 @@
   .stats-tl-cap {
     position: absolute; top: 0; right: 0; z-index: 2;
     background: var(--paper); padding: 1px 0 3px 8px;
-    font: 8.5px/1 "SF Mono", Menlo, monospace; color: var(--ink-soft);
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
     letter-spacing: 0.04em;
   }
 
@@ -1540,8 +1542,8 @@
     padding: 46px 0 6px;
   }
   .stats-side h3, .stats-rhythm h3 {
-    font: 700 10px ui-monospace, Menlo, monospace; color: var(--ink);
-    letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 1px;
+    font: 700 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink);
+    letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 1px;
     border-left: 2px solid var(--accent); padding-left: 10px;
   }
   /* Tight, content-sized groups - they sit just below their headers
@@ -1549,17 +1551,16 @@
   .stats-side .grp { flex: 0 0 auto; }
   .stats-side .grp + .grp { margin-top: 22px; }
   .stats-side .grp small, .stats-rhythm small {
-    display: block; font: 9px ui-monospace, Menlo, monospace; color: var(--ink-soft);
+    display: block; font: 12px/1.35 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
     letter-spacing: 0.06em; margin: 0 0 3px 12px;
   }
   .stats-side ol { list-style: none; padding: 0; margin: 0; }
   .stats-side li {
-    display: grid; grid-template-columns: 44px 1fr auto; gap: 10px;
+    display: grid; grid-template-columns: 62px 1fr auto; gap: 10px;
     padding: 2px 0;
     box-shadow: inset 0 -1px 0 rgba(26,22,18,0.05);
-    font: 12.5px/1.25 ui-serif, Georgia, serif; color: var(--ink);
+    font: 15px/1.3 ui-serif, Georgia, serif; color: var(--ink);
     align-items: baseline;
-    transition: background 140ms ease, color 140ms ease;
   }
   .stats-side li.stats-window-empty {
     grid-template-columns: 1fr;
@@ -1569,12 +1570,19 @@
     display: block; margin-left: 12px; text-align: left;
   }
   .stats-side li[data-sci] { cursor: pointer; }
-  .stats-side li[data-sci]:hover { background: var(--paper-2); }
-  /* Cross-highlight from a hovered timeline square. */
-  .stats-side li.sync-hi { background: var(--paper-2); }
-  .stats-side li.sync-hi span:not(.yr):not(.ct) { color: var(--accent); }
-  .stats-side li .yr { font: 9.5px ui-monospace, Menlo, monospace; color: var(--accent-2); letter-spacing: 0.04em; }
-  .stats-side li .ct { font: 11px ui-monospace, Menlo, monospace; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  /* Hover and cross-highlight mark the name itself - umber plus a hairline
+     underline - rather than washing the row, so the text never sits on a
+     plate. */
+  .stats-side li span:not(.yr):not(.ct) {
+    text-decoration: underline 1px transparent; text-underline-offset: 3px;
+    transition: color 140ms ease, text-decoration-color 140ms ease;
+  }
+  .stats-side li[data-sci]:hover span:not(.yr):not(.ct),
+  .stats-side li.sync-hi span:not(.yr):not(.ct) {
+    color: var(--accent); text-decoration-color: currentColor;
+  }
+  .stats-side li .yr { white-space: nowrap; font: 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent-2); letter-spacing: 0.04em; }
+  .stats-side li .ct { font: 13px ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet); font-variant-numeric: tabular-nums; }
 
   /* (Histogram strip removed - charts moved into the stats-grid LEFT
      column as full-bleed chart cards. See .stats-charts above.) */
@@ -3985,10 +3993,11 @@ body.av-local #dd-items  { display: block; }
 .chart-pick button .tip {
   position: absolute; top: calc(100% + 6px); left: 50%;
   transform: translateX(-50%); white-space: nowrap;
-  font: 9px ui-monospace, Menlo, monospace; letter-spacing: 0.14em;
-  text-transform: lowercase; color: var(--ink-soft);
-  background: var(--paper); padding: 3px 8px; border-radius: 4px;
-  box-shadow: var(--raised);
+  font: 12px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.14em;
+  text-transform: lowercase; color: var(--stats-quiet);
+  padding: 3px 0;
+  /* Paper-coloured halo, not a plate: keeps gridlines off the glyphs. */
+  text-shadow: 0 0 2px var(--paper), 0 0 4px var(--paper), 0 0 6px var(--paper);
   opacity: 0; pointer-events: none; transition: opacity 160ms ease;
 }
 .chart-pick button:hover .tip { opacity: 1; }
@@ -4008,8 +4017,8 @@ body.av-local #dd-items  { display: block; }
   stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .rh-svg .ln-avg { fill: none; stroke: var(--ink-soft); stroke-width: 1.1;
   stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.rh-ytick, .rh-xtick { position: absolute; font: 400 7.5px "SF Mono", Menlo, monospace;
-  color: var(--ink-soft); letter-spacing: 0.04em; }
+.rh-ytick, .rh-xtick { position: absolute; font: 400 11px ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--stats-quiet); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
 .rh-ytick { left: 0; transform: translateY(50%); }
 .rh-xtick { bottom: 0; transform: translateX(-50%); white-space: nowrap; }
 .rh-plot > .stats-data-empty { height: 100%; }
@@ -4029,15 +4038,18 @@ body.av-local #dd-items  { display: block; }
 .rh-xh-h { position: absolute; left: 0; width: 0; height: 0; border-top: 1px dashed var(--ink-soft); }
 .rh-xh-dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
   border-radius: 50%; background: var(--paper); border: 1.5px solid var(--ink); }
-.rh-xh-rx, .rh-xh-ry { position: absolute; font: 500 10px/1 "SF Mono", Menlo, monospace;
-  color: var(--ink); background: var(--paper); padding: 2px 4px; border-radius: 4px;
-  white-space: nowrap; box-shadow: var(--edge); letter-spacing: 0.02em; }
+/* The live readouts sit straight on the paper; a paper halo (not a plate)
+   lifts them off the dashed guides and the dimmed static ticks. */
+.rh-xh-rx, .rh-xh-ry { position: absolute; font: 600 13px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--ink); padding: 2px 4px;
+  text-shadow: 0 0 2px var(--paper), 0 0 3px var(--paper), 0 0 5px var(--paper), 0 0 8px var(--paper);
+  white-space: nowrap; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .rh-xh-rx { bottom: 0; }   /* hour pill rides the x-axis strip */
 .rh-xh-ry { left: 0; }     /* count pill rides the y-axis gutter, covering (not doubling) its tick */
 /* While a pointer is armed the static ticks step back so the live pills own
    the axes. One class on the host keeps the helper generic - this stylesheet
    alone decides what dims. */
-.rh-plot.rh-live .rh-ytick, .rh-plot.rh-live .rh-xtick { opacity: 0.32; }
+.rh-plot.rh-live .rh-ytick, .rh-plot.rh-live .rh-xtick { opacity: 0.2; }
 @media (prefers-reduced-motion: no-preference) {
   .rh-ytick, .rh-xtick { transition: opacity 0.12s ease; }
 }
@@ -4070,27 +4082,32 @@ body.av-local #dd-items  { display: block; }
 .heatmap-table { border-collapse: collapse; white-space: nowrap; width: 100%; table-layout: fixed; }
 .heatmap-corner { width: 30%; min-width: 150px; }
 .heatmap-table th {
-  font: 400 9.5px ui-monospace, "SF Mono", Menlo, monospace; font-weight: normal;
-  color: var(--ink-soft); text-align: center;
+  font: 400 12px ui-monospace, "SF Mono", Menlo, monospace; font-weight: normal;
+  color: var(--stats-quiet); text-align: center;
   letter-spacing: 0; padding: 0 1px 8px; overflow: visible;
 }
 .heatmap-table th:first-child { padding-left: 0; }
+/* Twenty-four hour headings at 12px collide in the desktop column too, so
+   the renderer's three-hour cadence applies at every width. */
+.heatmap-table th.heatmap-hour:not(.heatmap-hour-major) { color: transparent; font-size: 0; }
 /* The fixed layout would give the total column an hour column's width, and the
    centred "total" then spills past the table's right edge and is clipped. Give
    it room and right-align it so the word (and the counts below) finish. */
 .heatmap-table th.heatmap-total,
 .heatmap-table td.heatmap-total { width: 46px; text-align: right; padding-right: 0; }
 .heatmap-table td {
-  font: 400 11px ui-monospace, "SF Mono", Menlo, monospace;
+  font: 400 13px ui-monospace, "SF Mono", Menlo, monospace;
   color: var(--ink); text-align: center; letter-spacing: 0.02em;
   padding: 3px 4px; border-bottom: 1px solid var(--hairline);
 }
 .heatmap-row[data-sci] { cursor: pointer; }
-.heatmap-row[data-sci]:hover { background: var(--paper-2); }
+.heatmap-name .com { text-decoration: underline 1px transparent; text-underline-offset: 3px;
+  transition: color 140ms ease, text-decoration-color 140ms ease; }
+.heatmap-row[data-sci]:hover .heatmap-name .com { color: var(--accent); text-decoration-color: currentColor; }
 .heatmap-table td.heatmap-name { text-align: left; white-space: nowrap; padding-right: 12px; }
-.heatmap-name .com { display: block; font: 600 12px/1.3 ui-serif, Georgia, serif; color: var(--ink); }
-.heatmap-name .sci { display: block; font: italic 10px/1.2 ui-serif, Georgia, serif; color: var(--ink-soft); }
-.heatmap-total { font-variant-numeric: tabular-nums; color: var(--ink-soft); padding-left: 10px; }
+.heatmap-name .com { display: block; font: 600 15px/1.3 ui-serif, Georgia, serif; color: var(--ink); }
+.heatmap-name .sci { display: block; font: italic 12px/1.25 ui-serif, Georgia, serif; color: var(--stats-quiet); }
+.heatmap-total { font-variant-numeric: tabular-nums; color: var(--stats-quiet); padding-left: 10px; }
 .heatmap-wrap > .stats-data-empty { height: 100%; }
 /* A quiet text link, not a button: the user preferred the plain word here. */
 .heatmap-trim {
@@ -4098,7 +4115,7 @@ body.av-local #dd-items  { display: block; }
   /* Left padding matches the name cell's, so the link starts on the same
      vertical as the species names above it rather than hard against the edge. */
   background: none; border: 0; cursor: pointer; padding: 2px 0 2px 4px;
-  color: var(--ink-soft); font: italic 11px/1.3 ui-serif, Georgia, serif;
+  color: var(--stats-quiet); font: italic 14px/1.3 ui-serif, Georgia, serif;
   letter-spacing: 0.01em;
   transition: color 140ms ease;
 }
@@ -4112,6 +4129,33 @@ body.av-local #dd-items  { display: block; }
 }
 @media (max-width: 700px) {
   .rh-plot { height: 120px; }
+  /* Phones are the primary reader: nothing in Stats renders below 11px,
+     and the ledger rows read at a comfortable 15px. */
+  .stats-side h3, .stats-rhythm h3 { font-size: 11px; }
+  .stats-side .grp small, .stats-rhythm small { font-size: 11px; }
+  .stats-side li { grid-template-columns: 54px 1fr auto; font-size: 15px; padding: 4px 0; }
+  .stats-side li .yr { font-size: 11px; }
+  .stats-side li .ct { font-size: 12px; }
+  .stats-date-nav .stats-date-label { font-size: 15px; }
+  .stats-calendar-week span { font-size: 11px; }
+  .stats-calendar-days button { font-size: 12px; }
+  .stats-calendar-foot button { font-size: 11px; }
+  .rh-ytick, .rh-xtick { font-size: 11px; }
+  .rh-xh-rx, .rh-xh-ry { font-size: 12px; }
+  .heatmap-table th { font-size: 11px; }
+  .heatmap-table td { font-size: 12px; }
+  .heatmap-name .com { font-size: 13px; }
+  /* Long common names wrap inside the name column instead of running into
+     the hour cells; the scientific name stays on one line and trims. */
+  .heatmap-table td.heatmap-name { white-space: normal; }
+  .heatmap-name .sci { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .heatmap-trim { font-size: 13px; }
+  .chart-pick button .tip { font-size: 11px; }
+  /* These must follow the base timeline rules: same specificity, so an
+     earlier override silently loses. */
+  .stats-tl-label, .stats-tl-label .sci { font-size: 11px; }
+  .stats-tl-xtick, .stats-tl-ytick, .stats-tl-cap { font-size: 11px; }
+  .stats-timeline { height: clamp(380px, 56vh, 500px); }
   /* Twenty-four 2-digit hour labels cannot share a phone-width ledger
      without colliding. The renderer marks a three-hour cadence for long
      windows while keeping every heading in shorter 1H and 12H readings. */
@@ -4119,7 +4163,7 @@ body.av-local #dd-items  { display: block; }
     color: transparent;
     font-size: 0;
   }
-  .heatmap-table th.heatmap-hour-major { font-size: 8px; }
+  .heatmap-table th.heatmap-hour-major { font-size: 11px; }
   /* At phone width, long ledgers work as heatmaps rather than tiny numeric
      tables. Row totals remain visible; shorter hour ranges keep cell counts. */
   .heatmap-table.heatmap-compressed td:not(.heatmap-name):not(.heatmap-total) {
@@ -4427,10 +4471,15 @@ body.av-local #dd-items  { display: block; }
    lighter than they are. On this view that is the row hover fill, and the
    lift reads as the same tooth. The chart picker is lifted clear below,
    because a control should not read as worn. */
+/* Owner preference: text stays clean. The screen used to cover the whole
+   view and pitted every glyph; it now prints only on the data marks (the
+   timeline squares and the hourly ledger's inked cells). */
 #v1 { position: relative; }
-#v1::after {
+.heatmap-table td[style*="background"] { position: relative; }
+.stats-tl-square::after,
+.heatmap-table td[style*="background"]::after {
   content: ''; position: absolute; inset: 0;
-  pointer-events: none; z-index: 5;
+  pointer-events: none;
   background-color: var(--paper);
   --press: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAMFBMVEX///////////////////////////////////////////////////////////////9Or7hAAAAAEHRSTlMAESIzRFVmd4iZqrvM3e7/dpUBFQAAKT1JREFUeNpNXMF2o7oSlMD2WhKYNWCbNTgJa+PErG0nYR1j0P9/wqtq4blvzp25MwmmQequrupuRdnwS/urqh72T61PKvan6GTL0j9WtVJqM5fZaJX75nVK/eIL1uwblc34ph5ypfHlJva2msqPezW2/uCt18rdrWtHZa0XC3ujspvJ8RkV+dPmAQN9h39UZvUsXdHWvGjbKYPvdxZ/qtWdF+Nv79as/Mo3pXV+tmXvjz/qR9vtZF31wCW2UD3uJ2b4QaV2ShVudqXNaQDPUFr/4Lc3t/UkV1xyuXV1OtyV9njpOfrF9Yn3ha1mviheq8NDFrhMOzM8ysLa4mWAVu1krZuXv+/wNjap8Tmsy2pUCvfUjVL9bZiN9rUytIYn9vhUWbxZfoi/yp3COzi7bazRqadltTqpCPbxRnfLNdKNdWNptc0e+HZ8V3wJvMEa1hM7zKuOW2PdmU++a+zWv8Oi9kZbY+2gRs09wn9ioC9UNqr2FB2tXWEv46daP+z2WdrNmF750LDYyXvSgLKHe/YwaaNs5fd3d4atyv/AgPJY2klbr05q8wdPediLaqwaGrW6qizfeixy5yzuIm9aiiNhfWKuk/yCtQgX6VVn2j9tW9y1wg5cKt+9acs9MHCMD1wZ47JVA1v4lSyfrnytscQP3EUMfJXGiIH2CQPRDwzpo+qfuI+yprpZe5ht0fom9fevXLU3bgKs813z5YFw5XL3oVar2fQnNYz8eoLd9gW/EZ9t+8RH8X7tuPXNMNv+pnE54qgpVnM1w1+vvMNDWRqRGwdP2WLZkr/wFV5jlf9TH53anqzH83FFFTbaJI3SbykNZL4bpsiPsX/o7XPtLb6Ab9KB1eGkbH9dnlc2DquBP2olb9HLS3003P32oXu6iYkmZfEeOpmsb45Y/tWc788wEOF52hkGtr6Q3del0l+1cmZ7fzm9rlS12LOTkqs+EB+DTU7bE81oxqqx2HncBnb4GFpWbV92O2uzpz4bXYYwSn298oAI1c/R32IAG6oyLvJki2Q2UaPo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");
   -webkit-mask-image: var(--press);  mask-image: var(--press);
@@ -4438,16 +4487,19 @@ body.av-local #dd-items  { display: block; }
   -webkit-mask-repeat: repeat;       mask-repeat: repeat;
   mix-blend-mode: lighten;
 }
-:root[data-theme="dark"] #v1::after { mix-blend-mode: darken; }
+:root[data-theme="dark"] .stats-tl-square::after,
+:root[data-theme="dark"] .heatmap-table td[style*="background"]::after { mix-blend-mode: darken; }
 /* The picker is an affordance, not printed content, so it sits over the
    screen rather than under it. */
 .stats-chart .chart-pick { z-index: 6; }
 
 /* The frame screenshots to a six-ink panel with no grey ramp, where a fine
    screen turns into dither noise. Same hook the grain used. */
-:root[data-grain="off"] #v1::after { display: none; }
+:root[data-grain="off"] .stats-tl-square::after,
+:root[data-grain="off"] .heatmap-table td[style*="background"]::after { display: none; }
 @media (prefers-contrast: more), (forced-colors: active) {
-  #v1::after { display: none; }
+  .stats-tl-square::after,
+  .heatmap-table td[style*="background"]::after { display: none; }
 }
 
 /* Classic Atlas cards restore the pre-stamp field-guide grid while the
@@ -4528,4 +4580,128 @@ body.av-local #dd-items  { display: block; }
     transform: none;
     box-shadow: var(--edge-lg);
   }
+}
+
+/* ============ Readable type floor: collage chrome, Atlas, postcard ============
+   The owner reads on 1080p monitors at 1x and on phones, where the original
+   7-10px mono labels pixelate. This block sits last on purpose: it overrides
+   the scattered size declarations above (including their breakpoint
+   shrinks) without rewriting them, so upstream changes still merge. Only
+   sizes change - families, colours and layout stay as they were. Nothing
+   here drops below 11px; stamp artwork carries its own lettering and is
+   left alone. */
+.top .window-pick button { font-size: 12px; letter-spacing: 0.14em; }
+.menu-btn { font-size: 12px; }
+.slider button { font-size: 12px; letter-spacing: 0.18em; }
+.return-to-atlas { font-size: 12px; }
+.chart-pick button .tip,
+.atlas-sort button .tip { font-size: 12px; }
+.hint, .lock-hint { font-size: 11px; }
+.built-by { font-size: 12px; }
+.menu-section h3 { font-size: 11px; }
+.atlas-empty p.hint { font-size: 12px; }
+.menu-links a { font-size: 12px; }
+.live-audio button { font-size: 11px; }
+.live-audio .label .hint { font-size: 11px; }
+
+/* Classic Atlas cards */
+.bird-card .stat { font-size: 11px; }
+.bird-card .chip { font-size: 11px; }
+.lifer-badge { font-size: 10px; }
+
+/* Postcard */
+.postcard-stats { font-size: 12px; }
+.postcard-section summary > small { font-size: 11px; }
+.postcard-about .desc { font-size: 15px; line-height: 1.5; }
+.postcard-about .about-distinctive { font-size: 13.5px; }
+.postcard-about .meta-item .k,
+.postcard-about .meta-item .v { font-size: 12px; }
+.postcard-recordings .rec-table-head { font-size: 11px; letter-spacing: .08em; }
+.postcard-recordings .rec-spectro-loading,
+.postcard-recordings .rec-player-time { font-size: 11px; }
+.postcard-recordings .rec-loop-toggle { font-size: 11px; height: 26px; }
+.postcard-recordings .rec-empty { font-size: 12px; }
+.postcard-links a,
+.postcard-generate { font-size: 12px; min-height: 32px; padding-inline: 12px; }
+
+@media (max-width: 700px) {
+  .top .window-pick button { font-size: 11px; padding: 6px 9px; letter-spacing: 0.08em; }
+  .menu-btn { font-size: 11px; letter-spacing: 0.12em; }
+  .slider button { font-size: 11px; letter-spacing: 0.16em; }
+  .return-to-atlas { font-size: 11px; }
+  .atlas-grid .bird-card .stat { font-size: 11px; }
+  .atlas-grid .bird-card .sci { font-size: 11px; }
+  .atlas-grid .lifer-badge { font-size: 10px; }
+}
+@media (max-width: 420px) {
+  .top .window-pick button { padding: 5px 7px; letter-spacing: 0.04em; }
+}
+@media (max-width: 520px) {
+  .postcard-stats { font-size: 11px; }
+  .postcard-about .meta-item .k,
+  .postcard-about .meta-item .v { font-size: 11px; }
+  /* Four facts at a readable size do not fit one phone row; two by two. */
+  .postcard-about .modal-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+  .postcard-recordings .rec-table-head { font-size: 11px; letter-spacing: .04em; }
+  .postcard-recordings .when b,
+  .postcard-recordings .conf b,
+  .postcard-recordings .date-time b { font-size: 12px; }
+  .postcard-links a,
+  .postcard-generate { font-size: 11px; padding-inline: 10px; }
+}
+
+/* ============ Postcard on phones: one scrolling page ============
+   The drawer used to be locked to the viewport: picture, title card and the
+   open section were all squeezed into 100dvh, so About scrolled inside a
+   small box and nothing could be read at length. On phones the sheet itself
+   now scrolls, every block takes its natural height, and the open section
+   shows all of its content. The drag handle, swipe-to-close and the
+   About/Recordings toggle are unchanged. */
+@media (max-width: 860px) {
+  /* Block flow, not the grid: the grid sized its rows to the sheet's fixed
+     height, so the content overflowed its row and the scroll stopped short
+     of the last card. Stacked blocks grow with what they hold. */
+  .postcard-sheet {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px) + var(--drawer-bottom-bleed));
+  }
+  .postcard-sheet::-webkit-scrollbar { display: none; }
+  /* A card floating above the bottom edge rather than a drawer bolted to
+     it: same gap below as above, rounded on all four corners. */
+  /* Equal 10px gaps top and bottom. The home-bar safe area is left out of
+     the gap on purpose (it made the bottom read much wider than the top);
+     it pads the inside of the card instead, so the last row still clears
+     the home indicator when scrolled to the end. */
+  #postcard-modal {
+    --drawer-bottom-bleed: 0px;
+    padding: 10px 8px;
+  }
+  #postcard-modal .postcard-sheet {
+    height: calc(100dvh - 20px);
+    border-radius: 12px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .postcard-visual { height: clamp(220px, 42dvh, 380px); }
+  .postcard-content { height: auto; overflow: visible; gap: 10px; margin-top: 8px; }
+  /* The last card closes the sheet: full rounded corners and paper below it,
+     so the end of the scroll reads as the bottom of the postcard. */
+  .postcard-recordings { border-radius: 9px; }
+  .postcard-identity { flex: 0 0 auto; min-height: 0; }
+  .postcard-about[open],
+  .postcard-recordings[open] { flex: 0 0 auto; min-height: 0; }
+  .postcard-section[open]::details-content { overflow: visible; }
+  .postcard-about[open] .postcard-section-body,
+  .postcard-recordings .postcard-section-body { height: auto; overflow: visible; }
+  .postcard-recordings ol { overflow: visible; flex: 0 0 auto; }
+  .postcard-section summary { min-height: 52px; }
+  .postcard-section summary > span { font-size: 21px; }
+  .postcard-about .desc { max-width: 62ch; }
+}
+@media (max-width: 860px) and (max-height: 520px) {
+  .postcard-visual { height: clamp(140px, 52dvh, 240px); }
 }

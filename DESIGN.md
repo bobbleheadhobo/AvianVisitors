@@ -1,0 +1,277 @@
+---
+name: Avian Visitors
+description: A live bird collage from your window, kept like a field notebook.
+colors:
+  paper: "#fcfcfb"
+  paper-recess: "#f3f2ee"
+  paper-shade: "#e8e6df"
+  ink: "#1a1612"
+  ink-umber: "#4a3f31"
+  ink-faded: "#908576"
+  hairline: "rgba(26,22,18,0.14)"
+  danger: "#9b3f37"
+  card-stock: "#f7f6f2"
+  card-ink: "#29251f"
+  card-muted: "#77736b"
+  charcoal: "#17181c"
+  charcoal-recess: "#212329"
+  charcoal-shade: "#2c2f36"
+  charcoal-pill: "#3a3e48"
+  moon-ink: "#ece8e1"
+  moon-ink-2: "#b7afa2"
+  moon-ink-soft: "#837c70"
+  moon-accent: "#d8d2c6"
+  danger-dark: "#dc8b81"
+typography:
+  display:
+    fontFamily: "ui-serif, 'Iowan Old Style', 'Bookman Old Style', Georgia, serif"
+    fontSize: "clamp(24px, 3.2vw, 40px)"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0.06em"
+  display-compact:
+    fontFamily: "ui-serif, 'Iowan Old Style', Georgia, serif"
+    fontSize: "clamp(19px, 1.85vw, 25px)"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0.16em"
+  overline:
+    fontFamily: "ui-serif, 'Iowan Old Style', Georgia, serif"
+    fontSize: "clamp(13px, 1.4vw, 18px)"
+    fontWeight: 400
+    lineHeight: 1.22
+    letterSpacing: "0.06em"
+  body:
+    fontFamily: "ui-serif, 'Iowan Old Style', 'Apple Garamond', Georgia, serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.25
+  title:
+    fontFamily: "ui-serif, 'Iowan Old Style', Georgia, serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.3
+  label:
+    fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace"
+    fontSize: "12px"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0.16em"
+  caption:
+    fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.35
+    letterSpacing: "0.06em"
+  body-phone:
+    fontFamily: "ui-serif, 'Iowan Old Style', Georgia, serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.3
+  data:
+    fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace"
+    fontSize: "11px"
+    fontWeight: 400
+    lineHeight: 1
+    letterSpacing: "0.04em"
+  hand:
+    fontFamily: "'Hand', Caveat, cursive"
+    fontWeight: 400
+rounded:
+  pill: "999px"
+  card: "3px"
+  sm: "4px"
+  md: "8px"
+  sheet: "14px"
+spacing:
+  control-height: "36px"
+  control-height-phone: "27px"
+  gutter: "32px"
+  gutter-phone: "18px"
+components:
+  window-pick:
+    backgroundColor: "{colors.paper-recess}"
+    textColor: "{colors.ink-faded}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    height: "{spacing.control-height}"
+    padding: "4px"
+  window-pick-active:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+  menu-button:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    height: "{spacing.control-height}"
+    padding: "0 14px"
+  menu-sheet:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sheet}"
+    width: "360px"
+  stats-row:
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "2px 0"
+  postcard:
+    backgroundColor: "{colors.card-stock}"
+    textColor: "{colors.card-ink}"
+    rounded: "{rounded.card}"
+    padding: "8px"
+    width: "min(880px, calc(100vw - 56px))"
+---
+
+# Design System: Avian Visitors
+
+## Overview
+
+**Creative North Star: "The Field Notebook at the Window"**
+
+Avian Visitors reads like a naturalist's notebook kept beside one particular window: ink on warm paper, small typewritten annotations in the margins, and the birds as the only real drawings. The stats views extend that into a quiet ledger of who came by and when, and the Atlas collects each species as a stamp or postcard. It's a record you keep, not a dashboard you monitor.
+
+The mood is calm, editorial and tactile. The palette is almost colorless: near-white paper, near-black warm ink, and a single umber in between. All the color comes from the illustrations. Depth is physical rather than digital. Controls sit in recessed paper tracks with a raised paper thumb, sheets lift off the page with a soft drop shadow, and postcards carry a real paper texture. The type pairs a bookish serif for names and titles with tracked, uppercase monospace for the margin notes.
+
+The interface stays out of the way. Chrome is small, pale and pushed to the edges, and the collage fills the viewport. Typography and hairlines carry the hierarchy, not boxes and fills.
+
+**Key Characteristics:**
+- Ink-on-paper neutrals with a full charcoal dark theme; the birds supply every saturated color.
+- A serif for names and titles, with tracked uppercase monospace for labels, axes and counts.
+- Physical depth: recessed tracks, raised paper thumbs, lifted sheets, textured card stock.
+- Hairlines and black squares instead of boxes and filled charts.
+- Text sits directly on the paper, never on a backing plate.
+
+## Colors
+
+A near-monochrome warm palette: paper, ink and one umber. Color belongs to the birds.
+
+### Primary
+- **Field Ink** (`ink`): Titles, species names, active control labels, and the stats timeline squares. It's the only "strong" mark on the page.
+- **Umber Ink** (`ink-umber`): The accent: the overline ("your birds"), heading rule marks, cross-highlighted names, and the "on" state of toggles. It used to be red; it's now deliberately the same family as the ink.
+
+### Neutral
+- **Notebook Paper** (`paper`): Page background, raised control thumbs, menu button and sheet. Near-white with the faintest warm cast.
+- **Recessed Paper** (`paper-recess`): The sunken tracks behind segmented pickers and the bottom view slider, and hover wash in the menu.
+- **Shaded Paper** (`paper-shade`): Placeholder fills while illustrations load.
+- **Faded Ink** (`ink-faded`): Inactive picker labels. At about 3.6:1 on paper it is below 4.5:1, so it's for secondary information only, never the only carrier of something the user needs.
+- **Quiet Ink** (`--stats-quiet`, defined on the Stats view): `color-mix(in srgb, var(--ink-soft) 70%, var(--ink-2))`, about 4.7:1 on paper and higher on charcoal. Used for secondary text that still has to be read: captions, ticks, scientific names, counts. It's the pattern to extend to other views.
+- **Hairline** (`hairline`): Dividers and chart gridlines.
+- **Card Stock** (`card-stock`), **Card Ink** (`card-ink`), **Card Muted** (`card-muted`): The postcard's own slightly warmer paper and inks, used only inside the postcard sheet.
+- **Danger** (`danger`): Destructive admin actions only.
+
+### Dark theme ("Charcoal")
+Applied by `data-theme="dark"` on `<html>` (auto by system preference, or chosen in Settings). Every role flips: **Charcoal** (`charcoal`) page, **Charcoal Recess** (`charcoal-recess`) tracks, **Charcoal Pill** (`charcoal-pill`) raised thumbs, **Moonlit Ink** (`moon-ink`) text, `moon-ink-2` secondary, `moon-ink-soft` muted, `moon-accent` accent, `danger-dark` destructive. The bird cutouts sit directly on the charcoal.
+
+### Named Rules
+**The Birds Bring the Color Rule.** The interface never adds a hue. Ink, umber and paper only; any saturated color on screen comes from an illustration or a stamp.
+
+**The Variable-Only Rule.** Every UI color comes from a custom property on `:root` and its `[data-theme="dark"]` twin, so the theme flips without per-component overrides. Hard-coded `rgba(26,22,18,…)` hairlines are legacy; new work uses `--hairline`.
+
+## Typography
+
+**Display / Body Font:** the system book serif: `ui-serif` → Iowan Old Style → Georgia
+**Label Font:** the system monospace: `ui-monospace` → SF Mono → Menlo
+**Hand Font:** Caveat (self-hosted as `'Hand'`, loaded lazily), only for handwritten bird labels on the collage
+**Stamp faces:** Space Grotesk, Archivo, Anton and others, self-hosted in `fonts/stamp/` and confined to stamp artwork in the Atlas
+
+**Character:** A bookish serif for anything with a name, and a typewriter-like mono for anything that's a measurement or a margin note. The serif never goes uppercase except the page title; the mono is almost always uppercase and widely tracked.
+
+### Hierarchy
+- **Display** (`display`): The page title ("HEARD RECENTLY"), uppercase. It shrinks to `display-compact` with wider tracking when a view scrolls and the head folds.
+- **Overline** (`overline`): The italic umber line above the title ("your birds"), lowercase. It's a button that opens About.
+- **Title** (`title`): Menu links and postcard names.
+- **Body** (`body`): Stats rows, species names in lists.
+- **Label** (`label`): Section headings in stats ("TOP SPECIES") with a 2px umber left rule, picker and slider buttons, the menu button.
+- **Caption** (`caption`): Sub-captions under headings (12px). Axis ticks and chart labels use `data` (11px).
+- **Data** (`data`): The size for every mono measure in Stats, on desktop and phone: captions, axis ticks, counts, rotated chart labels, calendar days. 11px is the floor; scrub readouts and counts may step up to 12px.
+- **Body (phone)** (`body-phone`): Stats ledger rows on phones (15px, with 4px row padding so rows are comfortable thumb targets). Heatmap names step to 14px and wrap rather than overrun the hour cells.
+
+### Named Rules
+**The Serif Names, Mono Measures Rule.** Bird names, titles and prose are serif. Times, counts, axes, controls and section labels are mono. Don't mix them within one role.
+
+**The Readable Floor Rule.** The tracked mono label style is identity, but no interface text renders below **11px** on any screen: Stats, collage chrome, Atlas, postcard and menu. The collage/Atlas/postcard sizes live in the "Readable type floor" block at the end of `styles.css`; stamp artwork keeps its own lettering (owner reads on 1080p monitors at 1x, where smaller mono pixelates). The incumbent shrinks labels on mobile (picker 8–8.5px, many captions 8–9px); new and revised work raises them to the floor instead of shrinking. Desktop may use 9–10px for non-essential captions.
+
+## Layout
+
+The stage is a fixed full-viewport flex column. A centered static head (overline + title) sits above a horizontal slider of views: Collage, Stats, Atlas, and Educators when enabled. The head never moves between views; only its text cross-fades. When a view scrolls, the head folds into a compact frosted row.
+
+Fixed chrome sits on the edges. The time-window picker is centered at the top, the menu pill is top-right (it grows into the menu sheet), the return pill is top-left on admin pages, and the view slider is centered at the bottom. Control height is 36px on desktop and 27px on phones; gutters are 32px on desktop and 16–18px on phones.
+
+Stats pairs a wide chart (timeline or by-hour heatmap) with a narrow side column of tight, content-sized groups (22px apart). The Atlas is a centered grid of stamps, max 1280px wide, with its sort control pinned to the top right.
+
+The main breakpoint is **700px** (phone layout). Secondary adjustments happen at 1050, 900, 860, 560, 520, 420, 384 and 350px. Pointer-specific hover effects are gated behind `(hover: hover) and (pointer: fine)`.
+
+## Elevation & Depth
+
+Depth is physical paper, not material layers. Thin borders are replaced by composited inset/outset hairline shadows, and there are four recipes. Each has a dark-theme twin with faint light edges and deeper drops.
+
+### Shadow Vocabulary
+- **Edge** (`--edge`): A hairline lip on flat paper objects.
+- **Edge Large** (`--edge-lg`): An open sheet (the menu) lifted off the page with a soft 28px drop.
+- **Recess** (`--recess`): Sunken tracks behind segmented pickers and the bottom slider.
+- **Raised** (`--raised`): Paper thumbs, pills, and the closed menu button sitting on top of a track or the page.
+- **Card Shadow** (`--card-shadow`): The postcard's two-part drop (a tight contact shadow plus a long, soft 68px fall).
+
+### Named Rules
+**The Track and Thumb Rule.** Every choice control is a recessed track with a raised paper thumb that slides (320ms, `cubic-bezier(.7,.05,.2,1)`). Toggles, segmented pickers and the view slider all share this one depth language.
+
+## Shapes
+
+Controls are fully round pills (999px): pickers, menu button, return link, view slider, toggles. Sheets that open from a pill keep a soft 14px corner. List rows and small buttons use 4–8px. Paper objects that imitate print are nearly square: the postcard is 3px, and stamps have perforated edges from a mask rather than rounded corners. Timeline marks are hard-edged squares separated by 1px paper-colored seams.
+
+## Components
+
+### Time-Window Picker (signature)
+- **Character:** A recessed paper track with a raised paper thumb sliding behind the active option.
+- **Shape:** Pill track (999px), 4px inset, height 36px (27px on phones).
+- **Labels:** `label` mono, uppercase, 0.18em tracking; inactive `ink-faded`, hover and active `ink`.
+- **Motion:** The thumb slides between options (320ms). It's hidden in educator-scoped views.
+
+### Menu Button and Sheet (signature)
+- **Character:** One object. A lowercase "menu" pill when closed that grows into a 360px sheet anchored top-right when open (corner 999px → 14px, Raised → Edge Large). Open 320ms, close 380ms, with contents counter-scaled so they never squash.
+- **Menu links:** `title` serif, 9px 8px padding, 6px corner, Recessed Paper wash on hover.
+- **Sections:** Mono 9px bold uppercase headings, separated by a faint top rule.
+
+### View Slider
+- Fixed bottom-center pill track (Recess) with uppercase mono buttons (10px, 0.2em), inactive `ink-faded`, and a raised thumb on the active view.
+
+### Stats Side List
+- **Group heading:** `label` with a 2px umber left rule and 10px indent, plus a `caption` sub-line in Faded Ink.
+- **Rows:** A three-column grid (44px year/time · name · count), serif name, mono count in tabular numbers, separated by a faint inset hairline.
+- **Cross-highlight:** Hovering a timeline square or row highlights its partner; the name turns umber and takes a hairline underline. Rows are never shaded.
+
+### Detection Timeline (signature)
+- Each species is a column. A black ink square's vertical position encodes its count, and the species and scientific names are set rotated beneath. Columns are separated by hairline gridlines, and squares are seamed by 1px paper borders so clusters read as crisp blocks. There's no fill area and no color.
+
+### Atlas Stamp
+- Each species is a perforated stamp with its own print skin and display face (from `stamps.css` and the stamp batches). The stamps are artwork; the UI only lays them out in the grid and leaves them alone.
+
+### Postcard
+- **Character:** A field-guide postcard on textured card stock (`paper-texture-grey.png` blended under a wash), 3px corner, faint 18%-ink border, Card Shadow, with a slight random turn.
+- **Layout:** Two columns (illustration .82fr · details 1.18fr) on desktop, fixed to the viewport.
+- **Phones (≤860px):** A card floating 10px in from the top and bottom, rounded on all four corners, that scrolls as one page. The picture takes about 40% of the screen height (220–380px); the title card, About and Recordings stack beneath at their natural height, and whichever section is open shows all of its content (no inner scroll boxes). The sheet uses block flow, not grid, so it grows with its content. The home/gesture-bar safe area pads the inside of the card, never the outer gap. The pull handle and swipe-to-close stay at the top, and About/Recordings remain an either/or pair.
+- **Backdrop:** The page blurs (7px) through a soft radial mask, rather than going dark.
+
+### Return Pill
+- A top-left pill on admin overlays: chevron + lowercase mono label ("collage", "educators").
+
+## Do's and Don'ts
+
+### Do:
+- **Do** let the birds carry all color; keep UI marks in ink, umber and paper.
+- **Do** build every choice control as a recessed track with a raised paper thumb.
+- **Do** set names in the serif and measurements, labels and controls in tracked uppercase mono.
+- **Do** keep phone text at 11px or larger, even for mono labels and captions.
+- **Do** define new colors and shadows as custom properties with a `[data-theme="dark"]` twin.
+- **Do** give every motion a `prefers-reduced-motion` alternative that still shows the state change.
+
+### Don't:
+- **Don't** put a background behind reading text. Labels, names, headings, captions and counts sit directly on the paper. The owner finds backing plates (fills, frosted bars, highlight washes, chips) harder to read. Use ink weight, umber, or an underline for emphasis and hover instead. Incumbent exceptions to revisit: the frosted compact head bar, the paper-wash hover on menu links, and the 34% paper postcard backdrop.
+- **Don't** introduce a new hue, gradient accent, or colored chart series.
+- **Don't** use Faded Ink for anything the user must read to complete a task.
+- **Don't** shrink labels on phones below 11px; phones are the primary device.
+- **Don't** replace hairline shadows with solid 1px borders, or add drop shadows to flat page content.
+- **Don't** use the stamp display faces or Caveat outside stamps and collage labels.
+- **Don't** lay a texture or print screen over text. The ink-press screen is for data marks only (timeline squares, heatmap cells); text stays clean.
