@@ -7173,8 +7173,8 @@
     // Clicking a nav link (settings / system / logs / tools) collapses the
     // menu back into the button - it has opened (or navigated to) its page,
     // so leaving the drawer open is just clutter. The listen button and the
-    // built-by / GitHub links deliberately DON'T close it (you stay in the
-    // drawer to keep the stream going; those links open a new tab).
+    // footer controls deliberately DON'T close it (you stay in the
+    // drawer to keep the stream going).
     var menuLinks = items.querySelector('.menu-links');
     if (menuLinks) menuLinks.addEventListener('click', function (ev) {
       if (ev.target.closest('a')) closeDd();
@@ -12862,6 +12862,19 @@
     html += dataCard('detections', 'every detection as csv: date, species, confidence, file', 'detections');
     html += dataCard('recordings', 'every clip as tar, by date and species. can run to many gb', 'recordings');
     html += '</div>';
+
+    // The stock BirdNET-Pi pages still live at /index.php behind the station's
+    // own login; in required-auth mode Caddy hides them entirely, so skip it.
+    if (!adminAuthMeta.required) {
+      html += '<h2 class="admin-section-head">classic</h2>';
+      html += '<div class="admin-actions-grid">';
+      html += '<a class="admin-action" href="/index.php" target="_blank" rel="noopener">'
+        + '<span class="run">open</span>'
+        + '<h4>classic birdnet-pi</h4>'
+        + '<p>the original birdnet-pi pages. log in as birdnet with your admin password</p>'
+        + '</a>';
+      html += '</div>';
+    }
     adminBody.innerHTML = html;
     adminBody.querySelectorAll('[data-admin-export]').forEach(function (link) {
       link.addEventListener('click', function (event) {
