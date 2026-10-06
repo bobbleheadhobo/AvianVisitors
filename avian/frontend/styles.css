@@ -9,6 +9,10 @@
     --accent:   #4a3f31;   /* warm dark grey - matches ink-2, no longer red */
     --accent-2: #1a1612;   /* near-black ink - same hue as the title text */
     --danger:   #9b3f37;   /* restrained destructive action */
+    /* System health, as thin outlines only: passing, getting close, failing. */
+    --ok:       #4f7a55;
+    --caution:  #a0711c;
+    --bad:      #a3443a;
     --hairline: rgba(26,22,18,0.14);  /* faint divider lines + chart gridlines */
     --pill:     #fcfcfb;              /* active-toggle sliding pill */
     --control-track: #f3f2ee;
@@ -39,6 +43,9 @@
     --accent:   #d8d2c6;   /* light warm - pills read light-on-dark */
     --accent-2: #ece8e1;
     --danger:   #dc8b81;
+    --ok:       #8ebf95;
+    --caution:  #d9b36a;
+    --bad:      #e08f84;
     --hairline: rgba(236,232,225,0.20);  /* faint light divider on charcoal */
     --pill:     #3a3e48;                 /* raised, clearly lighter than the track */
     --control-track: #212329;
@@ -2827,11 +2834,18 @@ body.postcard-open { overflow: hidden; }
   .admin-card .ic svg { width: 18px; height: 18px; display: block; }
   /* State reads through the icon + heading, not a heavy frame: the ring is
      only a whisper above the resting edge so the page stays as calm as tools. */
-  .admin-card.alert { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent), var(--edge); }
-  .admin-card.alert h3, .admin-card.alert .ic { color: var(--accent); }
-  .admin-card.warn { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-2) 13%, transparent), var(--edge); }
-  .admin-card.warn h3, .admin-card.warn .ic { color: var(--accent-2); }
+  /* Health at a glance: a 1px outline in the state's colour. Passing cards
+     keep ink text; failing ones also colour the reading itself. */
+  .admin-card.ok { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent), var(--edge); }
+  /* Plain facts (uptime) get the same weight of outline in neutral ink. */
+  .admin-card.info { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-soft) 45%, transparent), var(--edge); }
+  .admin-card.ok .ic { color: var(--ok); }
+  .admin-card.warn { box-shadow: 0 0 0 1px color-mix(in srgb, var(--caution) 75%, transparent), var(--edge); }
+  .admin-card.alert { box-shadow: 0 0 0 1px var(--bad), var(--edge); }
+  .admin-card.alert h3, .admin-card.alert .ic, .admin-card.alert .v { color: var(--bad); }
+  .admin-card.warn h3, .admin-card.warn .ic, .admin-card.warn .v { color: var(--caution); }
   .admin-card.alert .ic, .admin-card.warn .ic { opacity: 0.8; }
+  .admin-card .sub { overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .admin-section-head {
     font: 700 10px ui-monospace, Menlo, monospace;
     letter-spacing: 0.18em; text-transform: uppercase;
@@ -2861,11 +2875,14 @@ body.postcard-open { overflow: hidden; }
     background: var(--paper-2); color: var(--ink-soft);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hairline) 55%, transparent);
   }
-  table.admin-tbl .pill.active { color: var(--ink); }
+  table.admin-tbl .pill.active {
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 60%, transparent);
+  }
   table.admin-tbl .pill.inactive,
   table.admin-tbl .pill.failed {
-    color: var(--accent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--bad);
+    box-shadow: inset 0 0 0 1px var(--bad);
   }
   table.admin-tbl button.restart {
     height: 20px; padding: 0 11px; border: 0; cursor: pointer;
@@ -2897,7 +2914,7 @@ body.postcard-open { overflow: hidden; }
     table.svc-tbl .svc-act .muted { display: none; }
     table.svc-tbl .svc-enabled, table.svc-tbl .svc-since { grid-column: 1 / -1; font-size: 11px; color: var(--ink-soft); }
     table.svc-tbl .svc-enabled.is-ok { display: none; }
-    table.svc-tbl .svc-enabled:not(.is-ok) { color: var(--accent); }
+    table.svc-tbl .svc-enabled:not(.is-ok) { color: var(--bad); }
     table.svc-tbl .svc-since::before { content: "since "; }
   }
   .admin-logs-toolbar {

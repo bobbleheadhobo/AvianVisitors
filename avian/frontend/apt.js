@@ -12831,43 +12831,65 @@
     var sys = j.system || {}, svc = j.services || {}, recLogs = j.recent_logs || {};
     var stream = sys.stream_data || {}, db = sys.birds_db || {};
     var streamAlert = !stream.exists || stream.newest_age_s == null || stream.newest_age_s > 600;
-    var dbAlert = db.exists && db.modified_s > 3600;
+    // Files arriving is not the same as hearing: a peak of 0 means the
+    // recorder is writing silence (no microphone reaching it).
+    var streamSilent = stream.newest_peak === 0;
+    // Health per card: 'ok' (green outline), 'warn' (amber), 'alert' (red),
+    // or '' for plain facts like uptime. No new detection for 6 hours is
+    // worth a look; a full day means something has stopped.
+    var dbState = !db.exists || db.modified_s > 86400 ? 'alert' : (db.modified_s > 21600 ? 'warn' : 'ok');
+    function level(value, warnAt, alertAt) {
+      if (value == null) return '';
+      return value > alertAt ? 'alert' : (value > warnAt ? 'warn' : 'ok');
+    }
     var keySvcs = ['birdnet_recording', 'birdnet_analysis', 'birdnet_log'];
     var dead = keySvcs.filter(function (n) { return svc[n] && svc[n].active !== 'active'; });
     var html = '<div class="admin-grid">';
     html += adminCard('recording pipeline', dead.length === 0 ? 'live' : (dead.length + ' down'),
       dead.length === 0 ? 'all services active' : dead.join(', '),
-      dead.length === 0 ? '' : 'alert', 'pipeline');
+      dead.length === 0 ? 'ok' : 'alert', 'pipeline');
     html += adminCard('newest live audio',
-      stream.newest_age_s == null ? 'no chunks' : adminFmtAge(stream.newest_age_s) + ' ago',
-      stream.newest_name || '',
-      streamAlert ? 'alert' : '', 'audio');
-    html += adminCard('birds.db updated',
-      db.exists ? adminFmtAge(db.modified_s) + ' ago' : 'missing',
-      db.mtime || '',
-      dbAlert ? 'warn' : '', 'db');
+      stream.newest_age_s == null ? 'no chunks' : (streamSilent ? 'silent' : adminFmtAge(stream.newest_age_s) + ' ago'),
+      streamSilent ? 'recordings contain no sound' : (stream.newest_name || ''),
+      streamAlert || streamSilent ? 'alert' : 'ok', 'audio');
+    // birds.db is written only when the analyzer logs a bird, so its age is
+    // the time since the last detection (no schedule to trigger by hand).
+    var dbWhen = db.mtime ? new Date(db.mtime) : null;
+    html += adminCard('last detection',
+      db.exists ? adminFmtAge(db.modified_s) + ' ago' : 'no database',
+      dbWhen && !isNaN(dbWhen) ? dbWhen.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+        + ' ' + dbWhen.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '',
+      dbState, 'db');
     html += adminCard('uptime', (sys.uptime || {}).pretty || '-',
       'load ' + ((sys.uptime || {}).load || []).map(function (n) { return n.toFixed(2); }).join(' / '),
-      '', 'clock');
+      'info', 'clock');
     html += adminCard('cpu temp',
       sys.temp_c != null ? sys.temp_c.toFixed(1) + '°C' : '-',
       sys.hostname + ' - ' + sys.kernel,
-      sys.temp_c != null && sys.temp_c > 75 ? 'warn' : '', 'temp');
+      level(sys.temp_c, 75, 85), 'temp');
     html += adminCard('memory used', sys.mem ? sys.mem.used_pct + '%' : '-',
       sys.mem ? adminFmtBytes(sys.mem.used_bytes) + ' / ' + adminFmtBytes(sys.mem.total_bytes) : '',
-      sys.mem && sys.mem.used_pct > 92 ? 'warn' : '', 'mem');
+      level(sys.mem ? sys.mem.used_pct : null, 90, 97), 'mem');
     html += adminCard('disk (birdsongs)', sys.disk_birds ? sys.disk_birds.used_pct + '%' : '-',
       sys.disk_birds ? adminFmtBytes(sys.disk_birds.total_bytes - sys.disk_birds.free_bytes) + ' / ' + adminFmtBytes(sys.disk_birds.total_bytes) : '',
-      sys.disk_birds && sys.disk_birds.used_pct > 92 ? 'warn' : '', 'disk');
+      level(sys.disk_birds ? sys.disk_birds.used_pct : null, 85, 95), 'disk');
     var audio = sys.audio || {}, cards = audio.arecord_l || [];
     var mic = cards.find ? cards.find(function (c) { return /usb-audio|microphone|mic/i.test(c); }) : null;
     // Without a USB mic, /proc/asound/cards only lists the Pi's HDMI
     // audio outputs - which aren't an input source. Flag that clearly
     // rather than showing "audio device: vc4hdmi0" as if it were a mic.
+    // In a container /proc/asound lists the host's cards even when none is
+    // attached here, so a listed mic without /dev/snd is no mic at all.
+    // ALSA's line is "0 [name ]: driver - long name - long name at usb-...":
+    // headline the kind of device, keep the hardware detail as the caption.
+    var micName = mic ? (/usb/i.test(mic) ? 'USB microphone' : 'microphone') : '';
+    var micBlocked = !!mic && audio.capture_device === false;
+    var micDetail = mic ? mic.replace(/^\s*\d+\s*\[[^\]]*\]:\s*/, '') : '';
     html += adminCard('audio device',
-      mic || (cards.length ? 'no microphone attached' : 'no audio devices'),
-      mic ? '' : (cards[0] || ''),
-      mic ? '' : 'warn', 'mic');
+      micBlocked ? 'no microphone' : (micName || (cards.length ? 'no microphone attached' : 'no audio devices')),
+      micBlocked ? 'none attached (no /dev/snd)'
+        : (mic ? micDetail : (cards[0] || '')),
+      mic && !micBlocked ? 'ok' : 'alert', 'mic');
     html += '</div>';
 
     html += '<h2 class="admin-section-head">services</h2>';
