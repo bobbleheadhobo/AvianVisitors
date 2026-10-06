@@ -51,6 +51,7 @@ install_avian_controls() {
 admin_control.sh avian-admin-control
 archive_control.sh avian-archive-control
 maintenance_control.sh avian-maintenance-control
+station_control.sh avian-station-control
 update_birdnet.sh avian-update-control
 reinstall_services.sh avian-service-refresh
 security_refresh.sh avian-security-refresh
@@ -86,6 +87,21 @@ EOF
     && [ "$(stat -c '%u:%g:%a:%h' -- "$educator_lock")" = \
       "0:$caddy_gid:660:1" ] \
     || { echo "Unsafe Educators coordination lock" >&2; return 1; }
+  # Restore uploads are staged here by station.php (running as caddy) and
+  # handed to the BirdNET-Pi user by avian-station-control.
+  restore_dir=$auth_state_dir/restore
+  if [ ! -e "$restore_dir" ] && [ ! -L "$restore_dir" ]; then
+    install -d -o root -g caddy -m 0770 "$restore_dir"
+  fi
+  # The analyzer's species lists, editable from Tools: the web server
+  # (caddy, in the BirdNET-Pi user's group) rewrites them in place.
+  for species_list in exclude include whitelist; do
+    species_file=${my_dir}/${species_list}_species_list.txt
+    if [ ! -e "$species_file" ] && [ ! -L "$species_file" ]; then
+      install -o "${BIRDNET_USER}" -g "${BIRDNET_USER}" -m 0664 /dev/null "$species_file"
+    fi
+    [ -f "$species_file" ] && [ ! -L "$species_file" ] && chmod g+rw "$species_file"
+  done
   # Live listening keeps its switch and session log here (live-listen.php,
   # running as caddy).
   listen_dir=$auth_state_dir/listen

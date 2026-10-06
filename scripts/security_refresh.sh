@@ -194,6 +194,7 @@ for helper in \
   /usr/local/sbin/avian-admin-control \
   /usr/local/sbin/avian-archive-control \
   /usr/local/sbin/avian-maintenance-control \
+  /usr/local/sbin/avian-station-control \
   /usr/local/sbin/avian-update-control \
   /usr/local/sbin/avian-service-refresh \
   /usr/local/sbin/avian-caddy-refresh \
@@ -267,7 +268,14 @@ caddy ALL=(root) NOPASSWD: /usr/local/sbin/avian-admin-control *, \
     /usr/local/sbin/avian-archive-control purge-off, \
     /usr/local/sbin/avian-maintenance-control status, \
     /usr/local/sbin/avian-maintenance-control update, \
-    /usr/local/sbin/avian-maintenance-control services
+    /usr/local/sbin/avian-maintenance-control services, \
+    /usr/local/sbin/avian-station-control reboot, \
+    /usr/local/sbin/avian-station-control poweroff, \
+    /usr/local/sbin/avian-station-control backup, \
+    /usr/local/sbin/avian-station-control backup-size, \
+    /usr/local/sbin/avian-station-control restore-status, \
+    /usr/local/sbin/avian-station-control restore-start, \
+    /usr/local/sbin/avian-station-control restore-clear
 EOF
 chmod 0440 "$sudoers_temp"
 visudo -cf "$sudoers_temp" >/dev/null
