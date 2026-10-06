@@ -1184,6 +1184,12 @@
   /* A vertical swipe that starts on a slider scrolls the page instead of
      dragging the thumb. */
   .slider-track input[type="range"] { touch-action: pan-y; }
+  /* Drag-only sliders: the track handles the pointer (see apt.js), so a tap
+     on the track never moves the value; keyboard focus stays on the input. */
+  .slider-track.drag-only { touch-action: pan-y; padding: 6px 0; margin-top: -4px; }
+  .slider-track.drag-only input[type="range"] { pointer-events: none; }
+  .slider-track.dragging { cursor: grabbing; }
+  .slider-track input[type="range"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 6px; }
 
   /* ============ View 1 - Collage (Galliformes-style poster) ============
      Viewport-fit, no scroll. The shared static-head provides the title;

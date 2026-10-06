@@ -8444,6 +8444,58 @@
         stageSetting(sl.dataset.key, +sl.value);
       });
     });
+    // Sliders move only when dragged by the thumb. A tap or press anywhere
+    // else on the track does nothing (no jump), and a swipe that starts off
+    // the thumb scrolls the page. The input itself ignores the pointer
+    // (CSS) and keeps its keyboard behaviour; the track does the dragging.
+    var GRAB = 22;   // px either side of the thumb's centre that count as grabbing it
+    function thumbCentre(sl) {
+      var r = sl.getBoundingClientRect();
+      var span = (+sl.max - +sl.min) || 1;
+      return r.left + 8 + ((+sl.value - +sl.min) / span) * (r.width - 16);
+    }
+    function valueAt(sl, x) {
+      var r = sl.getBoundingClientRect();
+      var ratio = Math.min(1, Math.max(0, (x - r.left - 8) / Math.max(1, r.width - 16)));
+      return +sl.min + ratio * (+sl.max - +sl.min);
+    }
+    scope.querySelectorAll('.slider-track').forEach(function (track) {
+      var sl = track.querySelector('input[type="range"]');
+      if (!sl) return;
+      track.classList.add('drag-only');
+      var dragging = null;
+      var near = function (x) { return Math.abs(x - thumbCentre(sl)) <= GRAB; };
+      track.addEventListener('touchstart', function (event) {
+        // Holding the thumb: keep the page still while it is dragged.
+        if (event.touches.length === 1 && near(event.touches[0].clientX)) event.preventDefault();
+      }, { passive: false });
+      track.addEventListener('pointerdown', function (event) {
+        if (event.button !== 0 || !near(event.clientX)) return;
+        event.preventDefault();
+        dragging = event.pointerId;
+        try { track.setPointerCapture(event.pointerId); } catch (e) { }
+        track.classList.add('dragging');
+        sl.focus({ preventScroll: true });
+      });
+      track.addEventListener('pointermove', function (event) {
+        if (dragging === null) {
+          if (event.pointerType === 'mouse') track.style.cursor = near(event.clientX) ? 'grab' : '';
+          return;
+        }
+        if (event.pointerId !== dragging) return;
+        var before = sl.value;
+        sl.value = valueAt(sl, event.clientX);   // the browser snaps it to the step
+        if (sl.value !== before) sl.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      var release = function (event) {
+        if (event.pointerId !== dragging) return;
+        dragging = null;
+        track.classList.remove('dragging');
+        try { track.releasePointerCapture(event.pointerId); } catch (e) { }
+      };
+      track.addEventListener('pointerup', release);
+      track.addEventListener('pointercancel', release);
+    });
     scope.querySelectorAll('[data-default-for]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var sl = scope.querySelector('input[type="range"][data-key="' + btn.dataset.defaultFor + '"]');
@@ -13195,18 +13247,6 @@
       + '</div>';
     html += '</div>';
 
-    // The stock BirdNET-Pi pages still live at /index.php behind the station's
-    // own login, from any address. Only the LAN-auth policy removes them.
-    if (!adminAuthMeta.lan_policy) {
-      html += '<h2 class="admin-section-head">classic</h2>';
-      html += '<div class="admin-actions-grid">';
-      html += '<a class="admin-action" href="/index.php" target="_blank" rel="noopener">'
-        + '<span class="run">open</span>'
-        + '<h4>classic birdnet-pi</h4>'
-        + '<p>the original birdnet-pi pages. log in as birdnet with your admin password</p>'
-        + '</a>';
-      html += '</div>';
-    }
     adminBody.innerHTML = html;
     adminBody.querySelectorAll('[data-admin-export]').forEach(function (link) {
       link.addEventListener('click', function (event) {
