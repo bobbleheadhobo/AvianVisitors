@@ -1035,6 +1035,15 @@
     font: 9px ui-monospace, Menlo, monospace; color: var(--ink-soft);
     letter-spacing: 0.04em;
   }
+  /* Who is on the mic now. Plain text, no plate; ink weight when someone
+     else is listening. */
+  .live-audio .label .listeners {
+    display: block; margin-top: 3px;
+    font: 11px/1.3 ui-monospace, Menlo, monospace; color: var(--ink-2);
+    letter-spacing: 0.02em;
+  }
+  .live-audio .label .listeners:empty { display: none; }
+  .live-audio .label .listeners[data-others] { color: var(--ink); font-weight: 600; }
   .live-audio button {
     background: var(--paper); border: 0; color: var(--ink);
     padding: 6px 12px; border-radius: 4px;
@@ -1123,6 +1132,51 @@
     box-shadow: var(--raised);
   }
   .menu-save-row button:disabled { opacity: 0.4; cursor: default; }
+
+  /* Settings save bar: pinned to the bottom of the settings scroll while
+     anything is staged; quiet otherwise. Text sits on the paper, the one
+     filled shape is the Save control. */
+  .settings-save-bar {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 14px -4px 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: var(--paper);
+    box-shadow: 0 -1px 0 var(--hairline);
+  }
+  .settings-save-bar[data-dirty="false"] { position: static; box-shadow: none; }
+  .settings-save-bar .save-count {
+    font: 600 11px/1.3 ui-monospace, Menlo, monospace; color: var(--ink); letter-spacing: 0.04em;
+  }
+  .settings-save-bar .save-count:empty { display: none; }
+  .settings-save-bar .save-state { font-size: 11px; }
+  .settings-save-bar[data-dirty="false"] .save-discard,
+  .settings-save-bar[data-dirty="false"] .save-go { visibility: hidden; }
+  .settings-save-bar .save-discard {
+    background: transparent; color: var(--ink-2); box-shadow: none;
+    text-decoration: underline; text-underline-offset: 3px; padding: 7px 6px;
+  }
+  .settings-save-bar button { min-height: 32px; padding: 0 14px; font-size: 11px; }
+  .settings-save-bar .save-discard { padding: 0 6px; }
+  /* The collage/stats/atlas switcher is hidden on admin pages, so the
+     admin screen can run to the bottom edge; otherwise the sticky save bar
+     floats over an empty 60px band. */
+  body.admin-on .admin-screen { bottom: 0; }
+  body.admin-on .admin-screen[data-admin-section="settings"] .admin-frame { padding-bottom: 0; }
+  .settings-save-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Slider defaults: a quiet link beside the value when it has moved off
+     BirdNET-Pi's shipped default, and one reset for the whole group. */
+  .slider-row .value-block { display: inline-flex; align-items: baseline; gap: 10px; }
+  .slider-default, .settings-reset {
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.04em;
+    color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px;
+  }
+  .slider-default:hover, .settings-reset:hover { color: var(--ink); }
+  .slider-default:focus-visible, .settings-reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .settings-reset-row { display: flex; justify-content: flex-end; margin: 2px 0 6px; }
+  /* A vertical swipe that starts on a slider scrolls the page instead of
+     dragging the thumb. */
+  .slider-track input[type="range"] { touch-action: pan-y; }
 
   /* ============ View 1 - Collage (Galliformes-style poster) ============
      Viewport-fit, no scroll. The shared static-head provides the title;
@@ -2693,28 +2747,18 @@ body.postcard-open { overflow: hidden; }
   .admin-title {
     text-align: center; margin: 0 auto 28px; padding: 0;
   }
-  .admin-screen[data-admin-section="settings"] .admin-title {
-    position: sticky; top: 18px; z-index: 6; isolation: isolate;
+  /* Every admin page keeps its title: it pins to the menu button's centre
+     line (40px on desktop) on a paper band as the page scrolls. */
+  .admin-screen .admin-title {
+    position: sticky; top: 22px; z-index: 6; isolation: isolate;
   }
-  .admin-screen[data-admin-section="settings"] .admin-title::before {
-    position: absolute; top: -18px; right: auto; bottom: -10px; left: 50%; z-index: -1;
+  .admin-screen .admin-title::before {
+    position: absolute; top: -22px; right: auto; bottom: -10px; left: 50%; z-index: -1;
     width: 100vw; transform: translateX(-50%);
     background: var(--paper); box-shadow: none;
     opacity: 1; content: ""; pointer-events: auto;
   }
-  .admin-screen[data-admin-section="settings"][data-title-pinned="true"] .admin-title::before {
-    box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 9%, transparent);
-  }
-  .admin-screen[data-admin-section="educators"] .admin-title {
-    position: sticky; top: 18px; z-index: 6; isolation: isolate;
-  }
-  .admin-screen[data-admin-section="educators"] .admin-title::before {
-    position: absolute; top: -18px; right: auto; bottom: -10px; left: 50%; z-index: -1;
-    width: 100vw; transform: translateX(-50%);
-    background: var(--paper); box-shadow: none;
-    opacity: 1; content: ""; pointer-events: auto;
-  }
-  .admin-screen[data-admin-section="educators"][data-title-pinned="true"] .admin-title::before {
+  .admin-screen[data-title-pinned="true"] .admin-title::before {
     box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 9%, transparent);
   }
   .admin-title h1 {
@@ -2725,7 +2769,7 @@ body.postcard-open { overflow: hidden; }
   /* Return-to-atlas pill in the same slot the time-window pill
      normally lives - matches its visual language. */
   .return-to-atlas {
-    position: fixed; top: 18px; left: 20px; z-index: 6;
+    position: fixed; top: 22px; left: 20px; z-index: 6;
     display: none; align-items: center; gap: 6px;
     padding: 0 14px; border-radius: 999px;
     min-height: var(--ctl-h); box-sizing: border-box;
@@ -2833,6 +2877,29 @@ body.postcard-open { overflow: hidden; }
   }
   table.admin-tbl button.restart:hover { color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink-soft) 45%, transparent); }
   table.admin-tbl button.restart[disabled] { opacity: .5; cursor: wait; }
+  /* Services on a phone: one quiet two-line row per service. Name, state
+     and restart on top; "since ..." underneath. "enabled" and "status only"
+     are the same on nearly every row, so they only show when they differ. */
+  @media (max-width: 700px) {
+    table.svc-tbl thead { display: none; }
+    table.svc-tbl tr {
+      display: grid; align-items: center; column-gap: 10px; row-gap: 2px;
+      grid-template-columns: minmax(0, 1fr) auto 64px;
+      padding: 8px 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--hairline) 60%, transparent);
+    }
+    table.svc-tbl tr:last-child { border-bottom: 0; }
+    table.svc-tbl td { padding: 0; border: 0; }
+    table.svc-tbl .svc-unit { grid-row: 1; grid-column: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12.5px; color: var(--ink); }
+    table.svc-tbl .svc-state { grid-row: 1; grid-column: 2; }
+    table.svc-tbl .svc-act { grid-row: 1; grid-column: 3; justify-self: end; }
+    table.svc-tbl .svc-act button.restart { min-height: 28px; }
+    table.svc-tbl .svc-act .muted { display: none; }
+    table.svc-tbl .svc-enabled, table.svc-tbl .svc-since { grid-column: 1 / -1; font-size: 11px; color: var(--ink-soft); }
+    table.svc-tbl .svc-enabled.is-ok { display: none; }
+    table.svc-tbl .svc-enabled:not(.is-ok) { color: var(--accent); }
+    table.svc-tbl .svc-since::before { content: "since "; }
+  }
   .admin-logs-toolbar {
     display: flex; gap: 8px; align-items: center; margin-bottom: 14px;
   }
@@ -3449,10 +3516,13 @@ body.postcard-open { overflow: hidden; }
      section heads + cards downsize. */
   @media (max-width: 700px) {
     .admin-screen { inset: 0 0 60px 0; }
+    /* One header row on phones: the back pill, the title and the menu
+       button share the menu button's centre line (12px + 27px control). */
+    .return-to-atlas { top: 12px; }
     .admin-frame { padding: 52px 14px 32px; }
     .admin-title { margin-bottom: 18px; }
-    .admin-screen[data-admin-section="settings"] .admin-title { top: 10px; }
-    .admin-screen[data-admin-section="settings"] .admin-title::before { top: -10px; }
+    .admin-screen .admin-title { top: 13px; }
+    .admin-screen .admin-title::before { top: -13px; bottom: -14px; }
     .admin-title h1 { font-size: 22px; }
     .admin-grid { gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
     /* Same sheet as a service card: same radius, same edge, same padding, so the
