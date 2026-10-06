@@ -17,6 +17,9 @@ Detections show up as a hand-illustrated collage of the birds that actually visi
 
 ## Operating Context
 - Served from the station over the LAN by Caddy + PHP-FPM; the collage is at `/`.
+- Also reached away from home through the owner's reverse proxy (Pangolin, with its own login) at a public hostname. Every request through it counts as remote: the admin menu needs the password, and live audio goes through the remote-listening relay.
+- The station runs in a Proxmox LXC; a microphone has to be passed through to the container (`/dev/snd`).
+- The fork keeps upstream's hardening: the web server has no general sudo, only root-owned helpers with fixed actions. New admin features follow that pattern rather than widening access.
 - Mostly viewed on phones, sometimes on desktop.
 - Upstream (`Twarner491/AvianVisitors`) keeps changing, and this fork pulls from it.
 - An e-ink wall frame (`frame/`) shows the same collage but is out of scope for UI design work.
@@ -24,7 +27,8 @@ Detections show up as a hand-illustrated collage of the birds that actually visi
 ## Capabilities and Constraints
 - In scope for design work: what you see in a browser on a phone or computer. That means the AvianVisitors home collage, Stats (by hour, most heard, life list, chart), Atlas (by family, alphabetical), postcards, and the surrounding chrome.
 - Out of scope: the bird illustrations themselves (`avian/assets/`, generation pipeline) and the e-ink frame.
-- The stock BirdNET-Pi PHP pages ("classic", linked from Tools) are in scope as a reskin only. `homepage/static/avian-classic.css` and `avian-classic.js` sit on top of the stock stylesheets. Page markup stays stock apart from the link tags and the return link, so upstream BirdNET-Pi changes keep merging. The Species Stats (Streamlit) and View Log frames are separate apps, and they keep their own look.
+- The admin pages (menu, Settings, System, Logs, Tools) are in scope; they are Operate surfaces in this system.
+- The stock BirdNET-Pi PHP pages ("classic", linked from the menu) are in scope as a reskin only, and are effectively read-only here: their Settings pages cannot save on the hardened station (settings live in the app). `homepage/static/avian-classic.css` and `avian-classic.js` sit on top of the stock stylesheets. Page markup stays stock apart from the link tags and the return link, so upstream BirdNET-Pi changes keep merging. The Species Stats (Streamlit) and View Log frames are separate apps, and they keep their own look.
 - The frontend is static HTML/CSS/JS in `avian/frontend/` with PHP shims in `avian/api/`, and there's no build step. Keep it that way.
 
 ## Brand Commitments

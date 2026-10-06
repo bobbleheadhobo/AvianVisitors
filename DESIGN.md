@@ -22,6 +22,12 @@ colors:
   moon-ink-soft: "#837c70"
   moon-accent: "#d8d2c6"
   danger-dark: "#dc8b81"
+  ok: "#4f7a55"
+  caution: "#a0711c"
+  bad: "#a3443a"
+  ok-dark: "#8ebf95"
+  caution-dark: "#d9b36a"
+  bad-dark: "#e08f84"
 typography:
   display:
     fontFamily: "ui-serif, 'Iowan Old Style', 'Bookman Old Style', Georgia, serif"
@@ -165,7 +171,7 @@ A near-monochrome warm palette: paper, ink and one umber. Color belongs to the b
 Applied by `data-theme="dark"` on `<html>` (auto by system preference, or chosen in Settings). Every role flips: **Charcoal** (`charcoal`) page, **Charcoal Recess** (`charcoal-recess`) tracks, **Charcoal Pill** (`charcoal-pill`) raised thumbs, **Moonlit Ink** (`moon-ink`) text, `moon-ink-2` secondary, `moon-ink-soft` muted, `moon-accent` accent, `danger-dark` destructive. The bird cutouts sit directly on the charcoal.
 
 ### Named Rules
-**The Birds Bring the Color Rule.** The interface never adds a hue. Ink, umber and paper only; any saturated color on screen comes from an illustration or a stamp.
+**The Birds Bring the Color Rule.** The interface never adds a hue. Ink, umber and paper only; any saturated color on screen comes from an illustration or a stamp. One exception: **health** on the admin pages. `--ok` (sage `#4f7a55` / `#8ebf95`), `--caution` (ochre `#a0711c` / `#d9b36a`) and `--bad` (brick `#a3443a` / `#e08f84`) mark passing, getting-close and failing states, only as 1px outlines and text, never fills, and never outside System / Tools / service pills.
 
 **The Variable-Only Rule.** Every UI color comes from a custom property on `:root` and its `[data-theme="dark"]` twin, so the theme flips without per-component overrides. Hard-coded `rgba(26,22,18,…)` hairlines are legacy; new work uses `--hairline`.
 
@@ -256,6 +262,26 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 
 ### Return Pill
 - A top-left pill on admin overlays: chevron + lowercase mono label ("collage", "educators").
+
+### Admin Header
+- On every admin page the return pill, the serif title and the menu button share one centre line (40px desktop, 26px phone). The title pins there on a paper band with a hairline as the page scrolls.
+
+### Menu Sheet Contents
+- **Live audio card:** pulse dot, "Live audio" with a mono hint ("raw microphone stream", "· remote" away from home) and an 11px mono line saying who is listening ("no one listening", "just you listening", "you and 1 other listening · away from home"); bold ink when someone else is on. Remote listening stops itself after 30 minutes: the button becomes "keep listening".
+- **Links:** settings / system / logs / tools in a two-up grid, then a full-width "classic birdnet-pi" link (new tab).
+
+### Settings Save Bar
+- Station settings are staged, never autosaved. A bar pinned to the bottom of the settings scroll, 44px, paper with a hairline above, appears only while something is staged: bold mono "N unsaved changes", an underlined "discard" and an ink-filled "save". With nothing staged it sits static at the end of the page. Leaving with staged changes asks first.
+- **Sliders** move only when dragged from the thumb (±22px grab zone); taps on the track do nothing and vertical swipes scroll. Off its default, a slider shows an underlined mono "default 0.70" link beside its value; "reset detection to defaults" sits under the group.
+
+### Health Cards (System)
+- Admin cards carry a 1px outline by state: `ok`, `warn` (caution), `alert` (bad, with the reading in bad too), or `info` (neutral ink-soft, for plain facts like uptime). Service pills take a green rim when active and a bad rim and text when failed.
+- **Services list:** one row per unit with what it does in the caption voice; on phones two lines (name and purpose; state pill and restart beside), "since" only on desktop.
+
+### Tools Cards
+- Admin action cards (title, mono caption, a pill top-right) in a grid; the caption keeps clear of the pill. "Your data" sits two by two.
+- **Species lists:** three cards (never log / only log / always allow), each a hairline ledger of serif names with italic scientific names and an underlined "remove", and a recessed search whose suggestions float on paper (birds heard here first, "heard 54" in ok). "Only log" takes a caution outline while it is filtering.
+- **Restore:** a thin ink progress rule while uploading, then underlined "restore now" (bad, bold) and "discard". Password-gated actions show an inline recessed password field with an ink "unlock".
 
 ### Classic BirdNET-Pi Pages
 - **What:** The stock pages at `/index.php` (Overview, Today's Detections, charts, reports, Recordings, Tools and its sub-pages), restyled in this system by `homepage/static/avian-classic.css`. That stylesheet loads after the stock `style.css` / `dark-style.css` and only overrides them. `avian-classic.js` applies the collage's saved light/dark choice (`bird:theme:v2`) before first paint.
