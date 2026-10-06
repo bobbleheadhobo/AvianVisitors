@@ -86,6 +86,15 @@ EOF
     && [ "$(stat -c '%u:%g:%a:%h' -- "$educator_lock")" = \
       "0:$caddy_gid:660:1" ] \
     || { echo "Unsafe Educators coordination lock" >&2; return 1; }
+  # Live listening keeps its switch and session log here (live-listen.php,
+  # running as caddy).
+  listen_dir=$auth_state_dir/listen
+  if [ ! -e "$listen_dir" ] && [ ! -L "$listen_dir" ]; then
+    install -d -o root -g caddy -m 0770 "$listen_dir"
+  fi
+  [ -d "$listen_dir" ] && [ ! -L "$listen_dir" ] \
+    && [ "$(stat -c '%u:%g:%a' -- "$listen_dir")" = "0:$caddy_gid:770" ] \
+    || { echo "Unsafe live listening directory" >&2; return 1; }
   # Initialize the verifier and atomically provision the derived rate state
   # before the first managed Caddy render. Runtime readers fail closed while
   # either state is absent, so a clean install must not defer this step.

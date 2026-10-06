@@ -12,6 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/admin-auth.php';
+require_once __DIR__ . '/live-listen-store.php';
 require_once __DIR__ . '/educator-state.php';
 require_once __DIR__ . '/educator-scope.php';
 
@@ -167,6 +168,7 @@ echo json_encode([
         'required' => $passwordRequired,
         'direct_local' => avian_is_direct_local_request($_SERVER),
         'lan_policy' => avian_lan_admin_auth_required(),
+        'remote_listen' => listen_remote_enabled(),
         'password_configured' => !empty($adminState['valid'])
             && !empty($adminState['configured']),
         'recovery' => empty($adminState['valid']),
