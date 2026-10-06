@@ -268,7 +268,7 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 - **Do** give every motion a `prefers-reduced-motion` alternative that still shows the state change.
 
 ### Don't:
-- **Don't** put a background behind reading text. Labels, names, headings, captions and counts sit directly on the paper. The owner finds backing plates (fills, frosted bars, highlight washes, chips) harder to read. Use ink weight, umber, or an underline for emphasis and hover instead. Incumbent exceptions to revisit: the frosted compact head bar, the paper-wash hover on menu links, and the 34% paper postcard backdrop.
+- **Don't** put a background behind reading text. Labels, names, headings, captions and counts sit directly on the paper. The owner finds backing plates (fills, frosted bars, highlight washes, chips) harder to read. Use ink weight, umber, or an underline for emphasis and hover instead. Incumbent exceptions to revisit: the frosted compact head bar and the 34% paper postcard backdrop.
 - **Don't** introduce a new hue, gradient accent, or colored chart series.
 - **Don't** use Faded Ink for anything the user must read to complete a task.
 - **Don't** shrink labels on phones below 11px; phones are the primary device.

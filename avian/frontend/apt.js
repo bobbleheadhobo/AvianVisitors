@@ -3204,7 +3204,8 @@
     if (el) el.innerHTML = '<span>' + label + '</span><span>' + (val == null || val === '' ? '-' : val) + '</span>';
   }
   function liRow(yr, label, ct, sci) {
-    var attr = sci ? ' data-sci="' + sci.replace(/"/g, '&quot;') + '"' : '';
+    // A row with a species opens it, so it is a keyboard stop like a link.
+    var attr = sci ? ' data-sci="' + sci.replace(/"/g, '&quot;') + '" tabindex="0" role="link"' : '';
     return '<li' + attr + '><span class="yr">' + yr + '</span><span>' + label + '</span><span class="ct">' + (ct == null ? '-' : ct) + '</span></li>';
   }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -3417,7 +3418,11 @@
         + '<div class="stats-tl-square" style="bottom:' + bottomPct.toFixed(1) + '%;width:' + sq.toFixed(1) + 'px;height:' + sq.toFixed(1) + 'px"></div>'
         + '<div class="stats-tl-label" style="bottom:calc(' + bottomPct.toFixed(1) + '% + ' + (sq + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
         + '</div>';
-      var showStamp = (i % stride === 0) || (i === C - 1);
+      // The last column always gets a stamp; drop the stride stamp just
+      // before it when the two would sit closer than a stride apart.
+      var lastStride = Math.floor((C - 1) / stride) * stride;
+      var crowdsLast = i === lastStride && i !== C - 1 && (C - 1 - i) < stride;
+      var showStamp = ((i % stride === 0) && !crowdsLast) || (i === C - 1);
       var lab = showStamp ? fmtTs(parseTs(s.last_seen)) : '';
       if (lab) xaxis += '<span class="stats-tl-xtick" style="left:' + centerPct.toFixed(3) + '%">' + lab + '</span>';
     });
@@ -13877,6 +13882,31 @@
       }
     }).observe(postcardSlot);
   }
+  // Back button closes the postcard. A postcard opened from an Atlas stamp
+  // has no #sci= entry of its own, so it gets a history entry; Back pops it
+  // and closes the card. Closing any other way (X, swipe, Escape, backdrop)
+  // steps back over that entry so it never lingers as a dead Back press.
+  // Postcards opened through #sci= already own a hash entry and the router
+  // closes them on Back.
+  var postcardHistoryPushed = false;
+  function pushPostcardHistory() {
+    if (postcardHistoryPushed || !window.history || typeof history.pushState !== 'function') return;
+    var state = Object.assign({}, history.state || {}, { avPostcard: true });
+    history.pushState(state, '', location.href);
+    postcardHistoryPushed = true;
+  }
+  function releasePostcardHistory() {
+    if (!postcardHistoryPushed) return;
+    postcardHistoryPushed = false;
+    // Only step back while our own entry is current; if something else has
+    // navigated since (a hash route), leave history alone.
+    if (history.state && history.state.avPostcard) history.back();
+  }
+  window.addEventListener('popstate', function (ev) {
+    if (!postcardHistoryPushed || (ev.state && ev.state.avPostcard)) return;
+    postcardHistoryPushed = false;
+    closePostcard();
+  });
   function clearSciHash() {
     if (!readHash()) return;
     var url = new URL(location.href);
@@ -14282,6 +14312,7 @@
       document.body.classList.remove('postcard-open');
     });
     clearSciHash();
+    releasePostcardHistory();
     activePostcardSci = '';
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = setTimeout(function () {
@@ -14298,7 +14329,7 @@
     if (!postcardModal || !postcardSlot || !card) return jumpToSci(card && card.dataset.sci);
     if (!privateEducatorCardCurrent(card)) { clearSciHash(); return false; }
     options = options || {};
-    if (!options.preserveHash) clearSciHash();
+    if (!options.preserveHash) { clearSciHash(); pushPostcardHistory(); }
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = 0;
     releasePostcardFlight();
@@ -14323,7 +14354,7 @@
     if (!postcardModal || !postcardSlot || !card) return jumpToSci(card && card.dataset.sci);
     if (!privateEducatorCardCurrent(card)) { clearSciHash(); return false; }
     options = options || {};
-    if (!options.preserveHash) clearSciHash();
+    if (!options.preserveHash) { clearSciHash(); pushPostcardHistory(); }
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = 0;
     releasePostcardFlight();
@@ -14479,6 +14510,14 @@
     if (tlCol) return jumpToSci(tlCol.dataset.sci);
     var hmRow = ev.target.closest('.heatmap-row[data-sci]');
     if (hmRow) return jumpToSci(hmRow.dataset.sci);
+  });
+  // Enter on a focused Stats row does what a click does.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' || !ev.target.matches) return;
+    if (ev.target.matches('.stats-side li[data-sci]')) {
+      ev.preventDefault();
+      jumpToSci(ev.target.dataset.sci);
+    }
   });
 
   // After the atlas re-renders (window change, fresh fetch), re-apply

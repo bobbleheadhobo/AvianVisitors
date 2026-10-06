@@ -4601,6 +4601,9 @@ body.av-local #dd-items  { display: block; }
 .menu-section h3 { font-size: 11px; }
 .atlas-empty p.hint { font-size: 12px; }
 .menu-links a { font-size: 12px; }
+.menu-items a:hover { background: none; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.stats-side li[data-sci]:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.stats-side li[data-sci]:focus-visible span:not(.yr):not(.ct) { color: var(--accent); text-decoration-color: currentColor; }
 .live-audio button { font-size: 11px; }
 .live-audio .label .hint { font-size: 11px; }
 
