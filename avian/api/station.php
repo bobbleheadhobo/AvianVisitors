@@ -10,6 +10,13 @@
 //
 // Every privileged step runs through /usr/local/sbin/avian-station-control,
 // a root-owned helper the web server may call with fixed actions only.
+//
+// A backup holds the station's secrets (API keys, notification webhooks)
+// and a restore puts back birdnet.conf, which BirdNET-Pi's services run as
+// shell. Both need a password-backed admin session, not just the LAN's
+// implicit trust:
+//   GET ?proof=1   204 with such a session; send the password once
+//                  (Authorization + X-Avian-Credential) to make one
 
 declare(strict_types=1);
 
@@ -48,7 +55,13 @@ function station_control(string $action): array {
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 if ($method === 'GET') {
+    if (isset($_GET['proof'])) {
+        avian_require_admin_proof();
+        http_response_code(204);
+        exit;
+    }
     if (isset($_GET['backup'])) {
+        avian_require_admin_proof();
         if (!is_executable(STATION_CONTROL)) station_json(503, ['ok' => false, 'error' => 'station control is not installed']);
         $name = 'birdnet-backup-' . date('Y-m-d-His') . '.tar';
         header('Content-Type: application/x-tar');
@@ -79,6 +92,7 @@ $type = strtolower(trim(explode(';', (string)($_SERVER['CONTENT_TYPE'] ?? ''), 2
 
 // ---- restore upload, one chunk at a time ------------------------------
 if ($type === 'application/octet-stream') {
+    avian_require_admin_proof();
     $offset = filter_var($_SERVER['HTTP_X_UPLOAD_OFFSET'] ?? '', FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
     $total = filter_var($_SERVER['HTTP_X_UPLOAD_TOTAL'] ?? '', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if ($offset === false || $total === false || $total > STATION_UPLOAD_MAX || $offset >= $total) {
@@ -129,5 +143,6 @@ $expected = [
 if (!isset($expected[$action]) || !hash_equals($expected[$action], $confirm)) {
     station_json(400, ['ok' => false, 'error' => 'confirmation required']);
 }
+if ($action === 'restore-start' || $action === 'restore-clear') avian_require_admin_proof();
 [$status, $result] = station_control($action);
 station_json($status, $result);

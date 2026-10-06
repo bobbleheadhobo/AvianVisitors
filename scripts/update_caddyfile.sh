@@ -751,7 +751,7 @@ ${site_overlay_import}  root * $AVIAN_EXTRACTED_ROOT
   # AvianVisitors' session gate. Protect the whole legacy surface with the
   # configured password, or limit it to direct read pages when none exists.
   @legacySurface {
-    path /index.php /index.php/* /views.php /views.php/* /play.php /play.php/* /spectrogram.php /spectrogram.php/* /overview.php /overview.php/* /stats.php /stats.php/* /todays_detections.php /todays_detections.php/* /history.php /history.php/* /weekly_report.php /weekly_report.php/* /scripts /scripts/* /Processed /Processed/* /terminal /terminal/* /log /log/* /stats /stats/* /phpsysinfo /phpsysinfo/*
+    path $legacy_surface_paths
   }
   @legacyAdmin {
     path /index.php /index.php/* /views.php /views.php/* /play.php /play.php/* /spectrogram.php /spectrogram.php/* /overview.php /overview.php/* /stats.php /stats.php/* /todays_detections.php /todays_detections.php/* /history.php /history.php/* /weekly_report.php /weekly_report.php/* /scripts /scripts/* /terminal /terminal/* /log /log/* /stats /stats/* /phpsysinfo /phpsysinfo/*

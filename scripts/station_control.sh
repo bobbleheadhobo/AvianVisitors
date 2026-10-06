@@ -53,6 +53,15 @@ backup_script=$birdnet_home/BirdNET-Pi/scripts/backup_data.sh
 
 as_birdnet() { runuser -u "$birdnet_user" -- "$@"; }
 
+# Backup and restore both stop the core services and touch the same data;
+# never run them together.
+restore_running() {
+  local active
+  active=$(systemctl is-active "$restore_unit.service" 2>/dev/null || true)
+  [ "$active" = active ] || [ "$active" = activating ]
+}
+backup_running() { pgrep -f -- "$backup_script -a (backup|restore)" >/dev/null 2>&1; }
+
 # Power: answer first, act a few seconds later so the page hears back.
 power() {
   local verb=$1
@@ -83,6 +92,7 @@ restore_start() {
   local active target
   active=$(systemctl is-active "$restore_unit.service" 2>/dev/null || true)
   [ "$active" = active ] || [ "$active" = activating ] && fail 'a restore is already running'
+  backup_running && fail 'a backup is being written; try again when it finishes'
   [ -f "$staged" ] && [ ! -L "$staged" ] || fail 'no uploaded backup to restore'
   local listing
   listing=$(tar --list -f "$staged" 2>/dev/null) || fail 'the uploaded file is not a backup archive'
@@ -109,6 +119,8 @@ case "$action" in
   poweroff) power poweroff ;;
   backup)
     # The archive goes to stdout; the caller streams it to the browser.
+    restore_running && { echo 'a restore is running' >&2; exit 1; }
+    backup_running && { echo 'a backup or restore is already running' >&2; exit 1; }
     cd /
     exec runuser -u "$birdnet_user" -- "$backup_script" -a backup -f -
     ;;

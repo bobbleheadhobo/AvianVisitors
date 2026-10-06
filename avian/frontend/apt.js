@@ -13190,17 +13190,28 @@
     }
     html += dataCard('detections', 'every detection as csv: date, species, confidence, file', 'detections');
     html += dataCard('recordings', 'every clip as tar, by date and species. can run to many gb', 'recordings');
-    html += '<a class="admin-action" href="./avian/api/station.php?backup=1" download data-backup>'
-      + '<span class="run">download</span>'
+    // Backup and restore carry the station's secrets and its config, so
+    // they need the admin password (once per session), not LAN trust.
+    html += '<div class="admin-action" data-backup>'
+      + '<a class="run" href="./avian/api/station.php?backup=1" download data-backup-link>download</a>'
       + '<h4>full backup</h4>'
       + '<p>detections, settings, species lists, charts and recordings in one file, to restore here or on a new station.'
       + ' recording pauses while it is written. <span data-backup-size></span></p>'
-      + '</a>';
+      + '<form class="proof-form" data-proof-form hidden>'
+      + '<input type="password" autocomplete="current-password" placeholder="admin password" aria-label="admin password" data-proof-pass>'
+      + '<button type="submit">unlock</button>'
+      + '</form>'
+      + '<span class="state out" data-proof-status role="status" aria-live="polite"></span>'
+      + '</div>';
     html += '<div class="admin-action" data-restore>'
       + '<button type="button" class="run" data-restore-pick>choose</button>'
       + '<h4>restore a backup</h4>'
       + '<p>replaces this station\'s detections, settings and recordings with those in a full backup</p>'
       + '<input type="file" accept=".tar,application/x-tar" data-restore-file hidden>'
+      + '<form class="proof-form" data-proof-form hidden>'
+      + '<input type="password" autocomplete="current-password" placeholder="admin password" aria-label="admin password" data-proof-pass>'
+      + '<button type="submit">unlock</button>'
+      + '</form>'
       + '<progress class="restore-progress" max="1" value="0" hidden></progress>'
       + '<div class="restore-actions" hidden>'
       + '<button type="button" class="restore-go" data-restore-go>restore now</button>'
@@ -13512,8 +13523,11 @@
         var b = event.target.closest('.species-remove');
         if (b) change('remove', b.dataset.sci);
       });
-      document.addEventListener('click', function (event) {
-        if (document.body.contains(card) && !card.contains(event.target)) closeSuggest();
+      // Close when focus leaves the card (no page-wide listener per render).
+      card.addEventListener('focusout', function (event) {
+        if (!event.relatedTarget || !card.contains(event.relatedTarget)) setTimeout(function () {
+          if (!card.contains(document.activeElement)) closeSuggest();
+        }, 120);
       });
     });
   }
@@ -13526,12 +13540,65 @@
       body: JSON.stringify(body),
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        if (r.status === 401) stationProven = false;
+        if (!r.ok || !j.ok) throw new Error(r.status === 401 ? 'unlock with your admin password first' : (j.error || ('HTTP ' + r.status)));
         return j;
       });
     });
   }
+  // Password-backed session for backup and restore. `proven` is checked
+  // when Tools opens so a click can act synchronously (file pickers and
+  // downloads need the click's own gesture); without it the card asks for
+  // the password inline, once.
+  var stationProven = false;
+  function stationProofCheck() {
+    return fetch('./avian/api/station.php?proof=1', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { stationProven = r.status === 204; return stationProven; })
+      .catch(function () { return false; });
+  }
+  function askStationPassword(card, why) {
+    var form = card.querySelector('[data-proof-form]');
+    var status = card.querySelector('[data-proof-status], [data-restore-status]');
+    if (!form) return;
+    form.hidden = false;
+    if (status) { status.textContent = why || 'enter your admin password to continue'; status.classList.remove('err'); }
+    var input = form.querySelector('[data-proof-pass]');
+    input.focus();
+    if (form.dataset.wired) return;
+    form.dataset.wired = '1';
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var hdr = adminBasicAuthorization(input.value);
+      input.value = '';
+      if (!hdr) return;
+      fetch('./avian/api/station.php?proof=1', {
+        credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Authorization': hdr, 'X-Avian-Credential': '1' },
+      }).then(function (r) {
+        if (r.status === 204) {
+          stationProven = true;
+          form.hidden = true;
+          if (status) status.textContent = 'unlocked. go ahead';
+          return;
+        }
+        if (status) {
+          status.textContent = r.status === 429 ? 'too many tries. wait a moment' : 'that password did not work';
+          status.classList.add('err');
+        }
+        input.focus();
+      }).catch(function () {
+        if (status) { status.textContent = 'could not reach the station'; status.classList.add('err'); }
+      });
+    });
+  }
   function wireStationControls(root) {
+    stationProofCheck();
+    var backup = root.querySelector('[data-backup]');
+    if (backup) backup.querySelector('[data-backup-link]').addEventListener('click', function (event) {
+      if (stationProven) return;   // the link downloads as a normal navigation
+      event.preventDefault();
+      askStationPassword(backup, 'enter your admin password, then press download again');
+    });
     var size = root.querySelector('[data-backup-size]');
     if (size) adminJson('./avian/api/station.php?size=1').then(function (j) {
       if (j && j.ok) size.textContent = 'about ' + adminFmtBytes(j.bytes) + '.';
@@ -13568,7 +13635,10 @@
         }).catch(function () { });
       }
       poll();
-      pick.addEventListener('click', function () { file.click(); });
+      pick.addEventListener('click', function () {
+        if (!stationProven) { askStationPassword(card, 'enter your admin password, then press choose again'); return; }
+        file.click();
+      });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0];
         if (!f) return;
@@ -13588,6 +13658,7 @@
             body: slice,
           }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) {
+              if (r.status === 401) { stationProven = false; throw new Error('the admin session ended. unlock and choose the file again'); }
               if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
               offset = j.have;
               bar.value = offset / f.size;
@@ -13600,6 +13671,7 @@
             bar.hidden = true;
             pick.disabled = false;
             say('upload failed: ' + error.message, true);
+            if (!stationProven) askStationPassword(card, 'upload failed: the admin session ended. unlock, then choose the file again');
           });
         }
         say('uploading...');
@@ -13607,6 +13679,7 @@
         file.value = '';
       });
       card.querySelector('[data-restore-go]').addEventListener('click', function () {
+        if (!stationProven) { askStationPassword(card, 'enter your admin password, then press restore now again'); return; }
         if (!confirm('Restore this backup? It replaces every detection, setting and recording on this station. Recording pauses until it finishes.')) return;
         actions.hidden = true;
         say('starting the restore...');
@@ -13636,7 +13709,7 @@
         out.textContent = verb === 'reboot' ? 'rebooting in a few seconds...' : 'shutting down in a few seconds...';
         stationPost({ action: verb, confirm: verb === 'reboot' ? 'reboot-station' : 'shut-down-station' }).then(function () {
           out.textContent = verb === 'reboot'
-            ? 'rebooting. this page will reconnect when the station is back.'
+            ? 'rebooting. refresh this page in a minute or two.'
             : 'shutting down. the station is going offline.';
         }).catch(function (error) {
           if (adminAuthCancelled(error)) return;

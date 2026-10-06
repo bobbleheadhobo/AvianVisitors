@@ -161,6 +161,13 @@ if ($method === 'GET' && isset($_GET['grant'])) {
     }
     [$audio, $first] = $upstream;
     $sessionId = listen_session_begin($server, $cookie);
+    // A remote session that can't be logged can't be announced either:
+    // refuse it rather than stream unseen.
+    if ($sessionId === null && !$direct) {
+        fclose($audio);
+        flock($slot, LOCK_UN); fclose($slot);
+        listen_json(503, ['ok' => false, 'error' => 'listening log unavailable, try again']);
+    }
 
     header('Content-Type: audio/mpeg');
     header('Cache-Control: private, no-store, max-age=0');

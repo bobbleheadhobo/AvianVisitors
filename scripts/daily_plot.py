@@ -268,12 +268,16 @@ def main(daemon, sleep_m):
         # or every day the station recorded while the daemon was down), a
         # few per pass so a long backlog never stalls today's chart.
         for day in [now] + stale_days(now, 6):
-            data, time = get_data(day)
-            if not data.empty:
-                create_plot(data, time)
-                create_phone_plot(data, time)
-            elif day is now:
-                print('empty dataset')
+            try:
+                data, time = get_data(day)
+                if not data.empty:
+                    create_plot(data, time)
+                    create_phone_plot(data, time)
+                elif day is now:
+                    print('empty dataset')
+            except Exception as e:  # one bad day must not stop the daemon
+                print(f"chart for {day.strftime('%Y-%m-%d')} failed: {e!r}")
+                plt.close('all')
         if daemon:
             sleep(60 * sleep_m)
         else:

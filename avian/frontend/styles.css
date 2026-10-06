@@ -3042,6 +3042,18 @@ body.postcard-open { overflow: hidden; }
     text-decoration: underline; text-underline-offset: 3px; color: var(--ink-2);
   }
   .restore-actions .restore-go { color: var(--bad); font-weight: 700; }
+  /* Inline admin password for backup and restore. */
+  .proof-form { display: flex; gap: 8px; margin: 6px 0; }
+  .proof-form[hidden] { display: none; }
+  .proof-form input {
+    flex: 1; min-width: 0; min-height: 32px; padding: 4px 10px; border: 0; border-radius: 6px;
+    background: var(--paper-2); box-shadow: var(--recess); color: var(--ink); font: 13px ui-monospace, Menlo, monospace;
+  }
+  .proof-form button {
+    border: 0; border-radius: 999px; padding: 0 14px; min-height: 32px; cursor: pointer;
+    background: var(--ink); color: var(--paper); font: 11px ui-monospace, Menlo, monospace; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .proof-form input:focus-visible, .proof-form button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .admin-action .out {
     margin-top: 10px; font: 10.5px ui-monospace, Menlo, monospace;
     color: var(--ink-soft); white-space: pre-wrap;

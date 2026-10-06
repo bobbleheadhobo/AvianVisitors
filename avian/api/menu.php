@@ -21,6 +21,11 @@ $menuAction = (string)($_GET['action'] ?? '');
 if ($menuAction === 'lock') {
     avian_require_json_action();
     avian_logout_admin_session($_SERVER);
+    // Locking also ends any classic-pages pass (classic.php).
+    setcookie('avian_classic', '', [
+        'expires' => time() - 42000, 'path' => '/', 'secure' => avian_request_is_https($_SERVER),
+        'httponly' => true, 'samesite' => 'Strict',
+    ]);
     echo json_encode(['ok' => true]);
     exit;
 }

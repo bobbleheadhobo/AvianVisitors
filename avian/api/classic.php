@@ -5,21 +5,27 @@
 // reverse proxies never show the Basic login box, so the menu's "classic"
 // link comes here first:
 //
-//   GET ?open=1    admin session required: set a signed "avian_classic"
-//                  cookie (8 hours, path /) and go on to /index.php
-//   GET ?check=1   Caddy's forward_auth for classic requests that carry
-//                  the cookie: 204 when it (or Basic credentials) is valid,
-//                  otherwise 401 with the usual Basic challenge
+//   GET ?open=1    with an unlocked admin session (one made with the
+//                  password, never the LAN's implicit trust): set a signed
+//                  "avian_classic" cookie (2 hours, path /, SameSite=Strict)
+//                  and go on to /index.php. Without one, go to /index.php
+//                  anyway and let the Basic prompt ask for the password.
+//   GET ?check=1   loopback only, Caddy's forward_auth for classic requests
+//                  that carry the cookie: 204 when it (or rate-limited Basic
+//                  credentials) is valid, otherwise 401 with the challenge
 //
-// The cookie is signed with the admin password's stored verifier and the
-// auth epoch, so changing the password or the auth policy voids every pass.
+// The classic pages include a web terminal and file manager, so the pass is
+// only ever minted from the password. It is signed with the admin
+// password's stored verifier and the auth epoch: changing the password or
+// the auth policy voids every pass, and locking the admin controls clears
+// it from the browser (menu.php?action=lock).
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/admin-auth.php';
 
 const CLASSIC_COOKIE = 'avian_classic';
-const CLASSIC_TTL = 28800;
+const CLASSIC_TTL = 7200;
 
 function classic_signature(array $state, int $expires): string {
     return hash_hmac('sha256', "classic|$expires|" . (string)$state['epoch'], (string)$state['verifier']);
@@ -42,6 +48,7 @@ header('X-Content-Type-Options: nosniff');
 $state = avian_admin_state();
 
 if (isset($_GET['check'])) {
+    if ((string)($_SERVER['REMOTE_ADDR'] ?? '') !== '127.0.0.1') avian_api_fail(404, 'not found');
     if (classic_available($state)) {
         if (classic_cookie_valid($state, (string)($_COOKIE[CLASSIC_COOKIE] ?? ''))) {
             http_response_code(204);
@@ -49,10 +56,11 @@ if (isset($_GET['check'])) {
         }
         // A stale pass: fall back to the Basic credentials the gate would
         // have asked for without the cookie.
+        // Rate-limited like the app's own login.
         $user = $_SERVER['PHP_AUTH_USER'] ?? null;
         $pass = $_SERVER['PHP_AUTH_PW'] ?? null;
-        if (is_string($user) && is_string($pass) && hash_equals('birdnet', $user)
-            && avian_admin_password_matches($pass, $state)) {
+        if (is_string($user) && is_string($pass)
+            && !empty(avian_admin_password_attempt($_SERVER, $state, $user, $pass)['allowed'])) {
             http_response_code(204);
             exit;
         }
@@ -63,15 +71,20 @@ if (isset($_GET['check'])) {
 }
 
 if (isset($_GET['open'])) {
-    avian_require_admin();
     if (!classic_available($state)) avian_api_fail(404, 'the classic pages are switched off');
+    if (!avian_admin_session_valid($_SERVER, $state)) {
+        // No password-backed session (e.g. a LAN device the app trusts
+        // without one): no pass. The classic site's own prompt asks.
+        header('Location: /index.php', true, 303);
+        exit;
+    }
     $expires = time() + CLASSIC_TTL;
     setcookie(CLASSIC_COOKIE, $expires . '.' . classic_signature($state, $expires), [
         'expires' => $expires,
         'path' => '/',
         'secure' => avian_request_is_https($_SERVER),
         'httponly' => true,
-        'samesite' => 'Lax',
+        'samesite' => 'Strict',
     ]);
     header('Location: /index.php', true, 303);
     exit;
