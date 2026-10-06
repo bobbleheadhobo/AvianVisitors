@@ -158,7 +158,7 @@ if(isset($_GET['view'])){
   if($_GET['view'] == "Kiosk"){$kiosk = true;include('todays_detections.php');}
   if($_GET['view'] == "Species Stats"){include('stats.php');}
   if($_GET['view'] == "Weekly Report"){include('weekly_report.php');}
-  if($_GET['view'] == "Streamlit"){echo "<iframe src=\"stats\"></iframe>";}
+  if($_GET['view'] == "Streamlit"){include('scripts/avian_stats.php');}
   if($_GET['view'] == "Daily Charts"){include('history.php');}
   if($_GET['view'] == "Tools"){
     ensure_authenticated();

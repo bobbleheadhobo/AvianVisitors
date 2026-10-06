@@ -1,0 +1,324 @@
+/* Avian Visitors stats (scripts/avian_stats.php), on the classic pages.
+   Builds on the tokens in avian-classic.css. Data marks are hard-edged ink
+   squares and bars seamed by paper; labels and figures are tracked mono,
+   bird names are serif; nothing sits on a fill behind reading text. */
+
+.av-stats {
+  --sq: 17px;
+  --sq-gap: 3px;
+  --mark-1: color-mix(in srgb, var(--ink) 26%, var(--paper));
+  --mark-2: color-mix(in srgb, var(--ink) 48%, var(--paper));
+  --mark-3: color-mix(in srgb, var(--ink) 72%, var(--paper));
+  --mark-4: var(--ink);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 4px 0 24px;
+}
+.av-stats p { max-width: none; margin-left: 0; margin-right: 0; }
+.av-stats a { color: var(--ink); }
+.as-fig { font: 500 0.9em/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.as-dim { color: var(--quiet); }
+.as-empty { font-style: italic; color: var(--quiet); }
+
+/* ---- head: range + presets ----------------------------------------- */
+
+.as-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 14px 24px;
+  margin: 6px 0 22px;
+}
+.as-span {
+  margin: 0;
+  font: 700 clamp(22px, 2.6vw, 32px)/1.1 var(--serif);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.as-presets {
+  display: inline-flex; gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  box-shadow: var(--recess);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.as-presets a, .as-presets a:visited {
+  display: inline-flex; align-items: center;
+  min-height: 32px; padding: 0 14px;
+  border-radius: 999px;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--quiet-strong);
+  text-decoration: none;
+  transition: color 200ms ease, background-color 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+.as-presets a:hover { color: var(--ink); }
+.as-presets a[aria-current] { background: var(--pill); box-shadow: var(--raised); color: var(--ink); }
+
+/* ---- calendar: the filter ------------------------------------------ */
+
+.as-cal { margin: 0 0 22px; }
+.as-cal-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 6px; }
+/* The grid's own end padding keeps today's week, its outline and the last
+   month label inside the frame when phones pin the scroll to the end. */
+.as-cal-months, .as-cal-grid, .as-cal-key { padding: 0 18px 0 4px; box-sizing: content-box; }
+.as-cal-months, .as-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(53, var(--sq));
+  column-gap: var(--sq-gap);
+  width: max-content;
+  margin: 0 auto;
+}
+.as-cal-months { margin-bottom: 6px; height: 14px; }
+.as-cal-months a, .as-cal-months a:visited {
+  grid-row: 1;
+  font: 500 11px/14px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--quiet-strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.as-cal-months a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.as-cal-grid {
+  grid-template-rows: repeat(7, var(--sq));
+  grid-auto-flow: column;
+  row-gap: var(--sq-gap);
+}
+.as-day { display: block; transition: opacity 200ms ease; }
+.as-day.l0 { box-shadow: inset 0 0 0 1px var(--hairline); }
+.as-day.l1 { background: var(--mark-1); }
+.as-day.l2 { background: var(--mark-2); }
+.as-day.l3 { background: var(--mark-3); }
+.as-day.l4 { background: var(--mark-4); }
+/* The span reads at full ink; everything outside it steps well back. */
+.as-day:not(.is-in) { opacity: 0.2; }
+.as-day.l0.is-in { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 55%, transparent); }
+.as-day:hover, .as-day:focus-visible { opacity: 1; outline: 1.5px solid var(--ink-2); outline-offset: 1px; }
+.as-day.is-today { outline: 1px dashed var(--ink-2); outline-offset: 2px; }
+.as-day.is-pick { outline: 2.5px solid var(--ink); outline-offset: 2px; opacity: 1; }
+.as-day.is-future { visibility: hidden; }
+.as-cal-key {
+  display: flex; align-items: center; justify-content: flex-start; gap: 4px;
+  margin: 10px auto 0 !important; width: calc(53 * (var(--sq) + var(--sq-gap)) - var(--sq-gap)) !important; max-width: none !important;
+  font: 500 11px/1 var(--mono); letter-spacing: 0.08em; color: var(--quiet);
+}
+.as-cal-key span { margin: 0 4px; }
+.as-cal-key i { width: 11px; height: 11px; }
+.as-cal-key .l1 { background: var(--mark-1); } .as-cal-key .l2 { background: var(--mark-2); }
+.as-cal-key .l3 { background: var(--mark-3); } .as-cal-key .l4 { background: var(--mark-4); }
+.as-cal-key-span { display: inline-flex; align-items: center; gap: 6px; margin-left: 18px !important; }
+.as-cal-key .is-span { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 55%, transparent); }
+
+/* ---- the sentence ----------------------------------------------------- */
+
+.as-summary {
+  max-width: 62ch !important;
+  margin: 0 auto 40px !important;
+  font: 400 19px/1.6 var(--serif);
+  color: var(--ink-2);
+  text-align: center;
+  text-wrap: balance;
+}
+.as-summary b { font: 600 0.88em/1 var(--mono); letter-spacing: 0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---- panels ------------------------------------------------------------ */
+
+.as-pair { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px 56px; margin-bottom: 48px; }
+.as-pair-species { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+.as-panel { min-width: 0; }
+.as-panel > h2, .as-bird-name {
+  margin: 0;
+  padding-left: 10px;
+  box-shadow: inset 2px 0 0 var(--ink-2);
+  font: 700 12px/1.3 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.as-sub { margin: 4px 0 16px; padding-left: 12px; font: 400 12px/1.4 var(--mono); color: var(--quiet); }
+.as-axis {
+  display: flex; justify-content: space-between; gap: 8px;
+  margin: 6px 0 0;
+  font: 500 11px/1.2 var(--mono); letter-spacing: 0.06em; color: var(--quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trend: one ink bar per day (or week, or month), species as dots under. */
+.as-bars, .as-dots {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(1px, 1fr));
+  column-gap: clamp(1px, calc(240px / var(--n)), 6px);
+}
+.as-bars { height: 170px; align-items: end; box-shadow: inset 0 -1px 0 var(--hairline); }
+.as-bar { display: flex; align-items: flex-end; height: 100%; text-decoration: none; }
+.as-bar i { display: block; width: 100%; min-height: 1px; background: var(--ink); transition: background-color 140ms ease; }
+.as-bar:hover i, .as-bar:focus-visible i { background: var(--ink-2); }
+.as-bar.is-out i { background: var(--mark-1); }
+.as-dots .is-out i { opacity: .35; }
+.as-dots { height: 36px; margin-top: 8px; }
+.as-dots span { position: relative; }
+.as-dots i { position: absolute; left: 50%; width: 5px; height: 5px; margin: 0 0 -2px -2.5px; background: var(--ink-2); }
+
+/* Time of day: 48 half-hour bars over a shaded night. */
+.as-clock, .as-rhythm {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(48, 1fr);
+  column-gap: 1px;
+  height: 130px;
+  align-items: end;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.as-rhythm { grid-template-columns: repeat(24, 1fr); column-gap: 2px; height: 76px; }
+.as-night { position: absolute; top: 0; bottom: 0; background: var(--paper-2); }
+.as-tick { position: relative; display: flex; align-items: flex-end; height: 100%; }
+.as-tick i { display: block; width: 100%; background: var(--ink); }
+.as-axis-clock span:first-child { text-align: left; }
+.as-facts {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px; margin: 18px 0 0;
+}
+.as-facts dt, .as-ledger dt {
+  float: none;
+  font: 600 11px/1.3 var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--quiet);
+}
+.as-facts dd { margin: 2px 0 0; font: 500 15px/1.3 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.as-facts dd::before, .as-ledger dd::before { content: none; }
+.as-note { margin: 16px 0 0 !important; font: 400 15px/1.5 var(--serif); color: var(--ink-2); }
+
+/* Who sings when: species x hour, square size by detections. */
+.as-who { margin-bottom: 48px; }
+.as-who-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.as-who-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) repeat(24, minmax(20px, 1fr));
+  min-width: 680px;
+  align-items: stretch;
+}
+.as-who-corner { box-shadow: inset 0 -1px 0 var(--hairline); }
+.as-who-h {
+  padding: 0 0 6px;
+  font: 500 11px/1 var(--mono); color: var(--quiet); text-align: center;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.as-who-h.is-minor { color: transparent; }
+.as-who-name, .as-who-name:visited {
+  display: flex; align-items: center;
+  padding: 0 12px 0 0;
+  font: 400 15px/1.2 var(--serif);
+  color: var(--ink); text-decoration: none;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.as-who-name:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.as-who-cell {
+  position: relative;
+  aspect-ratio: 1;
+  box-shadow: inset 0 -1px 0 var(--hairline), inset 1px 0 0 color-mix(in srgb, var(--hairline) 55%, transparent);
+}
+.as-who-cell.is-night { background: var(--paper-2); }
+.as-who-cell i {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(var(--s) * 76%); height: calc(var(--s) * 76%);
+  transform: translate(-50%, -50%);
+  background: var(--ink);
+}
+
+/* Records: the life list and a ledger of firsts and bests. */
+.as-records {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: 56px;
+  margin-bottom: 48px;
+}
+.as-records > h2, .as-records > .as-sub { grid-column: 1 / -1; }
+.as-life-n { margin: 0 0 12px !important; font: 400 19px/1.4 var(--serif); color: var(--ink-2); }
+.as-big { font: 600 1.5em/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.as-life { display: flex; flex-direction: column; }
+.as-growth { display: block; flex: 1 1 auto; width: 100%; min-height: 96px; height: auto; color: var(--ink); box-shadow: inset 0 -1px 0 var(--hairline); overflow: visible; }
+.as-ledger { margin: 0; }
+.as-ledger > div {
+  display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px;
+  padding: 10px 0;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.as-ledger > div:first-child { box-shadow: inset 0 1px 0 var(--hairline), inset 0 -1px 0 var(--hairline); }
+.as-ledger dt { padding-top: 3px; }
+.as-ledger dd { margin: 0; font: 400 16px/1.45 var(--serif); color: var(--ink); }
+.as-ledger-tight > div { grid-template-columns: 112px minmax(0, 1fr); padding: 8px 0; }
+
+/* Species ledger. */
+.as-table { width: 100%; margin: 0; }
+.as-table th { text-align: left; padding: 0 8px 8px 0; }
+.as-table td:first-child { text-align: left; }
+.as-table th.num, .as-table td.num { text-align: right; }
+.as-table td { padding: 9px 8px 9px 0; vertical-align: top; }
+.as-table td:first-child a { font: 400 16px/1.3 var(--serif); text-decoration-color: transparent; }
+.as-table td:first-child a:hover { text-decoration-color: currentColor; }
+.as-table tr.is-picked td:first-child a { font-weight: 700; text-decoration-color: currentColor; }
+.as-sci { display: block; margin-top: 1px; font-size: 13.5px; color: var(--ink-2); }
+.as-table td.num { font: 500 14px/1.3 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 11px; }
+.as-inline-bar {
+  display: inline-block; width: 56px; height: 5px; margin-right: 10px; vertical-align: 2px;
+  background: linear-gradient(90deg, var(--ink) var(--w), var(--hairline) var(--w));
+}
+.as-delta { color: var(--quiet); }
+.as-new { font: 700 11px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+
+/* Deep dive. */
+.as-bird { scroll-margin-top: 16px; }
+.as-bird-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.as-bird-art { width: 112px; height: 112px; object-fit: contain; flex: none; }
+.as-bird-name {
+  padding-left: 0; box-shadow: none;
+  font: 700 clamp(22px, 2.4vw, 28px)/1.15 var(--serif);
+  letter-spacing: 0.02em; text-transform: none; color: var(--ink);
+}
+.as-bird-sci { margin: 4px 0 0 !important; font: italic 400 16px/1.3 var(--serif); color: var(--ink-2); }
+.av-stats .as-mini {
+  margin: 26px 0 10px;
+  text-align: left;
+  font: 700 11px/1.3 var(--mono); letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.as-season { display: grid; grid-template-columns: repeat(53, 1fr); gap: 2px; }
+.as-season span { aspect-ratio: 1; box-shadow: inset 0 0 0 1px var(--hairline); }
+.as-season .l1 { background: var(--mark-1); box-shadow: none; } .as-season .l2 { background: var(--mark-2); box-shadow: none; }
+.as-season .l3 { background: var(--mark-3); box-shadow: none; } .as-season .l4 { background: var(--mark-4); box-shadow: none; }
+.as-recent { margin: 0; padding: 0; list-style: none; }
+.as-recent li { display: flex; justify-content: space-between; padding: 6px 0; box-shadow: inset 0 -1px 0 var(--hairline); font-size: 15px; }
+
+.as-foot { margin: 8px 0 0 !important; text-align: center; font: italic 400 14px/1.5 var(--serif); color: var(--quiet); }
+
+/* ---- phones -------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .as-pair, .as-pair-species, .as-records { grid-template-columns: minmax(0, 1fr); }
+  .as-records .as-life { margin-bottom: 20px; }
+}
+@media (max-width: 700px) {
+  .av-stats { --sq: 13px; --sq-gap: 2px; }
+  .as-head { margin-bottom: 16px; }
+  .as-presets { width: 100%; justify-content: space-between; }
+  .as-presets a { padding: 0 7px; letter-spacing: 0.04em; }
+  .as-summary { font-size: 16px; margin-bottom: 32px !important; text-align: left; }
+  .as-bars { height: 140px; }
+  /* All 24 hours on one phone screen: narrow cells, ticks every 6h,
+     one-line names. */
+  .as-who-scroll { overflow: visible; }
+  .as-who-grid { grid-template-columns: minmax(0, 1fr) repeat(24, 10.5px); min-width: 0; }
+  .as-who-h.is-off6 { color: transparent; }
+  .as-who-h { font-size: 11px; overflow: visible; white-space: nowrap; }
+  .as-who-name { font-size: 13px; padding-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 24px; }
+  .as-who-cell { aspect-ratio: auto; }
+  .as-who-cell i { width: calc(var(--s) * 9px); height: calc(var(--s) * 9px); }
+  .as-ledger > div { grid-template-columns: 104px minmax(0, 1fr); }
+  .as-bird-art { width: 88px; height: 88px; }
+  .as-table td:first-child a { font-size: 15px; }
+  .as-inline-bar { width: 32px; margin-right: 6px; }
+}

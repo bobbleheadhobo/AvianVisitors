@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-06T04:46:41.322027+00:00",
+  "generatedAt": "2026-10-06T13:35:25.601827+00:00",
   "title": "Design System: Avian Visitors",
   "extensions": {
     "colorMeta": {
@@ -470,6 +470,14 @@
       "description": "Field-guide postcard on card stock with a two-part drop shadow.",
       "html": "<div class=\"ds-postcard\"><div class=\"art\"></div><div class=\"txt\"><h2>Carolina Wren</h2><p class=\"sci\">Thryothorus ludovicianus</p><p class=\"meta\">FIRST HEARD \u00b7 14 MAR</p></div></div>",
       "css": ".ds-postcard{display:grid;grid-template-columns:.82fr 1.18fr;gap:8px;padding:8px;width:440px;height:240px;background:#f7f6f2;color:#29251f;border:1px solid rgba(41,37,31,.18);border-radius:3px;box-shadow:0 2px 1px rgba(42,34,24,.07),0 26px 68px rgba(38,30,20,.22);transform:rotate(-.6deg);} .ds-postcard .art{background:#e8e6df;} .ds-postcard .txt{padding:14px;} .ds-postcard h2{font:400 20px/1.1 ui-serif, 'Iowan Old Style', Georgia, serif;margin:0 0 4px;} .ds-postcard .sci{font:italic 13px/1.3 ui-serif, 'Iowan Old Style', Georgia, serif;color:#77736b;margin:0 0 14px;} .ds-postcard .meta{font:11px ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.18em;color:#77736b;margin:0;}"
+    },
+    {
+      "name": "Stats Calendar",
+      "kind": "custom",
+      "refersTo": "stats-calendar",
+      "description": "The year-at-a-glance filter on Species Stats: ink squares in four steps, paper seams, the span at full ink, a picked day outlined solid and today dashed.",
+      "html": "<div class=\"ds-cal\"><a class=\"ds-day l0\"></a><a class=\"ds-day l1\"></a><a class=\"ds-day l2 is-in\"></a><a class=\"ds-day l0 is-in\"></a><a class=\"ds-day l4 is-in is-pick\"></a><a class=\"ds-day l3 is-in\"></a><a class=\"ds-day l1 is-in is-today\"></a><a class=\"ds-day l2\"></a><a class=\"ds-day l4\"></a><a class=\"ds-day l1\"></a><a class=\"ds-day l3 is-in\"></a><a class=\"ds-day l2 is-in\"></a><a class=\"ds-day l4 is-in\"></a><a class=\"ds-day l0 is-in\"></a></div>",
+      "css": ".ds-cal { --sq: 17px; display: grid; grid-template-rows: repeat(7, var(--sq)); grid-auto-columns: var(--sq); grid-auto-flow: column; gap: 3px; padding: 6px; background: var(--paper, #fcfcfb); } .ds-day { display: block; transition: opacity 200ms ease; } .ds-day.l0 { box-shadow: inset 0 0 0 1px var(--hairline, rgba(26,22,18,0.14)); } .ds-day.l1 { background: color-mix(in srgb, var(--ink, #1a1612) 26%, var(--paper, #fcfcfb)); } .ds-day.l2 { background: color-mix(in srgb, var(--ink, #1a1612) 48%, var(--paper, #fcfcfb)); } .ds-day.l3 { background: color-mix(in srgb, var(--ink, #1a1612) 72%, var(--paper, #fcfcfb)); } .ds-day.l4 { background: var(--ink, #1a1612); } .ds-day:not(.is-in) { opacity: 0.2; } .ds-day.l0.is-in { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink, #1a1612) 55%, transparent); } .ds-day:hover, .ds-day:focus-visible { opacity: 1; outline: 1.5px solid var(--ink-2, #4a3f31); outline-offset: 1px; } .ds-day.is-today { outline: 1px dashed var(--ink-2, #4a3f31); outline-offset: 2px; } .ds-day.is-pick { outline: 2.5px solid var(--ink, #1a1612); outline-offset: 2px; opacity: 1; }"
     }
   ],
   "narrative": {
