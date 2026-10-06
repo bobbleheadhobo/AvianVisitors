@@ -257,6 +257,15 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 ### Return Pill
 - A top-left pill on admin overlays: chevron + lowercase mono label ("collage", "educators").
 
+### Classic BirdNET-Pi Pages
+- **What:** The stock pages at `/index.php` (Overview, Today's Detections, charts, reports, Recordings, Tools and its sub-pages), restyled in this system by `homepage/static/avian-classic.css`. That stylesheet loads after the stock `style.css` / `dark-style.css` and only overrides them. `avian-classic.js` applies the collage's saved light/dark choice (`bird:theme:v2`) before first paint.
+- **Head:** Return pill ("collage") top-left, "live audio" pill top-right, site name as the italic overline, and "BIRDNET-PI" as the display title.
+- **View list:** One Track-and-Thumb row of tracked mono labels. On phones it scrolls sideways and the current view is scrolled into sight, with no hamburger.
+- **Tables:** Hairline ledgers with no fills, mono labels in the header row, and mono figures for counts.
+- **Actions:** Raised paper pills in tracked mono. Reboot, shutdown and clear-data are set in Danger ink.
+- **Charts:** The generated daily charts are drawn in greys on white (`scripts/daily_plot.py`). They're shown with `grayscale` + `multiply` on paper, and inverted + `screen` on charcoal.
+- **Out of reach:** Species Stats (Streamlit) and View Log are separate apps inside frames, so they keep their own styling.
+
 ## Do's and Don'ts
 
 ### Do:

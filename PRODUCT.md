@@ -23,7 +23,8 @@ Detections show up as a hand-illustrated collage of the birds that actually visi
 
 ## Capabilities and Constraints
 - In scope for design work: what you see in a browser on a phone or computer. That means the AvianVisitors home collage, Stats (by hour, most heard, life list, chart), Atlas (by family, alphabetical), postcards, and the surrounding chrome.
-- Out of scope: the bird illustrations themselves (`avian/assets/`, generation pipeline), the e-ink frame, and stock BirdNET-Pi PHP pages.
+- Out of scope: the bird illustrations themselves (`avian/assets/`, generation pipeline) and the e-ink frame.
+- The stock BirdNET-Pi PHP pages ("classic", linked from Tools) are in scope as a reskin only. `homepage/static/avian-classic.css` and `avian-classic.js` sit on top of the stock stylesheets. Page markup stays stock apart from the link tags and the return link, so upstream BirdNET-Pi changes keep merging. The Species Stats (Streamlit) and View Log frames are separate apps, and they keep their own look.
 - The frontend is static HTML/CSS/JS in `avian/frontend/` with PHP shims in `avian/api/`, and there's no build step. Keep it that way.
 
 ## Brand Commitments

@@ -89,7 +89,7 @@ def create_plot(df_plt_today, now, is_top=None):
     if conf['COLOR_SCHEME'] == "dark":
         facecolor = 'darkgrey'
     else:
-        facecolor = '#77C487'
+        facecolor = 'white'  # Avian Visitors: printed in ink on the paper page
 
     f, axs = plt.subplots(1, 2, figsize=(10, height), gridspec_kw=dict(width_ratios=[3, 6]), facecolor=facecolor)
 
@@ -109,8 +109,9 @@ def create_plot(df_plt_today, now, is_top=None):
             pal = "Greys"
             colors = plt.cm.Greys(norm(confmax)).tolist()
         else:
-            pal = "Greens"
-            colors = plt.cm.Greens(norm(confmax)).tolist()
+            pal = "Greys"
+            # Floor the scale so the lowest-confidence bar never fades to white.
+            colors = plt.cm.Greys(0.25 + 0.75 * norm(confmax)).tolist()
         if is_top:
             plot_type = "Top"
         else:
@@ -164,7 +165,7 @@ def create_plot(df_plt_today, now, is_top=None):
             if conf['COLOR_SCHEME'] == "dark":
                 label.set_color('white')
             else:
-                label.set_color('yellow')
+                label.set_fontweight('bold')
 
     plot.set_xticklabels(plot.get_xticklabels(), rotation=0, size=8)
 
