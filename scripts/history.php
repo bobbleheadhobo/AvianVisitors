@@ -130,20 +130,22 @@ function submitID() {
 
 </script>  
 
-<form action="views.php" method="GET">
-  <input type="date" name="date" value="<?php echo $theDate;?>">
-  <button type="submit" name="view" value="Daily Charts">Submit Date</button>
-</form>
 <?php
 $prevDay = date('Y-m-d', strtotime("$theDate -1 day"));
 $nextDay = date('Y-m-d', strtotime("$theDate +1 day"));
 ?>
-<nav class="day-step" aria-label="Change day">
-  <a href="views.php?view=Daily+Charts&amp;date=<?php echo $prevDay; ?>" rel="prev">&larr; <?php echo date('D j M', strtotime($prevDay)); ?></a>
+<div class="day-bar">
+  <a class="day-step" href="views.php?view=Daily+Charts&amp;date=<?php echo $prevDay; ?>" rel="prev">&larr; <?php echo date('D j M', strtotime($prevDay)); ?></a>
+  <form action="views.php" method="GET">
+    <input type="date" name="date" value="<?php echo $theDate;?>" max="<?php echo date('Y-m-d'); ?>" aria-label="Day">
+    <button type="submit" name="view" value="Daily Charts">Submit Date</button>
+  </form>
 <?php if ($theDate < date('Y-m-d')) { ?>
-  <a href="views.php?view=Daily+Charts&amp;date=<?php echo $nextDay; ?>" rel="next"><?php echo date('D j M', strtotime($nextDay)); ?> &rarr;</a>
+  <a class="day-step" href="views.php?view=Daily+Charts&amp;date=<?php echo $nextDay; ?>" rel="next"><?php echo date('D j M', strtotime($nextDay)); ?> &rarr;</a>
+<?php } else { ?>
+  <span class="day-step is-none" aria-hidden="true"></span>
 <?php } ?>
-</nav>
+</div>
 <br>
 <table class="overview">
   <tr>

@@ -763,14 +763,30 @@ dd { color: var(--ink-2); }
 .history.centered form { gap: 8px; align-items: center; }
 .history.centered input { margin-right: 0; }
 .history.centered > img, .history.centered > picture { display: block; margin: 18px auto; }
-.history.centered .day-step { display: flex; justify-content: center; gap: 10px; margin: 12px 0 0; }
-.history.centered .day-step a {
-  display: inline-flex; align-items: center; min-height: var(--ctl-h); padding: 0 14px;
-  border-radius: 999px; background: var(--paper); box-shadow: var(--edge);
-  color: var(--ink); font: 13px/1 var(--mono); letter-spacing: .02em; text-decoration: none;
+/* One row: previous day, the picker, next day. Phones put the picker on
+   its own line with the two steps under it at either edge. */
+.history.centered .day-bar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
+  max-width: 960px; margin: 0 auto 4px;
 }
-.history.centered .day-step a:hover { box-shadow: var(--lift); }
-.history.centered .day-step a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.history.centered .day-bar form { margin: 0; }
+.history.centered .day-bar [rel="prev"] { justify-self: end; }
+.history.centered .day-bar [rel="next"] { justify-self: start; }
+.history.centered a.day-step {
+  display: inline-flex; align-items: center; min-height: var(--ctl-h); padding: 0 14px;
+  border-radius: 999px; background: var(--pill); box-shadow: var(--raised);
+  color: var(--ink); font: 13px/1 var(--mono); letter-spacing: .02em; text-decoration: none; white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .history.centered .day-bar { grid-template-columns: 1fr 1fr; grid-template-areas: "pick pick" "prev next"; }
+  .history.centered .day-bar form { grid-area: pick; justify-self: center; }
+  .history.centered .day-bar [rel="prev"] { grid-area: prev; justify-self: start; }
+  .history.centered .day-bar [rel="next"], .history.centered .day-bar .is-none { grid-area: next; justify-self: end; }
+}
+/* The chart's own header already gives the day's total. */
+.history.centered:has(> picture) > table.overview { display: none; }
+.history.centered a.day-step:hover { box-shadow: var(--raised), var(--lift); }
+.history.centered a.day-step:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .history.centered .chart-note { margin: 28px auto; color: var(--quiet-strong); font-family: var(--serif); font-style: italic; }
 
 /* ---- Dialogs and popovers -------------------------------------------- */

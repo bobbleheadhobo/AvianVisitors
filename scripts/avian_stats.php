@@ -140,7 +140,8 @@ foreach (as_rows($db, 'SELECT Date d, Time t, Sci_Name sci FROM detections WHERE
     }
   }
 }
-$mid = date('Y-m-d', intdiv(strtotime($from) + strtotime($to), 2));
+// One sun reference for the page: the span's last day (the deep dive uses it too).
+$mid = $to;
 $sunMid = as_sun($mid, $lat, $lon);
 function as_median($a) { if (!$a) return null; sort($a); $c = count($a); return $c % 2 ? $a[intdiv($c, 2)] : intdiv($a[$c / 2 - 1] + $a[$c / 2], 2); }
 $chorusOffset = count($riseOffsets) >= 5 ? as_median($riseOffsets) : null;
@@ -158,6 +159,9 @@ $step = $spanDays > 730 ? 'month' : ($spanDays > 120 ? 'week' : 'day');
 // A day or two on its own is one bar; show it inside the fortnight that
 // ends with it so the span reads against its neighbours.
 $trendFrom = $spanDays <= 3 ? date('Y-m-d', strtotime($to . ' -13 days')) : $from;
+// Days before the station's first detection aren't quiet days; leave them off.
+$trendClipped = $first && $trendFrom < $first && $first <= $to;
+if ($trendClipped) $trendFrom = $first;
 $series = [];
 for ($t = strtotime($trendFrom); $t <= strtotime($to); $t += 86400) {
   $d = date('Y-m-d', $t);
@@ -312,7 +316,7 @@ $fmtRange = $from === $to ? as_day($from, 'l j F Y') : as_day($from, date('Y', s
   <div class="as-pair">
     <section class="as-panel as-trend" aria-labelledby="as-trend-h">
       <h2 id="as-trend-h">Trend</h2>
-      <p class="as-sub">detections <?php echo $step === 'day' ? 'a day' : 'a ' . $step; ?> · dots: species heard<?php if ($trendFrom !== $from): ?> · the fortnight around it<?php endif; ?></p>
+      <p class="as-sub">detections <?php echo $step === 'day' ? 'a day' : 'a ' . $step; ?> · dots: species heard<?php if ($trendClipped): ?> · from your first detection<?php elseif ($trendFrom !== $from): ?> · the fortnight around it<?php endif; ?></p>
       <?php if ($rangeTotal === 0): ?>
         <p class="as-empty">Nothing in this span yet.</p>
       <?php else: $nS = count($series); ?>
@@ -431,22 +435,28 @@ $fmtRange = $from === $to ? as_day($from, 'l j F Y') : as_day($from, date('Y', s
   <div class="as-pair as-pair-species">
     <section class="as-panel as-species" aria-labelledby="as-sp-h">
       <h2 id="as-sp-h">Species</h2>
-      <p class="as-sub">in this span · change vs the <?php echo $spanDays === 1 ? 'day' : as_n($spanDays) . ' days'; ?> before</p>
+      <?php
+        // With nothing in the period before, "vs before" is a column of
+        // dashes; and when every bird is new the badge marks every row.
+        $compare = $prevTotal > 0;
+        $badgeNew = count($newInRange) < count($inRange);
+      ?>
+      <p class="as-sub">in this span<?php if ($compare): ?> · change vs the <?php echo $spanDays === 1 ? 'day' : as_n($spanDays) . ' days'; ?> before<?php elseif (!$badgeNew && $inRange): ?> · all new to your list<?php endif; ?></p>
       <?php if (!$inRange): ?>
         <p class="as-empty">No species in this span.</p>
       <?php else: $max = intval($inRange[0]['n']); ?>
         <table class="as-table">
-          <thead><tr><th scope="col">bird</th><th scope="col" class="num">heard</th><th scope="col" class="num">days</th><th scope="col" class="num">vs before</th></tr></thead>
+          <thead><tr><th scope="col">bird</th><th scope="col" class="num">heard</th><th scope="col" class="num">days</th><?php if ($compare): ?><th scope="col" class="num">vs before</th><?php endif; ?></tr></thead>
           <tbody>
           <?php foreach ($inRange as $r):
             $n = intval($r['n']); $p = $prevCounts[$r['sci']] ?? 0; $delta = $n - $p;
             $isNew = $lifeBy[$r['sci']]['first'] >= $from;
           ?>
             <tr<?php echo $r['sci'] === $pick ? ' class="is-picked"' : ''; ?>>
-              <td><a href="<?php echo as_h(as_url(['from' => $from, 'to' => $to, 'species' => $r['sci']])); ?>#as-bird"><?php echo as_h($r['com']); ?></a><?php if ($isNew): ?> <span class="as-new">new</span><?php endif; ?><i class="as-sci"><?php echo as_h($r['sci']); ?></i></td>
+              <td><a href="<?php echo as_h(as_url(['from' => $from, 'to' => $to, 'species' => $r['sci']])); ?>#as-bird"><?php echo as_h($r['com']); ?></a><?php if ($isNew && $badgeNew): ?> <span class="as-new">new</span><?php endif; ?><i class="as-sci"><?php echo as_h($r['sci']); ?></i></td>
               <td class="num"><span class="as-inline-bar" style="--w:<?php echo round($n / max(1, $max) * 100, 1); ?>%"></span><?php echo as_n($n); ?></td>
               <td class="num"><?php echo intval($r['days']); ?></td>
-              <td class="num as-delta"><?php echo $p === 0 ? ($isNew ? '—' : '+' . $n) : ($delta === 0 ? '0' : ($delta > 0 ? '+' : '−') . as_n(abs($delta))); ?></td>
+              <?php if ($compare): ?><td class="num as-delta"><?php echo $p === 0 ? ($isNew ? '—' : '+' . $n) : ($delta === 0 ? '0' : ($delta > 0 ? '+' : '−') . as_n(abs($delta))); ?></td><?php endif; ?>
             </tr>
           <?php endforeach; ?>
           </tbody>

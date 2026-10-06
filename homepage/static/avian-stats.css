@@ -63,6 +63,11 @@
 
 .as-cal { margin: 0 0 22px; }
 .as-cal-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 6px; }
+/* Phones pin the calendar to today; fade the far edge so the cut-off
+   months read as "scroll for more", not as a clipped label. */
+@media (max-width: 700px) {
+  .as-cal-scroll { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); mask-image: linear-gradient(90deg, transparent, #000 28px); }
+}
 /* The grid's own end padding keeps today's week, its outline and the last
    month label inside the frame when phones pin the scroll to the end. */
 .as-cal-months, .as-cal-grid, .as-cal-key { padding: 0 18px 0 4px; box-sizing: content-box; }
