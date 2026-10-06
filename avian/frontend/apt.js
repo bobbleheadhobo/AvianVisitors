@@ -11937,9 +11937,8 @@
     if (wasAdminOn) queueVisibleAtlasPack();
   }
 
-  // One quiet glyph per metric, drawn on the same 24-grid and stroke weight as
-  // the tool-card icons so the two admin pages read as one hand. Sits in the
-  // top-right dead space; alert/warn tint it rather than ringing the whole card.
+  // One quiet glyph per metric, drawn on a 24-grid at one stroke weight.
+  // Sits in the top-right dead space; the card's state tints it.
   var SYS_ICONS = {
     pipeline: '<path d="M3 12h3l2-5 3 11 2-7 1.6 3H21"/>',
     audio: '<path d="M4 10v4M8 7v10M12 4.5v15M16 8v8M20 10.5v3"/>',
@@ -12906,12 +12905,28 @@
       var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return m[1] + ' ' + (+m[4]) + ' ' + months[+m[3] - 1] + ' ' + m[5];
     }
+    // What each unit does, in a few words (these used to label the Tools
+    // service cards). Units without one are shown by name only.
+    var SERVICE_ABOUT = {
+      birdnet_recording: 'captures audio from the mic',
+      birdnet_analysis: 'runs the model on each chunk',
+      birdnet_log: 'writes detections to the database',
+      birdnet_stats: 'the old streamlit stats page',
+      spectrogram_viewer: 'legacy live fft view',
+      livestream: 'feed behind the live-audio button',
+      chart_viewer: 'draws the daily charts',
+      icecast2: 'serves that stream to the browser',
+      caddy: 'the web server',
+    };
     html += '<table class="admin-tbl svc-tbl"><thead><tr><th>unit</th><th>state</th><th>enabled</th><th>since</th><th></th></tr></thead><tbody>';
     Object.keys(svc).forEach(function (name) {
       var s = svc[name];
       var pill = (s.active === 'active') ? 'active' : (s.active === 'failed' ? 'failed' : 'inactive');
       html += '<tr>'
-        + '<td class="svc-unit">' + adminEsc(name) + '</td>'
+        + '<td class="svc-unit">' + adminEsc(name)
+        + (SERVICE_ABOUT[name] || /^php/.test(name)
+          ? '<span class="svc-about">' + adminEsc(SERVICE_ABOUT[name] || 'runs the site\'s php') + '</span>' : '')
+        + '</td>'
         + '<td class="svc-state"><span class="pill ' + pill + '">' + adminEsc(s.active) + '</span></td>'
         + '<td class="svc-enabled' + (svcEnabled(s.enabled) === 'enabled' ? ' is-ok' : '') + '">' + adminEsc(svcEnabled(s.enabled)) + '</td>'
         + '<td class="svc-since" title="' + adminEsc(s.since || '') + '">' + adminEsc(svcSince(s.since)) + '</td>'
@@ -13043,20 +13058,6 @@
     adminPollT = setInterval(tick, 4000);
   }
 
-  // Six services in one row. The whole card is the control: a run button
-  // beside a one-line description was more chrome than the action deserved.
-  var TOOL_ICONS = {
-    birdnet_recording: '<path d="M12 3.5a2 2 0 0 1 2 2v5a2 2 0 0 1-4 0v-5a2 2 0 0 1 2-2z"/><path d="M7.5 10.5a4.5 4.5 0 0 0 9 0"/><path d="M12 15v2.5"/>',
-    birdnet_analysis: '<path d="M3 12h2.5l2-6 3 12 2.5-9 2 3H21"/>',
-    birdnet_log: '<ellipse cx="12" cy="6" rx="6.5" ry="2.5"/><path d="M5.5 6v6c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V6"/><path d="M5.5 12v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5"/>',
-    spectrogram_viewer: '<path d="M4 14v3M7.5 10v7M11 6v11M14.5 11v6M18 8v9"/>',
-    livestream: '<circle cx="12" cy="12" r="1.8"/><path d="M8.2 15.8a5.4 5.4 0 0 1 0-7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6"/><path d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
-    icecast2: '<rect x="3.5" y="4.5" width="17" height="6" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="6" rx="1.6"/><path d="M7 7.5h.01M7 16.5h.01"/>'
-  };
-  function toolIcon(unit) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" '
-      + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TOOL_ICONS[unit] + '</svg>';
-  }
   function educatorExportSnapshot(scope) {
     var edu = educatorRequestScopeId();
     return {
@@ -13095,28 +13096,9 @@
     else link.removeAttribute('data-error');
   }
   function renderAdminTools() {
-    var actions = [
-      ['recording', 'captures audio from the mic', 'birdnet_recording'],
-      ['analysis', 'runs the model on each chunk', 'birdnet_analysis'],
-      ['log', 'writes detections to the database', 'birdnet_log'],
-      ['spectrogram', 'legacy live fft view', 'spectrogram_viewer'],
-      ['livestream', 'feed behind the live-audio button', 'livestream'],
-      ['icecast', 'serves that stream to the browser', 'icecast2'],
-    ];
-    var html = '<h2 class="admin-section-head">services</h2>';
-    html += '<div class="tool-row">';
-    actions.forEach(function (a) {
-      html += '<button type="button" class="tool-card" data-unit="' + adminEsc(a[2]) + '">'
-        + '<span class="badge" data-live="?"><i class="now">...</i><i class="act">restart</i></span>'
-        + '<span class="ic">' + toolIcon(a[2]) + '</span>'
-        + '<span class="ttl">' + adminEsc(a[0]) + '</span>'
-        + '<span class="dsc">' + adminEsc(a[1]) + '</span>'
-        + '<span class="state" data-out="' + adminEsc(a[2]) + '"></span>'
-        + '</button>';
-    });
-    html += '</div>';
-
-    html += '<h2 class="admin-section-head">update</h2>';
+    // Services live on System (status and restart in one place); Tools is
+    // only things you do: update, take your data, open the classic pages.
+    var html = '<h2 class="admin-section-head">update</h2>';
     html += '<div class="admin-actions-grid">';
     // The block is the button. A separate control below it was a second thing
     // to aim at for an action the block itself obviously affords.
@@ -13226,71 +13208,6 @@
       });
     });
 
-    // Whether a unit is up is the first thing you want off this page, so the
-    // badge carries it and the card only has to be hovered to offer the fix.
-    function paintStates() {
-      adminJson('./avian/api/birdnet-status.php?action=services').then(function (j) {
-        var svc = (j && j.services) || {};
-        adminBody.querySelectorAll('.tool-card').forEach(function (card) {
-          if (card.dataset.busy) return;
-          var st = svc[card.dataset.unit];
-          var live = st && st.active === 'active' ? 'running'
-            : st && st.active === 'inactive' ? 'stopped'
-            : st ? 'error' : 'unknown';
-          var b = card.querySelector('.badge');
-          b.dataset.live = live;
-          b.querySelector('.now').textContent = live;
-        });
-      }).catch(function (error) {
-        if (adminAuthCancelled(error)) return;
-        adminBody.querySelectorAll('.tool-card .badge').forEach(function (b) {
-          b.dataset.live = 'unknown';
-          b.querySelector('.now').textContent = 'unknown';
-        });
-      });
-    }
-    paintStates();
-
-    // The card is the button, so a stray click restarts a service. The
-    // confirm matters more here than it did beside a labelled run button.
-    adminBody.querySelectorAll('.tool-card').forEach(function (card) {
-      card.addEventListener('click', function () {
-        var unit = card.dataset.unit;
-        if (card.dataset.busy) return;
-        if (!confirm('restart ' + unit + '?')) return;
-        card.dataset.busy = '1';
-        var out = card.querySelector('.state');
-        out.textContent = 'restarting...';
-        card.setAttribute('data-state', 'busy');
-        adminFetch('./avian/api/birdnet-status.php?action=restart&unit=' + encodeURIComponent(unit), {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
-          body: '{}',
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (j) {
-            card.setAttribute('data-state', j.ok ? 'ok' : 'err');
-            out.textContent = sudoBlocked(j.out) ? SUDO_HINT
-              : (j.ok ? 'restarted' : 'failed rc=' + j.rc);
-            setTimeout(function () {
-              delete card.dataset.busy;
-              card.removeAttribute('data-state');
-              out.textContent = '';
-              paintStates();
-            }, 2600);
-          })
-          .catch(function (e) {
-            if (adminAuthCancelled(e)) return;
-            card.setAttribute('data-state', 'err');
-            out.textContent = e.message || 'request failed';
-            setTimeout(function () {
-              delete card.dataset.busy;
-              card.removeAttribute('data-state');
-              out.textContent = '';
-            }, 2600);
-          });
-      });
-    });
     adminBody.querySelectorAll('.admin-action .code').forEach(function (box) {
       var take = function () {
         var pre = box.querySelector('pre');
