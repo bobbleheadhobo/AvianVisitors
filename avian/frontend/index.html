@@ -14,7 +14,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r234">
+  <link rel="stylesheet" href="./styles.css?v=r236">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -255,7 +255,7 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
         </div>
         <button id="modalGenerate" class="postcard-generate" type="button" aria-live="polite" aria-atomic="true" hidden>generate image</button>
         <nav class="postcard-links" aria-label="External bird references">
-          <a id="modalWiki" target="_blank" rel="noopener">Wikipedia <span aria-hidden="true">↗</span></a>
+          <a id="modalBirdId" target="_blank" rel="noopener">Bird ID <span aria-hidden="true">↗</span></a>
           <a id="modalEbird" target="_blank" rel="noopener">eBird <span aria-hidden="true">↗</span></a>
         </nav>
       </div>
@@ -395,6 +395,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r263"></script>
+<script src="./apt.js?v=r272"></script>
 </body>
 </html>

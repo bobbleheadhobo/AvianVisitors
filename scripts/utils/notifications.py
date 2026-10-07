@@ -3,6 +3,7 @@ import os
 import socket
 import requests
 import html
+from urllib.parse import quote
 import time
 
 from .db import get_todays_count_for, get_this_weeks_count_for
@@ -52,6 +53,7 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
             .replace("$confidence", str(confidence)) \
             .replace("$listenurl", listenurl) \
             .replace("$friendlyurl", friendlyurl) \
+            .replace("$birdurl", birdurl) \
             .replace("$date", str(date)) \
             .replace("$time", str(time_of_day)) \
             .replace("$week", str(week)) \
@@ -79,6 +81,8 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
 
     listenurl = f"{websiteurl}?filename={path}"
     friendlyurl = f"[Listen here]({listenurl})"
+    # The bird's postcard in the station's Atlas, this recording expanded.
+    birdurl = f"{websiteurl.rstrip('/')}/#sci={quote(sci_name)}&rec={quote(os.path.basename(path))}"
 
     image_url = ""
     if "$flickrimage" in body or "$image" in body:

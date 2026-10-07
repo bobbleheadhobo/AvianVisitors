@@ -121,6 +121,10 @@
     -webkit-backdrop-filter: blur(15px) saturate(.9);
     backdrop-filter: blur(15px) saturate(.9);
   }
+  /* apt.js measures the folded masthead under this class; no transitions,
+     so the probe resolves instantly and never animates. */
+  .stage.head-probe .static-head,
+  .stage.head-probe .static-head * { transition: none !important; }
   .stage.is-compact .static-head .pre {
     opacity: 0; max-height: 0; margin-bottom: 0; padding-bottom: 0;
     transform: translateY(-8px); pointer-events: none;
@@ -1188,6 +1192,15 @@
   .notify-status { font: 11px ui-monospace, Menlo, monospace; color: var(--ink-2); }
   .notify-status.err { color: var(--bad); }
   .notify-saved { color: var(--ink-2) !important; }
+  .notify-remove {
+    background: none; border: 0; padding: 0 0 0 10px; cursor: pointer;
+    font: inherit; color: var(--ink-2);
+    text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px;
+  }
+  .notify-remove:hover, .notify-remove:focus-visible { color: var(--bad); text-decoration-color: currentColor; }
+  .notify-remove[hidden] { display: none; }
+  .notify-title + .notify-status:empty { display: none; }
+  .notify-title + .notify-status { display: block; margin: -4px 0 8px; }
   .notify-message-head { border-bottom: 0; padding-bottom: 4px; }
   .notify-title {
     display: block; width: 100%; box-sizing: border-box; min-height: 34px; margin: 0 0 8px; padding: 6px 10px;

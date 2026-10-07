@@ -192,13 +192,37 @@
   // genuinely exceeds the viewport.
   var stage = document.querySelector('.stage');
   var compactFrame = 0;
+  // How much taller the view gets when the masthead folds. Measured with
+  // transitions off so the probe never animates or paints.
+  function compactHeadGain(view) {
+    if (!staticHead) return 0;
+    var top = view.scrollTop;
+    var open = staticHead.offsetHeight;
+    stage.classList.add('head-probe', 'is-compact');
+    var folded = staticHead.offsetHeight;
+    stage.classList.remove('is-compact');
+    void staticHead.offsetHeight;
+    stage.classList.remove('head-probe');
+    // The folded probe briefly enlarged the view, which clamps scrollTop.
+    if (view.scrollTop !== top) view.scrollTop = top;
+    return Math.max(0, open - folded);
+  }
   function syncCompactHeader() {
     compactFrame = 0;
     var view = document.getElementById('v' + currentView);
     if (!stage || !view) return;
     var canScroll = view.scrollHeight > view.clientHeight + 3;
-    var threshold = stage.classList.contains('is-compact') ? 8 : 26;
-    stage.classList.toggle('is-compact', canScroll && view.scrollTop > threshold);
+    var compact = stage.classList.contains('is-compact');
+    var want = canScroll && view.scrollTop > (compact ? 8 : 26);
+    // Folding hands the sheet the masthead's height. When the content
+    // is only a little taller than the view, that clamps scrollTop back
+    // under the unfold threshold and the header flips every frame. Only
+    // fold if the sheet will still be scrolled past that threshold.
+    if (want && !compact) {
+      var maxAfter = view.scrollHeight - view.clientHeight - compactHeadGain(view);
+      if (maxAfter <= 8) want = false;
+    }
+    stage.classList.toggle('is-compact', want);
   }
   function queueCompactHeader() {
     if (compactFrame) return;
@@ -4247,8 +4271,14 @@
     'Zonotrichia leucophrys': 'whcspa'
   };
 
-  function wikiUrl(sci) {
-    return 'https://en.wikipedia.org/wiki/' + encodeURIComponent(sci.replace(/ /g, '_'));
+  // Cornell's All About Birds ID page, named from the English common name
+  // ("Anna's Hummingbird" -> Annas_Hummingbird). A bird it doesn't cover
+  // lands on its search results, so the link is never a dead end.
+  function birdIdUrl(com, sci) {
+    var slug = String(com || '').replace(/[^A-Za-z0-9 -]/g, '').trim().replace(/\s+/g, '_');
+    return slug
+      ? 'https://www.allaboutbirds.org/guide/' + encodeURIComponent(slug) + '/id'
+      : 'https://www.allaboutbirds.org/news/search/?q=' + encodeURIComponent(sci || '');
   }
   function ebirdUrl(sci) {
     var code = EBIRD_CODES[sci];
@@ -5415,7 +5445,7 @@
       if (classic) {
         var common = s.com || s.sci;
         var imageSrc = needsArt ? './nest-eggs.webp' : sketchSrc + fresh;
-        var birdWiki = wikiUrl(s.sci);
+        var birdId = birdIdUrl(s.com, s.sci);
         var birdEbird = ebirdUrl(s.sci);
         return ''
           + '<article class="bird-card classic-atlas-card' + (needsArt ? ' needs-art' : '') + '"'
@@ -5438,7 +5468,7 @@
           + '<button type="button" class="chip play" data-action="play" aria-label="play recording">'
           + ICON_PLAY + '<span>play</span>'
           + '</button>'
-          + '<a class="chip ext" href="' + escHtml(birdWiki) + '" target="_blank" rel="noopener" aria-label="Wikipedia">wiki</a>'
+          + '<a class="chip ext" href="' + escHtml(birdId) + '" target="_blank" rel="noopener" aria-label="Bird ID on All About Birds">bird id</a>'
           + (birdEbird ? '<a class="chip ext" href="' + escHtml(birdEbird) + '" target="_blank" rel="noopener" aria-label="eBird">ebird</a>' : '')
           + '</div>'
           + '</article>';
@@ -8560,17 +8590,26 @@
     var submitted = pending;
     pending = {};
     var resetAtMidnightChanged = Object.prototype.hasOwnProperty.call(submitted, 'RESET_AT_MIDNIGHT');
-    var body = JSON.stringify(submitted);
+    // Notification targets and body live in their own files; the rest is
+    // birdnet.conf. Write the files first, then the config.
+    var notifyPart = {};
+    var confPart = {};
+    Object.keys(submitted).forEach(function (key) {
+      (isNotifyKey(key) ? notifyPart : confPart)[key] = submitted[key];
+    });
     var saved = false;
     settingsSaveBusy = true;
     setSaveState('saving...');
     syncSaveBar();
-    return adminFetch('./avian/api/config.php', {
-      method: 'POST', body: body,
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    return saveNotifyPart(notifyPart)
+      .then(function () {
+        if (!Object.keys(confPart).length) return { ok: true, j: { ok: true } };
+        return adminFetch('./avian/api/config.php', {
+          method: 'POST', body: JSON.stringify(confPart),
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+      })
       .then(function (res) {
         if (res.ok && res.j.ok) {
           saved = true;
@@ -8596,13 +8635,16 @@
           });
         } else {
           restoreSubmittedSettings(submitted);
-          setSaveState('save failed', 'err');
+          var fields = (res.j && res.j.fields) || {};
+          var why = Object.keys(fields).map(function (k) { return fields[k]; })[0];
+          setSaveState(why ? 'not saved: ' + why : 'save failed', 'err');
         }
       })
       .catch(function (error) {
         if (adminAuthCancelled(error)) return;
         restoreSubmittedSettings(submitted);
-        setSaveState('network error', 'err');
+        setSaveState(error && error.message && !/fetch|network/i.test(error.message)
+          ? 'not saved: ' + error.message : 'network error', 'err');
       })
       .then(function () {
         settingsSaveBusy = false;
@@ -8643,6 +8685,13 @@
     var m = location.hash.match(/^#sci=([^&]+)/);
     if (!m) return null;
     try { return decodeURIComponent(m[1]); } catch (e) { return null; }
+  }
+  // Alerts' $birdurl is #sci=<bird>&rec=<recording file>: the postcard
+  // opens with that recording expanded.
+  function readRecHash() {
+    var m = location.hash.match(/^#sci=[^&]+&rec=([^&]+)/);
+    if (!m) return null;
+    try { return decodeURIComponent(m[1]).split('/').pop(); } catch (e) { return null; }
   }
   function highlightAtlas(sci) {
     var grid = document.getElementById('atlasGrid');
@@ -9429,7 +9478,7 @@
     if (previousDistinctive) previousDistinctive.remove();
     document.getElementById('modalRecordings').innerHTML = '<li class="rec-empty">Loading recordings...</li>';
     document.getElementById('modalRecCount').textContent = '';
-    document.getElementById('modalWiki').href = wikiUrl(sci);
+    document.getElementById('modalBirdId').href = birdIdUrl(lifelistBird && lifelistBird.com, sci);
     var ebirdLink = document.getElementById('modalEbird');
     var ebirdHref = ebirdUrl(sci);
     ebirdLink.hidden = !ebirdHref;
@@ -9465,6 +9514,7 @@
       if (contentRequest !== POSTCARD_CONTENT_REQUEST) return;
       var s = j.summary || {};
       document.getElementById('modalCommon').textContent = s.com || sci;
+      if (s.com) document.getElementById('modalBirdId').href = birdIdUrl(s.com, sci);
       document.getElementById('modalAllTime').textContent = (+s.total || 0).toLocaleString();
       document.getElementById('modalFirstSeen').textContent = s.first_seen ? fmtRecTime(s.first_seen.split(' ')[0], s.first_seen.split(' ')[1]) : '-';
       var rar = rarityLabel(+s.total || 0, s.first_seen);
@@ -9517,9 +9567,6 @@
       if (contentRequest !== POSTCARD_CONTENT_REQUEST) return;
       var desc = document.getElementById('modalDesc');
       renderAboutDescription(desc, j);
-      if (j.source && /^https:\/\/en\.wikipedia\.org\/wiki\//.test(j.source.url || '')) {
-        document.getElementById('modalWiki').href = j.source.url;
-      }
     }).catch(function () {
       if (contentRequest !== POSTCARD_CONTENT_REQUEST) return;
       var desc = document.getElementById('modalDesc');
@@ -12616,9 +12663,52 @@
     adminPollT = setInterval(loadArchiveStatus, 10000);
   }
 
-  // Notifications: where they go (apprise.txt, saved on its own button
-  // because it is a list of secrets, shown back only masked) and when
-  // (APPRISE_* switches, staged and saved with the other settings).
+  // Notifications: where they go (apprise.txt, a list of secrets shown back
+  // only masked), what they say (title in birdnet.conf, body in body.txt)
+  // and when (APPRISE_* switches). All of it is staged with the other
+  // settings and written by the one save bar: the targets and body ride in
+  // `pending` under NOTIFY_KEYS, which saveSettings sends to
+  // notifications.php before the rest goes to config.php.
+  var NOTIFY_KEYS = { targets: '@notify_targets', body: '@notify_body' };
+  function isNotifyKey(key) { return key.charAt(0) === '@'; }
+  // Set by wireNotifications so a save can update what the section shows.
+  var notifyUi = null;
+  function notifyPost(body) {
+    return adminFetch('./avian/api/notifications.php', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  // Write the staged notification files; resolves once both are saved.
+  function saveNotifyPart(part) {
+    var chain = Promise.resolve();
+    if (Object.prototype.hasOwnProperty.call(part, NOTIFY_KEYS.targets)) {
+      chain = chain.then(function () {
+        return notifyPost({ action: 'save', targets: part[NOTIFY_KEYS.targets] });
+      }).then(function (j) { if (notifyUi) notifyUi.targetsSaved(j.targets || []); });
+    }
+    if (Object.prototype.hasOwnProperty.call(part, NOTIFY_KEYS.body)) {
+      chain = chain.then(function () {
+        return notifyPost({ action: 'message', body: part[NOTIFY_KEYS.body] });
+      });
+    }
+    return chain;
+  }
+  // Saved targets come back masked ("discord webhook 1557…"); the box itself
+  // is cleared after a save so the secret is not left on screen.
+  function notifyPlaceholder(saved) {
+    return saved.length
+      ? 'saved: ' + saved.join(', ') + ' (paste a URL to replace it)'
+      : 'https://discord.com/api/webhooks/…';
+  }
+  // The $variables the notifier fills in a title (NOTIFY_TITLE_VARS in
+  // avian/api/config.php); any other $ is refused, as birdnet.conf is shell.
+  var NOTIFY_TITLE_VAR = /\$(?:comname|sciname|confidencepct|confidence|date|time|week|reason)(?![A-Za-z0-9_])/g;
   function notificationsSection(notify, v) {
     if (!notify || !notify.ok) return '';
     var saved = notify.targets || [];
@@ -12626,30 +12716,28 @@
       + '<div class="menu-row notify-targets">'
       + '  <div><span class="label">Notifications</span>'
       + '  <span class="hint">where alerts go. one URL per line; for discord, paste the channel\'s webhook URL</span>'
-      + '  <span class="hint notify-saved" data-notify-saved>' + (saved.length
-        ? 'sending to ' + saved.map(adminEsc).join(', ') : 'no targets yet') + '</span></div>'
+      + '  <span class="hint notify-saved"><span data-notify-saved data-count="' + saved.length + '">' + (saved.length
+        ? 'sending to ' + saved.map(adminEsc).join(', ') : 'no targets yet') + '</span>'
+      + '  <button type="button" class="notify-remove" data-notify-remove' + (saved.length && notify.writable ? '' : ' hidden') + '>remove</button></span></div>'
       + '</div>'
       + '<textarea class="notify-input" rows="2" spellcheck="false" autocomplete="off"'
-      + ' placeholder="https://discord.com/api/webhooks/…" aria-label="notification URLs, one per line" data-notify-input></textarea>'
+      + ' placeholder="' + adminAttr(notifyPlaceholder(saved)) + '" aria-label="notification URLs, one per line" data-notify-input'
+      + (notify.writable ? '' : ' disabled') + '></textarea>'
       + '<div class="notify-actions">'
-      + '  <button type="button" data-notify-save' + (notify.writable ? '' : ' disabled') + '>save targets</button>'
-      + '  <button type="button" data-notify-test' + (saved.length ? '' : ' disabled') + '>send test</button>'
+      + '  <button type="button" data-notify-test>send test</button>'
       + '  <span class="notify-status" data-notify-status role="status" aria-live="polite">'
       + (notify.writable ? '' : 'apprise.txt is not writable on the station') + '</span>'
       + '</div>'
       + '<div class="menu-row notify-message-head"><div><span class="label">Message</span>'
       + '  <span class="hint">what each alert says. tap a variable to add it; discord reads **bold** and *italic*.'
-      + ' $image attaches the bird\'s photo</span></div></div>'
+      + ' $birdurl opens the bird\'s postcard; $image attaches its photo</span></div></div>'
       + '<input type="text" class="notify-title" maxlength="120" spellcheck="false" autocomplete="off" aria-label="notification title"'
       + ' placeholder="title" value="' + adminAttr(v.APPRISE_NOTIFICATION_TITLE || '') + '" data-notify-title>'
+      + '<span class="notify-status" data-notify-title-status role="status" aria-live="polite"></span>'
       + '<textarea class="notify-input notify-body" rows="7" spellcheck="false" aria-label="notification message" data-notify-body'
       + (notify.body_writable ? '' : ' disabled') + '>' + adminEsc(notify.body || '') + '</textarea>'
       + '<div class="notify-vars" role="group" aria-label="insert a variable">'
-      + ['$comname','$sciname','$confidencepct','$date','$time','$reason','$friendlyurl','$image','$listenurl','$confidence','$week'].map(function (k) { return '<button type="button" data-notify-var="' + k + '">' + k + '</button>'; }).join('')
-      + '</div>'
-      + '<div class="notify-actions">'
-      + '  <button type="button" data-notify-message' + (notify.body_writable ? '' : ' disabled') + '>save message</button>'
-      + '  <span class="notify-status" data-notify-message-status role="status" aria-live="polite"></span>'
+      + ['$comname','$sciname','$confidencepct','$date','$time','$reason','$friendlyurl','$birdurl','$image','$listenurl','$confidence','$week'].map(function (k) { return '<button type="button" data-notify-var="' + k + '">' + k + '</button>'; }).join('')
       + '</div>'
       + settingsText('BIRDNETPI_URL', 'Station address', v.BIRDNETPI_URL || '', 200)
       + '<p class="notify-note">where "listen here" links in alerts point, e.g. https://birds.example.com. empty uses ' + adminEsc(notify.default_site || 'the station\'s .local name') + ', which only works at home</p>'
@@ -12659,44 +12747,51 @@
       + settingsToggle('APPRISE_WEEKLY_REPORT', 'Weekly report', 'a summary each week', v.APPRISE_WEEKLY_REPORT);
   }
   function wireNotifications(root) {
+    notifyUi = null;
     var input = root.querySelector('[data-notify-input]');
     if (!input) return;
-    var saveBtn = root.querySelector('[data-notify-save]');
     var testBtn = root.querySelector('[data-notify-test]');
+    var removeBtn = root.querySelector('[data-notify-remove]');
     var status = root.querySelector('[data-notify-status]');
     var savedLine = root.querySelector('[data-notify-saved]');
-    function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
-    function post(body) {
-      return adminFetch('./avian/api/notifications.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
-        body: JSON.stringify(body),
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (j) {
-          if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
-          return j;
-        });
-      });
-    }
-    saveBtn.addEventListener('click', function () {
-      var text = input.value.trim();
-      if (!text && !confirm('Remove every notification target?')) return;
-      saveBtn.disabled = true;
-      say('saving...');
-      post({ action: 'save', targets: text }).then(function (j) {
-        var t = j.targets || [];
-        savedLine.textContent = t.length ? 'sending to ' + t.join(', ') : 'no targets yet';
-        input.value = '';
-        testBtn.disabled = !t.length;
-        say(t.length ? 'saved. send a test to check it' : 'targets removed');
-      }).catch(function (error) {
-        if (!adminAuthCancelled(error)) say(error.message, true);
-      }).then(function () { saveBtn.disabled = false; });
-    });
-    // Message: title (birdnet.conf, plain text) and body template (body.txt).
     var bodyBox = root.querySelector('[data-notify-body]');
     var titleBox = root.querySelector('[data-notify-title]');
-    var msgStatus = root.querySelector('[data-notify-message-status]');
-    function sayMsg(text, err) { msgStatus.textContent = text || ''; msgStatus.classList.toggle('err', !!err); }
+    var titleStatus = root.querySelector('[data-notify-title-status]');
+    var savedText = savedLine.textContent;
+    var savedCount = Number(savedLine.dataset.count) || 0;
+    function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
+
+    // Targets: a secret box. Empty means "leave the saved ones alone";
+    // removing them all is the explicit "remove" link.
+    function stageTargets() {
+      var v = input.value.trim();
+      if (v) pending[NOTIFY_KEYS.targets] = v;
+      else delete pending[NOTIFY_KEYS.targets];
+      savedLine.textContent = savedText;
+      syncSaveBar();
+    }
+    input.addEventListener('input', stageTargets);
+    if (removeBtn) removeBtn.addEventListener('click', function () {
+      if (!confirm('Remove every notification target when you save?')) return;
+      input.value = '';
+      pending[NOTIFY_KEYS.targets] = '';
+      savedLine.textContent = 'every target will be removed when you save';
+      syncSaveBar();
+    });
+
+    // Title (birdnet.conf) is an ordinary setting; body (body.txt) is staged
+    // against what it showed on load, so editing it back unstages it.
+    settingsBaseline.APPRISE_NOTIFICATION_TITLE = titleBox.value.trim();
+    titleBox.addEventListener('input', function () {
+      var title = titleBox.value.trim();
+      var bad = /[$"`\\]/.test(title.replace(NOTIFY_TITLE_VAR, ''));
+      titleStatus.textContent = bad ? 'plain text and $variables like $comname; no other $, quotes or backslashes' : '';
+      titleStatus.classList.toggle('err', bad);
+      stageSetting('APPRISE_NOTIFICATION_TITLE', title);
+    });
+    settingsBaseline[NOTIFY_KEYS.body] = bodyBox.value;
+    function stageBody() { stageSetting(NOTIFY_KEYS.body, bodyBox.value); }
+    bodyBox.addEventListener('input', stageBody);
     root.querySelectorAll('[data-notify-var]').forEach(function (b) {
       b.addEventListener('click', function () {
         var v = b.dataset.notifyVar;
@@ -12705,33 +12800,32 @@
         bodyBox.value = bodyBox.value.slice(0, at) + v + bodyBox.value.slice(end);
         bodyBox.focus();
         bodyBox.setSelectionRange(at + v.length, at + v.length);
+        stageBody();
       });
     });
-    var saveMsg = root.querySelector('[data-notify-message]');
-    if (saveMsg) saveMsg.addEventListener('click', function () {
-      var title = titleBox.value.trim();
-      if (/[$"`\\]/.test(title)) { sayMsg('the title is plain text: no $ variables, quotes or backslashes', true); return; }
-      saveMsg.disabled = true;
-      sayMsg('saving...');
-      post({ action: 'message', body: bodyBox.value }).then(function () {
-        return adminFetch('./avian/api/config.php', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
-          body: JSON.stringify({ APPRISE_NOTIFICATION_TITLE: title }),
-        }).then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (j) {
-            if (!r.ok || !j.ok) throw new Error((j.fields && j.fields.APPRISE_NOTIFICATION_TITLE) || j.error || ('HTTP ' + r.status));
-          });
-        });
-      }).then(function () {
-        sayMsg('saved. send a test to see it');
-      }).catch(function (error) {
-        if (!adminAuthCancelled(error)) sayMsg(error.message, true);
-      }).then(function () { saveMsg.disabled = false; });
-    });
+
+    notifyUi = {
+      targetsSaved: function (t) {
+        savedCount = t.length;
+        savedText = t.length ? 'sending to ' + t.join(', ') : 'no targets yet';
+        savedLine.textContent = savedText;
+        input.value = '';
+        input.placeholder = notifyPlaceholder(t);
+        if (removeBtn) removeBtn.hidden = !t.length;
+      },
+    };
+
+    // The test sends what is saved, so it saves whatever is staged first.
     testBtn.addEventListener('click', function () {
+      var staged = pending[NOTIFY_KEYS.targets];
+      if (!savedCount && !staged) { say('paste a notification URL first', true); return; }
       testBtn.disabled = true;
-      say('sending a test...');
-      post({ action: 'test' }).then(function () {
+      say(settingsDirtyCount() ? 'saving and sending a test...' : 'sending a test...');
+      flushPendingSettings().then(function (ok) {
+        if (!ok) throw new Error('save your changes first; the save did not go through');
+        if (!savedCount) throw new Error('no notification targets are saved');
+        return notifyPost({ action: 'test' });
+      }).then(function () {
         say('test sent with your message and the latest bird. check your channel');
       }).catch(function (error) {
         if (!adminAuthCancelled(error)) say(error.message, true);
@@ -13852,7 +13946,31 @@
 
   // Initial load: if URL has a sci hash, jump to atlas, highlight, and
   // open the modal.
-  if (readHash() && !educatorScopeBlocked) { go(2); highlightAtlas(readHash()); openDetailModal(readHash()); }
+  if (readHash() && !educatorScopeBlocked) {
+    go(2); highlightAtlas(readHash()); openDetailModal(readHash());
+    if (readRecHash()) openPostcardRecording(readRecHash());
+  }
+
+  // Expand one recording in the open postcard, by file name, once its list
+  // has rendered.
+  function openPostcardRecording(base) {
+    var rowTries = 0;
+    (function openRow() {
+      var row = [].slice.call(document.querySelectorAll('#modalRecordings .rec-row')).find(function (r) {
+        return (r.dataset.file || '').split('/').pop() === base;
+      });
+      if (!row) { if (rowTries++ < 40) setTimeout(openRow, 150); return; }
+      // The list lives in the postcard's collapsed "Recordings" section.
+      var section = row.closest('details');
+      if (section && !section.open) section.open = true;
+      var toggle = row.querySelector('.rec-row-toggle');
+      if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+      // Scroll once the section and the row have laid out (and again after
+      // the postcard's own entrance settles).
+      requestAnimationFrame(function () { row.scrollIntoView({ block: 'center' }); });
+      setTimeout(function () { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 450);
+    })();
+  }
 
   // "Listen here" links in notifications are /?filename=<recording>. BirdNET-Pi
   // names recordings "<Common_Name>-<conf>-<date>-birdnet-<time>.mp3", so
@@ -13873,16 +13991,7 @@
       if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + (hit ? '#sci=' + encodeURIComponent(hit.sci) : ''));
       if (!hit) return;
       go(2); highlightAtlas(hit.sci); openDetailModal(hit.sci);
-      var rowTries = 0;
-      (function openRow() {
-        var row = [].slice.call(document.querySelectorAll('#modalRecordings .rec-row')).find(function (r) {
-          return (r.dataset.file || '').split('/').pop() === base;
-        });
-        if (!row) { if (rowTries++ < 40) setTimeout(openRow, 150); return; }
-        var toggle = row.querySelector('.rec-row-toggle');
-        if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
-        row.scrollIntoView({ block: 'center' });
-      })();
+      openPostcardRecording(base);
     })();
   })();
   // Admin overlay routing accepts only exact native admin section names.
@@ -13904,7 +14013,10 @@
     if (location.hash === '#about') openAbout(); else closeAbout();
     if (adm) { openAdmin(adm); return; }
     closeAdmin();
-    if (sci && !educatorScopeBlocked) { go(2); highlightAtlas(sci); openDetailModal(sci); }
+    if (sci && !educatorScopeBlocked) {
+      go(2); highlightAtlas(sci); openDetailModal(sci);
+      if (readRecHash()) openPostcardRecording(readRecHash());
+    }
     else { highlightAtlas(null); closeDetailModal(); }
   }
   if (readAdminHash()) openAdmin(readAdminHash());
@@ -15087,7 +15199,7 @@
       image.alt = '';
       image.classList.remove('is-loading');
     }
-    ['modalWiki', 'modalEbird'].forEach(function (id) {
+    ['modalBirdId', 'modalEbird'].forEach(function (id) {
       var link = document.getElementById(id);
       if (link) link.removeAttribute('href');
     });

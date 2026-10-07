@@ -232,9 +232,16 @@ valid_config_value() {
       [[ "$value" =~ ^[0-9]{1,6}$ ]] && [ "$value" -le 604800 ]
       ;;
     APPRISE_NOTIFICATION_TITLE)
-      # Plain text: this file is sourced as shell, so no $, quotes, backticks
-      # or backslashes (and no control characters).
-      [ "${#value}" -le 120 ] && [[ "$value" != *[\`\"\\\$]* ]] && ! [[ "$value" =~ [[:cntrl:]] ]]
+      # Plain text: this file is sourced as shell, so no quotes, backticks,
+      # backslashes or control characters, and $ only as one of the
+      # notifier's own $variables, which a shell can read but never run.
+      # Keep the list in step with NOTIFY_TITLE_VARS in avian/api/config.php.
+      local plain=$value
+      local title_var='\$(comname|sciname|confidencepct|confidence|date|time|week|reason)([^A-Za-z0-9_]|$)'
+      while [[ "$plain" =~ $title_var ]]; do
+        plain=${plain/"${BASH_REMATCH[0]}"/"${BASH_REMATCH[2]}"}
+      done
+      [ "${#value}" -le 120 ] && [[ "$plain" != *[\`\"\\\$]* ]] && ! [[ "$value" =~ [[:cntrl:]] ]]
       ;;
     BIRDNETPI_URL)
       [ -z "$value" ] || {
