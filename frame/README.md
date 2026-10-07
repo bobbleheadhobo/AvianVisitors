@@ -23,8 +23,20 @@ EE04 (ESPHome): fetch /frame/frame.json → new sig? → download PNG → draw �
 | 1 | Seeed XIAO ePaper Display Board EE04, ESP32-S3 Plus (SKU 100075670) |
 | 1 | USB-C cable, or a 3.7 V LiPo on the JST 2.0 mm connector |
 
-The panel uses the **50-pin** connector: set the EE04 jumper to 50-pin before
-plugging it in.
+The panel uses the **50-pin** connector. With USB unplugged (and the battery
+switch off):
+
+1. **Jumper:** move the jumper cap(s) by the two ribbon connectors to the
+   side marked for 50-pin. Pull a cap straight up and press it onto the pins
+   on the 50 side. On the wrong side nothing breaks; the panel simply never
+   draws (Frame status *Draw timed out*).
+2. **Open the latch** of the larger (50-pin) FPC connector: the thin dark bar
+   along its edge lifts up on a hinge, or slides out about 1 mm. It needs
+   only a fingernail; if it resists, you are pushing the wrong edge.
+3. **Insert the ribbon** flat and square, gold contacts facing the
+   connector's pins, all the way in (the contacts disappear, about 3-4 mm).
+   If it stops short or bends, the latch is not fully open.
+4. **Close the latch**; a gentle tug should not move the ribbon.
 
 ### 1. Server
 
@@ -53,8 +65,10 @@ cp secrets.example.yaml secrets.yaml   # Wi-Fi and an OTA password
 esphome run birdframe-usb.yaml         # first time over USB
 ```
 
-Use the server's IP rather than `birdnet.local`, and give the server a DHCP
-reservation so the address doesn't change.
+Use the server's IP rather than `birdnet.local` (an ESP32 resolves `.local`
+names unreliably), and make it fixed: a static IP or a DHCP reservation. The
+address is built into the firmware, so if it changes, the frame reports
+*Server unreachable* until you update `server:` and reinstall.
 
 #### Building with Home Assistant's ESPHome add-on instead
 
@@ -89,10 +103,15 @@ that the add-on has `tar` and `sha256sum`, and copies into a hidden staging
 folder, checked byte for byte before anything live changes. Only then does it
 back up the current files to `.birdframe-backup/` (the last five are kept) and
 swap the new ones in. It lists keys missing from the add-on's `secrets.yaml`
-without touching it, clears out the old flat layout's `common.yaml` and
+without touching it (the API key is the one you will usually need to add),
+clears out the old flat layout's `common.yaml` and
 `birdframe.h` when they are the frame's own, and, as the Device Builder keeps
 the folder in git, adds `/.birdframe-backup/` to its `.gitignore`. The SSH
 user defaults to `root`; pass `--user` for an add-on set up with another.
+With Advanced SSH & Web Terminal and a non-root user, `/homeassistant` is
+root's: the script then works through the add-on's password-free `sudo`
+(it says "using sudo"), and stops without changing anything if there is
+none.
 Options: `--build battery`, `--user`, `--port`, `--dry-run` (report only);
 `--help` lists them all.
 
@@ -116,11 +135,21 @@ Or use the Samba share add-on and drag the same two items into
    **Install → Plug into this computer**. That needs Chrome or Edge and
    Home Assistant opened over HTTPS. Over plain HTTP, open
    [web.esphome.io](https://web.esphome.io), **Connect**, and **Install** the
-   factory `.bin` from step 4.
+   factory `.bin` from step 4. Use USB too when the board last ran firmware
+   with a different `ota_password`: a wireless install is refused then.
 6. Later updates of the USB build: **Install → Wirelessly**. The battery
    build accepts them only for 5 minutes after KEY2; otherwise use USB.
-7. Once it is online, Home Assistant offers to add the `birdframe` device
-   (Settings → Devices & services).
+7. Check it is running: within a minute of power-up the card shows
+   **ONLINE**, and its **Logs** show `server <sig>, shown <sig>, draw yes`
+   then `drew frame <sig>` while the panel flashes for about 20-30 s. There
+   is no fallback hotspot: if it never comes online, read the logs over USB
+   (**Logs → Plug into this computer**) to see why Wi-Fi failed.
+8. Add it to Home Assistant: **Settings → Devices & services**, **Configure**
+   on the discovered *birdframe*, and paste the `birdframe_api_key` value as
+   the encryption key. Not discovered? **Add integration → ESPHome**, host =
+   the frame's IP (in the first log lines or your router), port `6053`.
+9. Give the frame a DHCP reservation too. Home Assistant finds it by name,
+   but a fixed address makes the manual fallback and the logs predictable.
 
 #### In Home Assistant
 
@@ -197,11 +226,21 @@ takes a single redraw (~20 s).
 A full Spectra 6 refresh takes about 20 seconds and the panel flashes while it
 redraws; that only happens when the birds change.
 
-**Troubleshooting:** a corrupted or striped image → uncomment
-`data_rate: 10MHz` in `common.yaml`. Nothing ever draws and the logs show
-the display stuck busy → check the 50-pin jumper and the ribbon cable. The
-logs (`esphome logs birdframe-usb.yaml`) print the server's and the shown sig
-on every check.
+**Troubleshooting.** Frame status in Home Assistant (or the logs) usually
+names the problem:
+
+| Frame status | Look at |
+|---|---|
+| Server unreachable | the frame cannot reach `server:`. Is the BirdNET server up, on that address, and on the same network? |
+| Server error / No image yet | the server answered but has no frame yet: run `frame/install-server.sh` or wait for its timer. |
+| Download failed | the image did not download; the logs say why. |
+| Draw timed out | the panel never finished: the 50-pin jumper and the ribbon (fully in, latch closed). |
+| Up to date, but Last drawn is old | nothing new to draw. If Station image updated is old too, the server's render timer has stopped. |
+
+A corrupted or striped image → uncomment `data_rate: 10MHz` in
+`birdframe/common.yaml`. The logs (`esphome logs birdframe-usb.yaml`, or
+**Logs** on the dashboard card) print the server's and the shown sig on
+every check.
 
 ---
 
