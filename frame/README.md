@@ -58,25 +58,52 @@ reservation so the address doesn't change.
 
 #### Building with Home Assistant's ESPHome add-on instead
 
-The firmware is four files in [`frame/esphome/`](esphome/). Copy them into the
-add-on's config folder, `/config/esphome/`, with the File editor or Studio
-Code Server add-on (paste each one), or the Samba share add-on (drag them
-into `config/esphome`):
+The firmware is one device file plus a `birdframe/` folder, laid out the way
+the add-on's ESPHome folder expects (`/homeassistant/esphome/` in the
+Advanced SSH & Web Terminal add-on, `/config/esphome/` in older setups). Only top-level YAML
+files show up as dashboard cards, so the shared parts stay out of sight in
+the folder:
 
-| File | Needed |
+| Path in `frame/esphome/` | Copy into the ESPHome folder |
 |---|---|
-| `birdframe-usb.yaml` | the device (or `birdframe-battery.yaml`; both use the name `birdframe`, so copy only one) |
-| `common.yaml` | yes, pulled in by the device file |
-| `birdframe.h` | yes, pulled in by `common.yaml` |
-| `secrets.example.yaml` | no; add its three keys to the add-on's own `secrets.yaml` instead |
+| `birdframe-usb.yaml` | yes: the device (or `birdframe-battery.yaml`; both use the name `birdframe`, so copy only one) |
+| `birdframe/common.yaml` | yes, as `birdframe/common.yaml` |
+| `birdframe/birdframe.h` | yes, as `birdframe/birdframe.h` |
+| `secrets.example.yaml` | no; add its keys to the add-on's own `secrets.yaml` instead |
 
-Keep them side by side in `/config/esphome/`, not in a subfolder; the includes
-are relative. `common.yaml` shows up as an extra card in the dashboard;
-ignore it.
+From the BirdNET server, with an SSH add-on running (Advanced SSH & Web
+Terminal, or Terminal & SSH; set your SSH key or password in its options).
+SFTP can stay off: the files go as a tar stream over ssh, so plain `scp`
+is not needed (and fails without SFTP unless run as `scp -O`):
+
+```bash
+cd ~/BirdNET-Pi/frame/esphome
+./push-to-ha.sh --host <Home Assistant IP> --user <ssh user>   # first time; remembered after
+./push-to-ha.sh                                # every later update
+```
+
+It validates the firmware with the ESPHome on the server first, if there is
+one (Home Assistant's own may be a different version, so it can still
+disagree). Then it finds the ESPHome folder, checks it can write there and
+that the add-on has `tar` and `sha256sum`, and copies into a hidden staging
+folder, checked byte for byte before anything live changes. Only then does it
+back up the current files to `.birdframe-backup/` (the last five are kept) and
+swap the new ones in. It lists keys missing from the add-on's `secrets.yaml`
+without touching it, clears out the old flat layout's `common.yaml` and
+`birdframe.h` when they are the frame's own, and, as the Device Builder keeps
+the folder in git, adds `/.birdframe-backup/` to its `.gitignore`. The SSH
+user defaults to `root`; pass `--user` for an add-on set up with another.
+Options: `--build battery`, `--user`, `--port`, `--dry-run` (report only);
+`--help` lists them all.
+
+Or use the Samba share add-on and drag the same two items into
+`config/esphome`. Never copy `secrets.yaml` over the add-on's own.
 
 1. Update the add-on to ESPHome 2026.6 or newer.
 2. In the dashboard's **Secrets** editor (top right), add `wifi_ssid`,
-   `wifi_password` and `ota_password` (any password you like). If your
+   `wifi_password`, `ota_password` (any password; the frame's current one
+   if it already runs this firmware, so it updates over Wi-Fi) and
+   `birdframe_api_key` (`openssl rand -base64 32`). If your
    existing secrets use other names, change the `!secret` lines in the
    device YAML to match.
 3. Check `server:` in the device YAML is your BirdNET server's IP.
@@ -92,6 +119,67 @@ ignore it.
    factory `.bin` from step 4.
 6. Later updates of the USB build: **Install → Wirelessly**. The battery
    build accepts them only for 5 minutes after KEY2; otherwise use USB.
+7. Once it is online, Home Assistant offers to add the `birdframe` device
+   (Settings → Devices & services).
+
+#### In Home Assistant
+
+| Entity | Builds | What it tells you |
+|---|---|---|
+| Frame status | both | Up to date, Drawing, Server unreachable, Server error, No image yet, Download failed or Draw timed out |
+| Last drawn | both | when the panel last redrew |
+| Station image updated | both (diagnostic) | when the station last rendered the frame. Old Last drawn with a recent Station image updated: the frame is stuck. Both old: the station is. |
+| Wi-Fi signal, IP address, ESPHome version | both (diagnostic) | |
+| Redraw (button), Bird names (switch) | USB | the same as KEY0 and KEY1 |
+| Restart (button), Uptime | USB | |
+| Battery voltage, Battery level | battery | level is a rough LiPo estimate, 3.3 V empty to 4.2 V full; unknown with no cell |
+
+The frame never depends on Home Assistant: with it down the frame keeps
+drawing and does not reboot. The battery build waits up to 10 s per wake for
+Home Assistant to connect before sleeping, so its readings arrive; Home
+Assistant keeps them while it sleeps. Its buttons and switch are left out,
+as it is asleep nearly all the time.
+
+Example automations (change the entity IDs to match yours):
+
+```yaml
+# Bird names off at night, on in the morning (USB build).
+- alias: Bird frame names by daylight
+  triggers:
+    - trigger: sun
+      event: sunset
+      id: "off"
+    - trigger: sun
+      event: sunrise
+      id: "on"
+  actions:
+    - action: "switch.turn_{{ trigger.id }}"
+      target:
+        entity_id: switch.birdframe_bird_names
+
+# Tell me when the frame cannot reach the station for an hour.
+- alias: Bird frame cannot reach the station
+  triggers:
+    - trigger: state
+      entity_id: sensor.birdframe_frame_status
+      to: Server unreachable
+      for: "01:00:00"
+  actions:
+    - action: notify.notify
+      data:
+        message: The bird frame has not reached the BirdNET station for an hour.
+
+# Battery build: charge reminder.
+- alias: Bird frame battery low
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.birdframe_battery_level
+      below: 15
+  actions:
+    - action: notify.notify
+      data:
+        message: "Bird frame battery at {{ states('sensor.birdframe_battery_level') }}%."
+```
 
 | | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
 |---|---|---|
