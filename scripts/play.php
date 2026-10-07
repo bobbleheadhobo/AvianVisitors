@@ -521,13 +521,9 @@ if(isset($_GET['species'])){ ?>
    </form>
 </div>
 <?php
-  // add disk_check_exclude.txt lines into an array for grepping
-  $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r'); 
-if ($fp) {
-  $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
-} else {
-  $disk_check_exclude_arr = [];
-}
+  // add disk_check_exclude.txt lines into an array for grepping. file()
+  // copes with an empty file, where fread($fp, 0) throws on PHP 8.
+  $disk_check_exclude_arr = @file($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", FILE_IGNORE_NEW_LINES) ?: [];
 
 $name = htmlspecialchars_decode($_GET['species'], ENT_QUOTES);
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 40;
@@ -601,7 +597,7 @@ echo "<table>
       }
 
       echo "<tr>
-  <td class=\"relative\"> 
+  <td class=\"relative rec-actions\"> 
 
 <img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Delete Detection'> 
 <img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Change Detection'> 
@@ -636,20 +632,29 @@ echo "<table>
 
   if(isset($_GET['filename'])){
     $name = $_GET['filename'];
-    $statement2 = $db->prepare("SELECT * FROM detections where File_name == \"$name\" ORDER BY Date DESC, Time DESC");
+    $esc = function ($v) { return htmlspecialchars((string)$v, ENT_QUOTES); };
+    $statement2 = $db->prepare('SELECT * FROM detections WHERE File_Name == :file_name ORDER BY Date DESC, Time DESC');
     ensure_db_ok($statement2);
+    $statement2->bindValue(':file_name', $name);
     $result2 = $statement2->execute();
     $results = $result2->fetchArray(SQLITE3_ASSOC);
-    $sciname = $results['Sci_Name'];
     $result2->reset();
+    if ($results === false) {
+      echo "<table><tr><th>".$esc($name)."</th></tr><tr><td><p class='recording-missing'>No detection has that file name.</p></td></tr></table>";
+    } else {
+    $sciname = $results['Sci_Name'];
     $info_url = get_info_url($sciname);
     $url = $info_url['URL'];
+    $url_title = $info_url['TITLE'];
     echo "<table>
-      <tr><th>$name<br>
-      <i>$sciname</i><br>
-          <a href=\"$url\" target=\"_blank\"><img title=\"$url_title\" src=\"images/info.png\" width=\"20\"></a>
-          <a href=\"https://wikipedia.org/wiki/$sciname\" target=\"_blank\"><img title=\"Wikipedia\" src=\"images/wiki.png\" width=\"20\"></a>
+      <tr><th>".$esc($name)."<br>
+      <i>".$esc($sciname)."</i><br>
+          <a href=\"".$esc($url)."\" target=\"_blank\"><img title=\"".$esc($url_title)."\" src=\"images/info.png\" width=\"20\"></a>
+          <a href=\"https://wikipedia.org/wiki/".$esc(rawurlencode(str_replace(' ', '_', $sciname)))."\" target=\"_blank\"><img title=\"Wikipedia\" src=\"images/wiki.png\" width=\"20\"></a>
       </th></tr>";
+      // Read the purge-exclusion list once. file() copes with an empty file,
+      // where fread($fp, 0) throws on PHP 8.
+      $disk_check_exclude_arr = @file($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", FILE_IGNORE_NEW_LINES) ?: [];
       while($results=$result2->fetchArray(SQLITE3_ASSOC))
       {
         $comname = preg_replace('/ /', '_', $results['Com_Name']);
@@ -663,14 +668,9 @@ echo "<table>
         $time = $results['Time'];
         $values = round((float)round($results['Confidence'],2) * 100 ) . '%';
         $filename_formatted = $date."/".$comname."/".$results['File_Name'];
-
-        // add disk_check_exclude.txt lines into an array for grepping
-        $fp = @fopen($home."/BirdNET-Pi/scripts/disk_check_exclude.txt", 'r');
-        if ($fp) {
-          $disk_check_exclude_arr = explode("\n", fread($fp, filesize($home."/BirdNET-Pi/scripts/disk_check_exclude.txt")));
-        } else {
-          $disk_check_exclude_arr = [];
-        }
+        // The original recording, as the species list checks it: a purged
+        // mp3 is missing even if a shifted copy survived.
+        $on_disk = file_exists($home."/BirdSongs/Extracted".$filename);
 
           if(!in_array($filename_formatted, $disk_check_exclude_arr)) {
             $imageicon = "images/unlock.svg";
@@ -693,18 +693,21 @@ echo "<table>
         $shiftAction = "shift";
       }
 
+          // Keep and frequency shift act on the audio file, so a row without
+          // one offers only delete and change species.
           echo "<tr>
-      <td class=\"relative\"> 
+      <td class=\"relative rec-actions\"> 
 
-<img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$filename_formatted."\", true)' class=\"copyimage\" width=25 title='Delete Detection'> 
-<img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$filename_formatted."\")' class=\"copyimage\" width=25 title='Change Detection'> 
-<img style='cursor:pointer;right:45px' onclick='toggleLock(\"".$filename_formatted."\",\"".$type."\", this)' class=\"copyimage\" width=25 title=\"".$title."\" src=\"".$imageicon."\"> 
-<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$filename_formatted."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\">$date $time<br>$values<br>
-
-<div class='custom-audio-player' data-audio-src='$filename' data-image-src='$filename_png'></div>
+<img style='cursor:pointer;right:120px' src='images/delete.svg' onclick='deleteDetection(\"".$esc($filename_formatted)."\", true)' class=\"copyimage\" width=25 title='Delete Detection'> 
+<img style='cursor:pointer;right:85px' src='images/bird.svg' onclick='changeDetection(\"".$esc($filename_formatted)."\")' class=\"copyimage\" width=25 title='Change Detection'> 
+".($on_disk ? "<img style='cursor:pointer;right:45px' onclick='toggleLock(\"".$esc($filename_formatted)."\",\"".$type."\", this)' class=\"copyimage\" width=25 title=\"".$title."\" src=\"".$imageicon."\"> 
+<img style='cursor:pointer' onclick='toggleShiftFreq(\"".$esc($filename_formatted)."\",\"".$shiftAction."\", this)' class=\"copyimage\" width=25 title=\"".$shiftTitle."\" src=\"".$shiftImageIcon."\">" : "").$esc($date)." ".$esc($time)."<br>$values<br>
+".($on_disk
+  ? "<div class='custom-audio-player' data-audio-src='".$esc($filename)."' data-image-src='".$esc($filename_png)."'></div>"
+  : "<p class='recording-missing'>The audio for this detection is not on the station.</p>")."
 </td></tr>";
 
-      }echo "</table>";}
+      }echo "</table>";}}
       echo "</div>";
 if (get_included_files()[0] === __FILE__) {
   echo '</html>';
