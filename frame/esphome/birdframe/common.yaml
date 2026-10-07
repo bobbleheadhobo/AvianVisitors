@@ -13,8 +13,16 @@
 esphome:
   name: ${name}
   min_version: 2026.6.0
+  on_boot:
+    # Report the restored timestamps to Home Assistant straight away.
+    - priority: -100
+      then:
+        - component.update: last_drawn
+        - component.update: station_updated
   includes:
-    - birdframe.h
+    # Relative to the device YAML (birdframe-usb/-battery.yaml), not to
+    # this file: ESPHome resolves includes from the main config's folder.
+    - birdframe/birdframe.h
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -35,6 +43,19 @@ http_request:
   verify_ssl: false
   useragent: AvianVisitors-frame/1.0
 
+# Home Assistant. The frame never depends on it: with Home Assistant down it
+# keeps drawing, and reboot_timeout 0 stops ESPHome rebooting it for want of
+# a client. The key is any 32 random bytes in base64 (openssl rand -base64 32).
+api:
+  reboot_timeout: 0s
+  encryption:
+    key: !secret birdframe_api_key
+
+# For the Last drawn timestamp; plain SNTP, so Home Assistant is not needed.
+time:
+  - platform: sntp
+    id: sntp_time
+
 globals:
   # Persisted in flash so a reboot or deep sleep does not redraw for nothing.
   - id: last_sig
@@ -50,6 +71,16 @@ globals:
     type: bool
     restore_value: yes
     initial_value: "false"
+  # Unix times for Home Assistant: when the panel last drew, and when the
+  # station last rendered (frame.json's "updated").
+  - id: last_drawn_ts
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: station_updated_ts
+    type: int
+    restore_value: yes
+    initial_value: "0"
   # Per run.
   - id: low_battery
     type: bool
@@ -83,14 +114,23 @@ online_image:
         - lambda: |-
             id(last_sig) = id(pending_sig);
             id(shown_low_battery) = id(low_battery);
+            auto now = id(sntp_time).now();
+            if (now.is_valid()) id(last_drawn_ts) = now.timestamp;
             global_preferences->sync();
             id(drawn) = true;
             ESP_LOGI("birdframe", "drew frame %s", id(last_sig).c_str());
+        - component.update: last_drawn
+        - text_sensor.template.publish:
+            id: frame_status
+            state: Up to date
     on_error:
       then:
         - lambda: |-
             ESP_LOGW("birdframe", "image download failed; keeping the last frame");
             id(drawn) = true;
+        - text_sensor.template.publish:
+            id: frame_status
+            state: Download failed
 
 display:
   - platform: epaper_spi
@@ -136,20 +176,29 @@ script:
               - lambda: |-
                   if (response->status_code != 200) {
                     ESP_LOGW("birdframe", "frame.json returned %d", response->status_code);
+                    id(frame_status).publish_state("Server error");
                     return;
                   }
                   std::string sig;
-                  json::parse_json(body, [&sig](JsonObject root) -> bool {
+                  int updated = 0;
+                  json::parse_json(body, [&sig, &updated](JsonObject root) -> bool {
                     const char *key = id(names_on) ? "sig_names" : "sig";
                     sig = root[key] | "";
+                    updated = root["updated"] | 0;
                     return true;
                   });
+                  if (updated > 0) {
+                    id(station_updated_ts) = updated;
+                    id(station_updated).update();
+                  }
                   if (sig.empty()) {
                     ESP_LOGW("birdframe", "frame.json has no image yet");
+                    id(frame_status).publish_state("No image yet");
                     return;
                   }
                   id(pending_sig) = sig;
                   id(want_draw) = force || sig != id(last_sig) || id(low_battery) != id(shown_low_battery);
+                  id(frame_status).publish_state(id(want_draw) ? "Drawing" : "Up to date");
                   ESP_LOGI("birdframe", "server %s, shown %s, draw %s", sig.c_str(),
                            id(last_sig).c_str(), id(want_draw) ? "yes" : "no");
           on_error:
@@ -157,6 +206,9 @@ script:
               - logger.log:
                   level: WARN
                   format: "could not reach the frame server; keeping the last frame"
+              - text_sensor.template.publish:
+                  id: frame_status
+                  state: Server unreachable
       - if:
           condition:
             lambda: "return id(want_draw);"
@@ -169,4 +221,54 @@ script:
                 condition:
                   lambda: "return id(drawn);"
                 timeout: 120s
+            - if:
+                condition:
+                  lambda: "return !id(drawn);"
+                then:
+                  - text_sensor.template.publish:
+                      id: frame_status
+                      state: Draw timed out
             - online_image.release: frame_img
+
+# Home Assistant entities shared by both builds.
+text_sensor:
+  - platform: template
+    id: frame_status
+    name: Frame status
+    icon: mdi:image-sync
+    update_interval: never
+  - platform: wifi_info
+    ip_address:
+      name: IP address
+      entity_category: diagnostic
+  - platform: version
+    name: ESPHome version
+    hide_timestamp: true
+    entity_category: diagnostic
+  # Timestamps as ISO text: a float sensor rounds a Unix time to the nearest
+  # 128 s. When the panel last redrew: if this is old while Station image
+  # updated is recent, the frame is the problem; if both are old, the station.
+  - platform: template
+    id: last_drawn
+    name: Last drawn
+    device_class: timestamp
+    update_interval: never
+    lambda: |-
+      if (id(last_drawn_ts) <= 0) return {};
+      return ESPTime::from_epoch_utc(id(last_drawn_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
+  - platform: template
+    id: station_updated
+    name: Station image updated
+    device_class: timestamp
+    entity_category: diagnostic
+    update_interval: never
+    lambda: |-
+      if (id(station_updated_ts) <= 0) return {};
+      return ESPTime::from_epoch_utc(id(station_updated_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
+
+sensor:
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: Wi-Fi signal
+    entity_category: diagnostic
+    update_interval: 60s

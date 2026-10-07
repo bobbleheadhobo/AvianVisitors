@@ -1,6 +1,7 @@
 # AvianVisitors frame, USB powered: checks the server every 3 minutes.
 #   esphome run birdframe-usb.yaml      (USB the first time, then over Wi-Fi)
-# Keys: KEY0 redraws now, KEY1 toggles bird names.
+# Keys: KEY0 redraws now, KEY1 toggles bird names. In Home Assistant the
+# same two show up as a Redraw button and a Bird names switch.
 
 substitutions:
   name: birdframe
@@ -9,9 +10,53 @@ substitutions:
   server: http://192.168.0.112
 
 packages:
-  common: !include common.yaml
+  common: !include birdframe/common.yaml
 
 logger:
+
+# Home Assistant (api: is in birdframe/common.yaml): the keys as a Redraw
+# button and a Bird names switch, plus a restart and uptime.
+button:
+  - platform: template
+    name: Redraw
+    icon: mdi:image-refresh
+    on_press:
+      - script.execute:
+          id: check_frame
+          force: true
+  - platform: restart
+    name: Restart
+    entity_category: config
+
+sensor:
+  - platform: uptime
+    name: Uptime
+    entity_category: diagnostic
+
+switch:
+  - platform: template
+    id: names_switch
+    name: Bird names
+    icon: mdi:format-text
+    # The saved setting (names_on) is the truth, read every loop. Without
+    # DISABLED, the default ALWAYS_OFF would run turn_off_action at each
+    # boot: names off and a forced redraw.
+    restore_mode: DISABLED
+    lambda: return id(names_on);
+    turn_on_action:
+      - lambda: |-
+          id(names_on) = true;
+          global_preferences->sync();
+      - script.execute:
+          id: check_frame
+          force: true
+    turn_off_action:
+      - lambda: |-
+          id(names_on) = false;
+          global_preferences->sync();
+      - script.execute:
+          id: check_frame
+          force: true
 
 ota:
   - platform: esphome
@@ -38,7 +83,8 @@ interval:
 binary_sensor:
   - platform: gpio
     id: key_refresh
-    name: Redraw
+    name: Redraw key
+    internal: true
     pin:
       number: GPIO2
       inverted: true
@@ -53,7 +99,8 @@ binary_sensor:
           force: true
   - platform: gpio
     id: key_names
-    name: Bird names
+    name: Bird names key
+    internal: true
     pin:
       number: GPIO3
       inverted: true
