@@ -1,0 +1,19 @@
+# birdframe-mode: esphome-server
+# AvianVisitors frame renderer: this server draws the frame for an ESP32
+# running frame/esphome/. See config.example.toml for every option.
+base_url = "http://localhost"
+shoot = true
+shoot_title = "Avian Visitors"
+shoot_subtitle = "Heard Today"
+output = "esphome"
+export_dir = "/home/avian/BirdSongs/Extracted/frame"
+
+# 7.3" Spectra 6, portrait, whole panel (no mat)
+panel_size = [480, 800]
+opening = 0.96
+opening_ratio = 1.6667
+title_frac = 0.065
+collage_frac = 0.95
+gap_frac = 0.04
+shoot_label_min_px = 13
+timeout = 180
