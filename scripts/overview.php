@@ -433,7 +433,11 @@ if($dividedrefresh < 1) {
 }
 $time = time();
 if (file_exists('./Charts/'.$chart)) {
-  echo "<img id='chart' src=\"Charts/$chart?nocache=$time\">";
+  echo "<picture>";
+  if (file_exists("./Charts/Combo-phone-$myDate.png")) {
+    echo "<source id='chart-phone' media=\"(max-width: 700px)\" srcset=\"Charts/Combo-phone-$myDate.png?nocache=$time\">";
+  }
+  echo "<img id='chart' src=\"Charts/$chart?nocache=$time\" alt=\"Species heard today, by hour\"></picture>";
 } 
 ?>
 </div>
@@ -504,6 +508,7 @@ function refreshTopTen() {
   xhttp.onload = function() {
   if(this.responseText.length > 0 && !this.responseText.includes("Database is busy") && !this.responseText.includes("No Detections") || previous_detection_identifier == undefined) {
     if (document.getElementById("chart")) {document.getElementById("chart").src = "Charts/"+this.responseText+"?nocache="+Date.now();}
+    if (document.getElementById("chart-phone")) {document.getElementById("chart-phone").srcset = "Charts/"+this.responseText.replace("Combo-", "Combo-phone-")+"?nocache="+Date.now();}
   }
   }
   xhttp.open("GET", "overview.php?fetch_chart_string=true", true);

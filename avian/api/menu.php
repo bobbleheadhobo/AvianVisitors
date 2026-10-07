@@ -12,6 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/admin-auth.php';
+require_once __DIR__ . '/live-listen-store.php';
 require_once __DIR__ . '/educator-state.php';
 require_once __DIR__ . '/educator-scope.php';
 
@@ -20,6 +21,11 @@ $menuAction = (string)($_GET['action'] ?? '');
 if ($menuAction === 'lock') {
     avian_require_json_action();
     avian_logout_admin_session($_SERVER);
+    // Locking also ends any classic-pages pass (classic.php).
+    setcookie('avian_classic', '', [
+        'expires' => time() - 42000, 'path' => '/', 'secure' => avian_request_is_https($_SERVER),
+        'httponly' => true, 'samesite' => 'Strict',
+    ]);
     echo json_encode(['ok' => true]);
     exit;
 }
@@ -142,9 +148,7 @@ if (is_readable($cuts)) {
 
 // The four base items are in-app overlays. `native: true` tells the FE to
 // route via `#admin=<section>` rather than opening a new window. We
-// deliberately don't link out to BirdNET-Pi's stock pages - those stay
-// reachable at /index.php, and the github link lives in the drawer
-// footer next to "built by teddy".
+// link out to BirdNET-Pi's stock pages only as the "classic" item below.
 $educatorProfile = educator_profile_state();
 $items = [
         ['label' => 'settings', 'href' => '/#admin=settings', 'native' => true, 'dot' => $chroma > 0],
@@ -152,6 +156,18 @@ $items = [
         ['label' => 'logs',     'href' => '/#admin=logs',     'native' => true],
         ['label' => 'tools',    'href' => '/#admin=tools',    'native' => true],
 ];
+// The stock BirdNET-Pi pages, behind their own login. Only the station's
+// LAN-password setting switches them off (Caddy then answers 404). Check
+// the setting itself: avian_lan_admin_auth_required() is also true for
+// every request through the reverse proxy.
+if (!avian_configured_lan_admin_auth_required()) {
+    $items[] = [
+        'label' => 'classic birdnet-pi',
+        'href' => '/avian/api/classic.php?open=1',
+        'native' => false,
+        'full' => true,
+    ];
+}
 if (!empty($educatorProfile['valid']) && !empty($educatorProfile['enabled'])) {
     $items[] = [
         'label' => 'educators',
@@ -167,6 +183,7 @@ echo json_encode([
         'required' => $passwordRequired,
         'direct_local' => avian_is_direct_local_request($_SERVER),
         'lan_policy' => avian_lan_admin_auth_required(),
+        'remote_listen' => listen_remote_enabled(),
         'password_configured' => !empty($adminState['valid'])
             && !empty($adminState['configured']),
         'recovery' => empty($adminState['valid']),

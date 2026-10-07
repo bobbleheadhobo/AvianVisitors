@@ -3204,7 +3204,8 @@
     if (el) el.innerHTML = '<span>' + label + '</span><span>' + (val == null || val === '' ? '-' : val) + '</span>';
   }
   function liRow(yr, label, ct, sci) {
-    var attr = sci ? ' data-sci="' + sci.replace(/"/g, '&quot;') + '"' : '';
+    // A row with a species opens it, so it is a keyboard stop like a link.
+    var attr = sci ? ' data-sci="' + sci.replace(/"/g, '&quot;') + '" tabindex="0" role="link"' : '';
     return '<li' + attr + '><span class="yr">' + yr + '</span><span>' + label + '</span><span class="ct">' + (ct == null ? '-' : ct) + '</span></li>';
   }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -3360,7 +3361,9 @@
     // gridline; capped so a few species don't render as giant blocks.
     var sq = Math.max(6, Math.min(colW, isMobile ? 60 : 48));
     var LABEL_GAP = 6;       // px between a square's top and its label
-    var SPAN = 0.55;         // squares occupy the bottom this fraction of
+    // Phones read the rotated labels at 11px, so the squares stop lower to
+    // leave the tallest column's names room under the top edge.
+    var SPAN = isMobile ? 0.5 : 0.55;   // squares occupy the bottom this fraction of
     // the plot by count (y = quantity); the
     // rotated label floats just above each square.
 
@@ -3415,7 +3418,11 @@
         + '<div class="stats-tl-square" style="bottom:' + bottomPct.toFixed(1) + '%;width:' + sq.toFixed(1) + 'px;height:' + sq.toFixed(1) + 'px"></div>'
         + '<div class="stats-tl-label" style="bottom:calc(' + bottomPct.toFixed(1) + '% + ' + (sq + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
         + '</div>';
-      var showStamp = (i % stride === 0) || (i === C - 1);
+      // The last column always gets a stamp; drop the stride stamp just
+      // before it only when the two labels would actually overlap.
+      var lastStride = Math.floor((C - 1) / stride) * stride;
+      var crowdsLast = i === lastStride && i !== C - 1 && (C - 1 - i) * (plotW / C) < stampW;
+      var showStamp = ((i % stride === 0) && !crowdsLast) || (i === C - 1);
       var lab = showStamp ? fmtTs(parseTs(s.last_seen)) : '';
       if (lab) xaxis += '<span class="stats-tl-xtick" style="left:' + centerPct.toFixed(3) + '%">' + lab + '</span>';
     });
@@ -5990,7 +5997,7 @@
   var pendingAdminSection = null;
   var adminAuthMeta = {
     required: false, lan_policy: false, password_configured: false,
-    recovery: false, direct_local: false,
+    recovery: false, direct_local: false, remote_listen: false,
   };
   function normalizeAdminAuthMeta(value) {
     value = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -6000,6 +6007,7 @@
       password_configured: value.password_configured === true,
       recovery: value.recovery === true,
       direct_local: value.direct_local === true,
+      remote_listen: value.remote_listen === true,
     };
   }
   var ADMIN_IDLE_MS = 30 * 60 * 1000;
@@ -6777,6 +6785,11 @@
     var audio = null, audioContext = null, source = null, analyser = null;
     var frame = null, reconnectTimer = null, attempt = 0, earlyFailures = 0;
     var state = 'idle', options = {}, mountProtected = null;
+    // Remote listening (through the reverse proxy) stops itself after 30
+    // minutes of continuous play; "keep listening" starts a fresh stretch.
+    var REMOTE_LISTEN_MS = 30 * 60 * 1000;
+    var autoStopTimer = null, autoStopped = false;
+    var listeners = null, listenersTimer = null, listenersSeq = 0, lastPlayedAt = 0;
     var playIcon = '<svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M3 2 L10 6 L3 10 Z"/></svg>';
     var stopIcon = '<svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="6" height="6"/></svg>';
     var silentWav = 'data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA';
@@ -6828,6 +6841,7 @@
     }
     function stop(preserveAudio) {
       preserveAudio = preserveAudio === true;
+      var wasPlaying = state === 'playing';
       attempt += 1;
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       audioRelease(stop);
@@ -6850,18 +6864,28 @@
         box.setAttribute('data-on', 'false');
         box.setAttribute('data-state', 'idle');
       }
+      if (autoStopTimer) { clearTimeout(autoStopTimer); autoStopTimer = null; }
       if (button) {
         button.removeAttribute('aria-busy');
         button.removeAttribute('aria-disabled');
-        button.setAttribute('aria-label', 'Listen to live audio');
-        button.innerHTML = playIcon + '<span>listen</span>';
+        button.setAttribute('aria-label', autoStopped ? 'Keep listening to live audio' : 'Listen to live audio');
+        button.innerHTML = playIcon + '<span>' + (autoStopped ? 'keep listening' : 'listen') + '</span>';
       }
-      setStatus('');
+      setStatus(autoStopped ? 'Stopped after 30 minutes.' : '');
+      if (wasPlaying && host) {
+        lastPlayedAt = Date.now();
+        setTimeout(function () { if (host) pollListeners(); }, 26000);
+      }
+      renderListeners();
       quietCanvas();
       syncCanvasExpansion();
     }
     function unmount() {
+      autoStopped = false;
       stop();
+      if (listenersTimer) { clearTimeout(listenersTimer); listenersTimer = null; }
+      listenersSeq += 1;
+      listeners = null;
       if (host) host.replaceChildren();
       host = null; box = null; button = null; canvas = null; status = null;
       mountProtected = null;
@@ -6932,11 +6956,25 @@
     function validateGrantUrl(value) {
       try {
         var parsed = new URL(value, location.href);
-        if (parsed.origin !== location.origin || parsed.pathname !== '/avian/api/educator-audio.php') return '';
+        var allowed = options.remoteStream ? '/avian/api/live-listen.php' : '/avian/api/educator-audio.php';
+        if (parsed.origin !== location.origin || parsed.pathname !== allowed) return '';
         return parsed.href;
       } catch (e) { return ''; }
     }
     function streamUrl() {
+      if (options.remoteStream) {
+        return adminFetch('./avian/api/live-listen.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+          body: JSON.stringify({ action: 'grant' }),
+        }).then(function (response) {
+          return response.json().catch(function () { return {}; }).then(function (body) {
+            var url = response.ok && body.ok !== false ? validateGrantUrl(body.url) : '';
+            if (!url) throw new Error(body.error || 'live audio unavailable');
+            return url;
+          });
+        });
+      }
       if (!options.protectedStream) return Promise.resolve('/stream?t=' + Date.now());
       var revision = window.__educatorState && window.__educatorState.state_revision;
       return adminFetch('./avian/api/educators.php', {
@@ -6974,8 +7012,11 @@
       setStatus('Live audio unavailable.');
     }
     function recoverStream(established) {
+      var keepTimer = autoStopTimer;
+      autoStopTimer = null;
       stop(true);
-      if (!options.protectedStream) {
+      autoStopTimer = keepTimer;
+      if (!options.protectedStream && !options.remoteStream) {
         unavailable();
         return;
       }
@@ -6992,7 +7033,10 @@
       }, established ? 300 : 0);
     }
     function connect(retry) {
-      if (!retry) earlyFailures = 0;
+      if (!retry) {
+        earlyFailures = 0;
+        autoStopped = false;
+      }
       var token = ++attempt;
       state = 'connecting';
       box.setAttribute('data-on', 'true');
@@ -7023,6 +7067,15 @@
           setStatus('live now');
           syncCanvasExpansion();
           attachAnalyser();
+          renderListeners();
+          pollListeners();
+          if (options.remoteStream && !autoStopTimer) {
+            autoStopTimer = setTimeout(function () {
+              autoStopTimer = null;
+              autoStopped = true;
+              stop();
+            }, REMOTE_LISTEN_MS);
+          }
         }, { once: true });
         audio.addEventListener('error', function () {
           if (token !== attempt) return;
@@ -7042,8 +7095,56 @@
         unavailable();
       });
     }
+    // Who is on the live mic right now, from icecast via live-listen.php.
+    // "you" is counted out while this player is streaming.
+    function renderListeners() {
+      var el = host && host.querySelector('[data-listeners]');
+      if (!el) return;
+      if (!listeners || typeof listeners.listening !== 'number') {
+        el.textContent = '';
+        el.removeAttribute('data-others');
+        return;
+      }
+      var n = listeners.listening;
+      var playing = state === 'playing';
+      if (playing) lastPlayedAt = Date.now();
+      // The station takes a few seconds to notice a stopped player, so a
+      // stream that just ended here is still counted as ours, not someone's.
+      var mine = playing || (lastPlayedAt && Date.now() - lastPlayedAt < 25000) ? 1 : 0;
+      var others = Math.max(0, n - mine);
+      var text;
+      if (playing && !others) text = 'just you listening';
+      else if (playing) text = 'you and ' + others + ' other' + (others === 1 ? '' : 's') + ' listening';
+      else if (!others) text = 'no one listening';
+      else text = others + (others === 1 ? ' person' : ' people') + ' listening now';
+      var away = Math.min(others, listeners.remote || 0);
+      if (away) text += away === others ? ' · away from home' : ' · ' + away + ' away from home';
+      el.textContent = text;
+      if (others > 0) el.setAttribute('data-others', '');
+      else el.removeAttribute('data-others');
+    }
+    function pollListeners() {
+      if (listenersTimer) { clearTimeout(listenersTimer); listenersTimer = null; }
+      if (!host) return;
+      var seq = ++listenersSeq;
+      var next = function () {
+        if (seq !== listenersSeq || !host) return;
+        listenersTimer = setTimeout(pollListeners, document.hidden ? 60000 : 15000);
+      };
+      adminJson('./avian/api/live-listen.php?status=1').then(function (body) {
+        if (seq !== listenersSeq) return;
+        listeners = body && body.ok ? body : null;
+        renderListeners();
+        next();
+      }).catch(function () {
+        if (seq !== listenersSeq) return;
+        next();
+      });
+    }
+
     function mount(nextHost, nextOptions) {
-      var nextProtected = !!(nextOptions && nextOptions.protectedStream);
+      var nextProtected = !!(nextOptions && nextOptions.protectedStream)
+        + ':' + !!(nextOptions && nextOptions.remoteStream);
       if (host === nextHost && mountProtected === nextProtected && box && nextHost.contains(box)) {
         options = nextOptions || {};
         syncCanvasExpansion();
@@ -7055,7 +7156,9 @@
       mountProtected = nextProtected;
       host.innerHTML = '<div class="live-audio" data-on="false" data-state="idle">'
         + '<div class="pulse" aria-hidden="true"></div>'
-        + '<div class="label">Live audio<span class="hint">raw microphone stream</span></div>'
+        + '<div class="label">Live audio<span class="hint">'
+        + (options.remoteStream ? 'raw microphone stream · remote' : 'raw microphone stream')
+        + '</span><span class="listeners" data-listeners aria-live="polite"></span></div>'
         + '<button type="button" data-live-audio-toggle aria-label="Listen to live audio">' + playIcon + '<span>listen</span></button>'
         + '</div>'
         + '<canvas class="live-spectro" width="900" height="180" aria-label="Live microphone spectrogram"></canvas>'
@@ -7067,6 +7170,7 @@
       canvas.__refreshTheme = function () { if (analyser) paint(); else quietCanvas(); };
       syncCanvasExpansion();
       quietCanvas();
+      pollListeners();
       button.addEventListener('click', function (event) {
         event.stopPropagation();
         if (state === 'connecting' || state === 'playing') stop();
@@ -7137,7 +7241,10 @@
       suspendUnavailableEducatorProfile(lostEducators);
     }
     if (adminAuthMeta.lan_policy) localAudio = false;
-    var liveAudioHtml = localAudio ? '<div data-live-audio-host></div>' : '';
+    // Away from home (through the reverse proxy) the menu offers the
+    // admin-session relay instead, when the owner has switched it on.
+    var remoteAudio = !localAudio && !adminAuthMeta.direct_local && adminAuthMeta.remote_listen;
+    var liveAudioHtml = localAudio || remoteAudio ? '<div data-live-audio-host></div>' : '';
     items.innerHTML = liveAudioHtml + '<div class="menu-links">' + linksHtml + '</div>';
 
     if (adminLock) {
@@ -7166,14 +7273,14 @@
     // Clicking a nav link (settings / system / logs / tools) collapses the
     // menu back into the button - it has opened (or navigated to) its page,
     // so leaving the drawer open is just clutter. The listen button and the
-    // built-by / GitHub links deliberately DON'T close it (you stay in the
-    // drawer to keep the stream going; those links open a new tab).
+    // footer controls deliberately DON'T close it (you stay in the
+    // drawer to keep the stream going).
     var menuLinks = items.querySelector('.menu-links');
     if (menuLinks) menuLinks.addEventListener('click', function (ev) {
       if (ev.target.closest('a')) closeDd();
     });
     var liveAudioHost = items.querySelector('[data-live-audio-host]');
-    if (liveAudioHost) liveAudioController.mount(liveAudioHost, { protectedStream: false });
+    if (liveAudioHost) liveAudioController.mount(liveAudioHost, { protectedStream: false, remoteStream: remoteAudio });
     else liveAudioController.unmount();
   }
   // Pending changes (key -> value), written by the serialized autosave queue.
@@ -7183,25 +7290,64 @@
     var el = document.getElementById('saveState');
     if (el) { el.textContent = msg || ''; el.className = 'save-state' + (cls ? ' ' + cls : ''); }
   }
-  // Settings write themselves. Several of these keys restart the analyzer,
-  // so the delay is long enough that a slider being dragged or a key being
-  // typed settles into one write rather than a burst of them.
+  // Station settings are staged, not written as you touch them: a slider
+  // brushed while scrolling on a phone used to save itself (and restart the
+  // analyzer). Changes collect in `pending`, the save bar counts them, and
+  // nothing reaches the Pi until Save. `settingsBaseline` holds what the
+  // controls showed on load, so moving a control back unstages it.
   var autoSaveT = null;
   var settingsSaveBusy = false;
+  var settingsBaseline = {};
+  function settingsDirtyCount() { return Object.keys(pending).length; }
   function discardPendingSettings() {
     if (autoSaveT) clearTimeout(autoSaveT);
     autoSaveT = null;
     pending = {};
     setSaveState('');
+    syncSaveBar();
   }
+  function stageSetting(key, value) {
+    var base = settingsBaseline[key];
+    var same = typeof value === 'number' && typeof base === 'number'
+      ? Math.abs(value - base) < 1e-9 : value === base;
+    if (same) delete pending[key];
+    else pending[key] = value;
+    syncSaveBar();
+  }
+  function syncSaveBar() {
+    var bar = document.getElementById('settingsSaveBar');
+    if (!bar) return;
+    var n = settingsDirtyCount();
+    bar.setAttribute('data-dirty', n ? 'true' : 'false');
+    var count = bar.querySelector('[data-save-count]');
+    if (count) count.textContent = n ? n + ' unsaved change' + (n === 1 ? '' : 's') : '';
+    bar.querySelectorAll('button').forEach(function (b) { b.disabled = !n || settingsSaveBusy; });
+  }
+  // Leaving Settings with staged changes asks first; the caller stays put
+  // when the answer is no.
+  function confirmLeaveSettings() {
+    var n = settingsDirtyCount();
+    if (!n) return true;
+    if (window.confirm('Discard ' + n + ' unsaved setting' + (n === 1 ? '' : 's') + '?')) return true;
+    // Staying: the hash may already point elsewhere (a menu link, Back).
+    if (location.hash !== '#admin=settings' && window.history && history.replaceState) {
+      history.replaceState(null, '', location.pathname + location.search + '#admin=settings');
+    }
+    return false;
+  }
+  window.addEventListener('beforeunload', function (event) {
+    if (adminSect !== 'settings' || !settingsDirtyCount()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
   function restoreSubmittedSettings(submitted) {
     Object.keys(submitted).forEach(function (key) {
       if (!Object.prototype.hasOwnProperty.call(pending, key)) pending[key] = submitted[key];
     });
   }
+  // Retry hook for a save that found another save in flight.
   function queueSave(delay) {
     if (!Object.keys(pending).length) return;
-    setSaveState('saving...');
     clearTimeout(autoSaveT);
     autoSaveT = setTimeout(saveSettings, typeof delay === 'number' ? delay : 700);
   }
@@ -7274,10 +7420,14 @@
       + '      <span class="label">' + label + '</span>'
       + (hint ? '<span class="hint">' + hint + '</span>' : '')
       + '    </div>'
-      + '    <span class="value" data-value-for="' + key + '">' + (+val).toFixed(digits) + '</span>'
+      + '    <span class="value-block">'
+      + '      <button type="button" class="slider-default" data-default-for="' + key + '"'
+      + (Math.abs(val - dflt) < 1e-9 ? ' hidden' : '') + ' aria-label="Set ' + label + ' to its default, ' + (+dflt).toFixed(digits) + '">default ' + (+dflt).toFixed(digits) + '</button>'
+      + '      <span class="value" data-value-for="' + key + '">' + (+val).toFixed(digits) + '</span>'
+      + '    </span>'
       + '  </div>'
       + '  <div class="slider-track">'
-      + '    <input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-key="' + key + '" data-digits="' + digits + '">'
+      + '    <input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-key="' + key + '" data-digits="' + digits + '" data-default="' + dflt + '">'
       + '  </div>'
       + '</div>';
   }
@@ -8272,31 +8422,105 @@
   function wireSettingsControls(scope) {
     scope = scope || document;
     scope.querySelectorAll('.switch:not([data-labels-switch]):not([data-atlas-always-all]):not([data-atlas-classic]):not([data-lan-auth]):not([data-birdweather-toggle]):not([data-birdweather-audio]):not([data-archive-toggle])').forEach(function (sw) {
+      settingsBaseline[sw.dataset.key] = sw.getAttribute('aria-checked') === 'true';
       sw.addEventListener('click', function () {
         var on = sw.getAttribute('aria-checked') !== 'true';
         sw.setAttribute('aria-checked', on ? 'true' : 'false');
-        pending[sw.dataset.key] = on;
-        queueSave(400);
+        stageSetting(sw.dataset.key, on);
       });
     });
+    function showSlider(sl) {
+      var v = +sl.value;
+      var digits = +sl.dataset.digits || 2;
+      var label = scope.querySelector('[data-value-for="' + sl.dataset.key + '"]');
+      if (label) label.textContent = v.toFixed(digits);
+      var reset = scope.querySelector('[data-default-for="' + sl.dataset.key + '"]');
+      if (reset) reset.hidden = Math.abs(v - +sl.dataset.default) < 1e-9;
+    }
     scope.querySelectorAll('input[type="range"]').forEach(function (sl) {
+      settingsBaseline[sl.dataset.key] = +sl.value;
       sl.addEventListener('input', function () {
-        var v = +sl.value;
-        var digits = +sl.dataset.digits || 2;
-        var label = scope.querySelector('[data-value-for="' + sl.dataset.key + '"]');
-        if (label) label.textContent = v.toFixed(digits);
-        pending[sl.dataset.key] = v;
+        showSlider(sl);
+        stageSetting(sl.dataset.key, +sl.value);
       });
-      // Commit on release, not on every pixel of the drag: these keys restart
-      // the analyzer, and a drag fires input a hundred times.
-      sl.addEventListener('change', function () { queueSave(300); });
+    });
+    // Sliders move only when dragged by the thumb. A tap or press anywhere
+    // else on the track does nothing (no jump), and a swipe that starts off
+    // the thumb scrolls the page. The input itself ignores the pointer
+    // (CSS) and keeps its keyboard behaviour; the track does the dragging.
+    var GRAB = 22;   // px either side of the thumb's centre that count as grabbing it
+    function thumbCentre(sl) {
+      var r = sl.getBoundingClientRect();
+      var span = (+sl.max - +sl.min) || 1;
+      return r.left + 8 + ((+sl.value - +sl.min) / span) * (r.width - 16);
+    }
+    function valueAt(sl, x) {
+      var r = sl.getBoundingClientRect();
+      var ratio = Math.min(1, Math.max(0, (x - r.left - 8) / Math.max(1, r.width - 16)));
+      return +sl.min + ratio * (+sl.max - +sl.min);
+    }
+    scope.querySelectorAll('.slider-track').forEach(function (track) {
+      var sl = track.querySelector('input[type="range"]');
+      if (!sl) return;
+      track.classList.add('drag-only');
+      var dragging = null;
+      var near = function (x) { return Math.abs(x - thumbCentre(sl)) <= GRAB; };
+      track.addEventListener('touchstart', function (event) {
+        // Holding the thumb: keep the page still while it is dragged.
+        if (event.touches.length === 1 && near(event.touches[0].clientX)) event.preventDefault();
+      }, { passive: false });
+      track.addEventListener('pointerdown', function (event) {
+        if (event.button !== 0 || !near(event.clientX)) return;
+        event.preventDefault();
+        dragging = event.pointerId;
+        try { track.setPointerCapture(event.pointerId); } catch (e) { }
+        track.classList.add('dragging');
+        sl.focus({ preventScroll: true });
+      });
+      track.addEventListener('pointermove', function (event) {
+        if (dragging === null) {
+          if (event.pointerType === 'mouse') track.style.cursor = near(event.clientX) ? 'grab' : '';
+          return;
+        }
+        if (event.pointerId !== dragging) return;
+        var before = sl.value;
+        sl.value = valueAt(sl, event.clientX);   // the browser snaps it to the step
+        if (sl.value !== before) sl.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      var release = function (event) {
+        if (event.pointerId !== dragging) return;
+        dragging = null;
+        track.classList.remove('dragging');
+        try { track.releasePointerCapture(event.pointerId); } catch (e) { }
+      };
+      track.addEventListener('pointerup', release);
+      track.addEventListener('pointercancel', release);
+    });
+    scope.querySelectorAll('[data-default-for]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sl = scope.querySelector('input[type="range"][data-key="' + btn.dataset.defaultFor + '"]');
+        if (!sl) return;
+        sl.value = sl.dataset.default;
+        showSlider(sl);
+        stageSetting(sl.dataset.key, +sl.value);
+        sl.focus();
+      });
+    });
+    var resetAll = scope.querySelector('[data-reset-detection]');
+    if (resetAll) resetAll.addEventListener('click', function () {
+      scope.querySelectorAll('input[type="range"][data-default]').forEach(function (sl) {
+        sl.value = sl.dataset.default;
+        showSlider(sl);
+        stageSetting(sl.dataset.key, +sl.value);
+      });
     });
     scope.querySelectorAll('.seg:not([data-theme-seg]):not([data-birdweather-privacy])').forEach(function (seg) {
+      var cur = seg.querySelector('button[aria-current="true"]');
+      if (cur) settingsBaseline[seg.dataset.key] = cur.dataset.v;
       seg.querySelectorAll('button').forEach(function (b) {
         b.addEventListener('click', function () {
           seg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-current', x === b ? 'true' : 'false'); });
-          pending[seg.dataset.key] = b.dataset.v;
-          queueSave(400);
+          stageSetting(seg.dataset.key, b.dataset.v);
         });
       });
     });
@@ -8308,22 +8532,16 @@
         // is always empty.
         if (v) pending[inp.dataset.key] = v;
         else delete pending[inp.dataset.key];
-        if (Object.keys(pending).length) queueSave(1100);   // wait out the typing
-        else { clearTimeout(autoSaveT); setSaveState(''); }
+        syncSaveBar();
       });
     });
     scope.querySelectorAll('input.settings-text').forEach(function (inp) {
+      settingsBaseline[inp.dataset.key] = inp.value.trim();
       function stage() {
-        pending[inp.dataset.key] = inp.value.trim();
+        stageSetting(inp.dataset.key, inp.value.trim());
       }
-      inp.addEventListener('input', function () {
-        stage();
-        queueSave(800);
-      });
-      inp.addEventListener('change', function () {
-        stage();
-        saveSettings();
-      });
+      inp.addEventListener('input', stage);
+      inp.addEventListener('change', stage);
       inp.addEventListener('keydown', function (event) {
         if (event.key !== 'Enter') return;
         event.preventDefault();
@@ -8346,6 +8564,7 @@
     var saved = false;
     settingsSaveBusy = true;
     setSaveState('saving...');
+    syncSaveBar();
     return adminFetch('./avian/api/config.php', {
       method: 'POST', body: body,
       credentials: 'same-origin',
@@ -8355,6 +8574,10 @@
       .then(function (res) {
         if (res.ok && res.j.ok) {
           saved = true;
+          Object.keys(submitted).forEach(function (key) {
+            if (key === 'LATITUDE' || key === 'LONGITUDE' || /_KEY$/.test(key)) return;
+            settingsBaseline[key] = submitted[key];
+          });
           if (Object.prototype.hasOwnProperty.call(submitted, 'SITE_NAME')
             && !Object.prototype.hasOwnProperty.call(pending, 'SITE_NAME')) {
             applySiteName(submitted.SITE_NAME);
@@ -8363,8 +8586,14 @@
             && !Object.prototype.hasOwnProperty.call(pending, 'RESET_AT_MIDNIGHT')) {
             refreshAll();
           }
-          setSaveState('saved ✓', 'ok');
-          setTimeout(function () { setSaveState(''); }, 1800);
+          setSaveState('saved', 'ok');
+          setTimeout(function () { setSaveState(''); }, 2400);
+          adminBody.querySelectorAll('input.secret').forEach(function (inp) {
+            if (Object.prototype.hasOwnProperty.call(submitted, inp.dataset.key)) {
+              inp.value = '';
+              inp.placeholder = 'saved, paste to replace';
+            }
+          });
         } else {
           restoreSubmittedSettings(submitted);
           setSaveState('save failed', 'err');
@@ -8378,6 +8607,7 @@
       .then(function () {
         settingsSaveBusy = false;
         submitted = {};
+        syncSaveBar();
         return saved;
       });
   }
@@ -11594,7 +11824,7 @@
     var pinAt = 42;
     var threshold = pinned ? pinAt - 8 : pinAt;
     adminEl.setAttribute('data-title-pinned',
-      (adminSect === 'settings' || adminSect === 'educators') && adminEl.scrollTop > threshold ? 'true' : 'false');
+      adminSect && adminEl.scrollTop > threshold ? 'true' : 'false');
   }
   function queueAdminTitlePin() {
     if (adminTitleFrame) return;
@@ -11671,6 +11901,7 @@
       return;
     }
     if (adminSect === 'settings' && section !== 'settings') {
+      if (!confirmLeaveSettings()) return;
       discardPendingSettings();
       if (settingsInfoCleanup) settingsInfoCleanup();
       if (settingsAccessCleanup) settingsAccessCleanup();
@@ -11725,6 +11956,7 @@
     var wasAdminOn = document.body.classList.contains('admin-on');
     var previousAdminSect = adminSect;
     if (previousAdminSect === 'settings') {
+      if (!options.force && adminAccessState !== 'locked' && !confirmLeaveSettings()) return;
       discardPendingSettings();
       if (settingsInfoCleanup) settingsInfoCleanup();
       if (settingsAccessCleanup) settingsAccessCleanup();
@@ -11757,9 +11989,8 @@
     if (wasAdminOn) queueVisibleAtlasPack();
   }
 
-  // One quiet glyph per metric, drawn on the same 24-grid and stroke weight as
-  // the tool-card icons so the two admin pages read as one hand. Sits in the
-  // top-right dead space; alert/warn tint it rather than ringing the whole card.
+  // One quiet glyph per metric, drawn on a 24-grid at one stroke weight.
+  // Sits in the top-right dead space; the card's state tints it.
   var SYS_ICONS = {
     pipeline: '<path d="M3 12h3l2-5 3 11 2-7 1.6 3H21"/>',
     audio: '<path d="M4 10v4M8 7v10M12 4.5v15M16 8v8M20 10.5v3"/>',
@@ -12385,6 +12616,174 @@
     adminPollT = setInterval(loadArchiveStatus, 10000);
   }
 
+  // Notifications: where they go (apprise.txt, saved on its own button
+  // because it is a list of secrets, shown back only masked) and when
+  // (APPRISE_* switches, staged and saved with the other settings).
+  function notificationsSection(notify, v) {
+    if (!notify || !notify.ok) return '';
+    var saved = notify.targets || [];
+    return '</section><section class="settings-notify">'
+      + '<div class="menu-row notify-targets">'
+      + '  <div><span class="label">Notifications</span>'
+      + '  <span class="hint">where alerts go. one URL per line; for discord, paste the channel\'s webhook URL</span>'
+      + '  <span class="hint notify-saved" data-notify-saved>' + (saved.length
+        ? 'sending to ' + saved.map(adminEsc).join(', ') : 'no targets yet') + '</span></div>'
+      + '</div>'
+      + '<textarea class="notify-input" rows="2" spellcheck="false" autocomplete="off"'
+      + ' placeholder="https://discord.com/api/webhooks/…" aria-label="notification URLs, one per line" data-notify-input></textarea>'
+      + '<div class="notify-actions">'
+      + '  <button type="button" data-notify-save' + (notify.writable ? '' : ' disabled') + '>save targets</button>'
+      + '  <button type="button" data-notify-test' + (saved.length ? '' : ' disabled') + '>send test</button>'
+      + '  <span class="notify-status" data-notify-status role="status" aria-live="polite">'
+      + (notify.writable ? '' : 'apprise.txt is not writable on the station') + '</span>'
+      + '</div>'
+      + '<div class="menu-row notify-message-head"><div><span class="label">Message</span>'
+      + '  <span class="hint">what each alert says. tap a variable to add it; discord reads **bold** and *italic*.'
+      + ' $image attaches the bird\'s photo</span></div></div>'
+      + '<input type="text" class="notify-title" maxlength="120" spellcheck="false" autocomplete="off" aria-label="notification title"'
+      + ' placeholder="title" value="' + adminAttr(v.APPRISE_NOTIFICATION_TITLE || '') + '" data-notify-title>'
+      + '<textarea class="notify-input notify-body" rows="7" spellcheck="false" aria-label="notification message" data-notify-body'
+      + (notify.body_writable ? '' : ' disabled') + '>' + adminEsc(notify.body || '') + '</textarea>'
+      + '<div class="notify-vars" role="group" aria-label="insert a variable">'
+      + ['$comname','$sciname','$confidencepct','$date','$time','$reason','$friendlyurl','$image','$listenurl','$confidence','$week'].map(function (k) { return '<button type="button" data-notify-var="' + k + '">' + k + '</button>'; }).join('')
+      + '</div>'
+      + '<div class="notify-actions">'
+      + '  <button type="button" data-notify-message' + (notify.body_writable ? '' : ' disabled') + '>save message</button>'
+      + '  <span class="notify-status" data-notify-message-status role="status" aria-live="polite"></span>'
+      + '</div>'
+      + settingsText('BIRDNETPI_URL', 'Station address', v.BIRDNETPI_URL || '', 200)
+      + '<p class="notify-note">where "listen here" links in alerts point, e.g. https://birds.example.com. empty uses ' + adminEsc(notify.default_site || 'the station\'s .local name') + ', which only works at home</p>'
+      + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY', 'First of each species each day', 'one alert per bird per day', v.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY)
+      + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES', 'New to the station', 'a bird never heard here before', v.APPRISE_NOTIFY_NEW_SPECIES)
+      + settingsToggle('APPRISE_NOTIFY_EACH_DETECTION', 'Every detection', 'can be dozens an hour', v.APPRISE_NOTIFY_EACH_DETECTION)
+      + settingsToggle('APPRISE_WEEKLY_REPORT', 'Weekly report', 'a summary each week', v.APPRISE_WEEKLY_REPORT);
+  }
+  function wireNotifications(root) {
+    var input = root.querySelector('[data-notify-input]');
+    if (!input) return;
+    var saveBtn = root.querySelector('[data-notify-save]');
+    var testBtn = root.querySelector('[data-notify-test]');
+    var status = root.querySelector('[data-notify-status]');
+    var savedLine = root.querySelector('[data-notify-saved]');
+    function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
+    function post(body) {
+      return adminFetch('./avian/api/notifications.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify(body),
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+          return j;
+        });
+      });
+    }
+    saveBtn.addEventListener('click', function () {
+      var text = input.value.trim();
+      if (!text && !confirm('Remove every notification target?')) return;
+      saveBtn.disabled = true;
+      say('saving...');
+      post({ action: 'save', targets: text }).then(function (j) {
+        var t = j.targets || [];
+        savedLine.textContent = t.length ? 'sending to ' + t.join(', ') : 'no targets yet';
+        input.value = '';
+        testBtn.disabled = !t.length;
+        say(t.length ? 'saved. send a test to check it' : 'targets removed');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) say(error.message, true);
+      }).then(function () { saveBtn.disabled = false; });
+    });
+    // Message: title (birdnet.conf, plain text) and body template (body.txt).
+    var bodyBox = root.querySelector('[data-notify-body]');
+    var titleBox = root.querySelector('[data-notify-title]');
+    var msgStatus = root.querySelector('[data-notify-message-status]');
+    function sayMsg(text, err) { msgStatus.textContent = text || ''; msgStatus.classList.toggle('err', !!err); }
+    root.querySelectorAll('[data-notify-var]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var v = b.dataset.notifyVar;
+        var at = bodyBox.selectionStart == null ? bodyBox.value.length : bodyBox.selectionStart;
+        var end = bodyBox.selectionEnd == null ? at : bodyBox.selectionEnd;
+        bodyBox.value = bodyBox.value.slice(0, at) + v + bodyBox.value.slice(end);
+        bodyBox.focus();
+        bodyBox.setSelectionRange(at + v.length, at + v.length);
+      });
+    });
+    var saveMsg = root.querySelector('[data-notify-message]');
+    if (saveMsg) saveMsg.addEventListener('click', function () {
+      var title = titleBox.value.trim();
+      if (/[$"`\\]/.test(title)) { sayMsg('the title is plain text: no $ variables, quotes or backslashes', true); return; }
+      saveMsg.disabled = true;
+      sayMsg('saving...');
+      post({ action: 'message', body: bodyBox.value }).then(function () {
+        return adminFetch('./avian/api/config.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+          body: JSON.stringify({ APPRISE_NOTIFICATION_TITLE: title }),
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (!r.ok || !j.ok) throw new Error((j.fields && j.fields.APPRISE_NOTIFICATION_TITLE) || j.error || ('HTTP ' + r.status));
+          });
+        });
+      }).then(function () {
+        sayMsg('saved. send a test to see it');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) sayMsg(error.message, true);
+      }).then(function () { saveMsg.disabled = false; });
+    });
+    testBtn.addEventListener('click', function () {
+      testBtn.disabled = true;
+      say('sending a test...');
+      post({ action: 'test' }).then(function () {
+        say('test sent with your message and the latest bird. check your channel');
+      }).catch(function (error) {
+        if (!adminAuthCancelled(error)) say(error.message, true);
+      }).then(function () { testBtn.disabled = false; });
+    });
+  }
+
+  // Remote listening switch. Off: the live mic is LAN-only, as upstream
+  // ships it. On: an unlocked admin session can listen through the proxy,
+  // and every session is logged and sent to the notification targets.
+  function remoteListenRow(listen) {
+    if (!listen || !listen.ok || !listen.store) return '';
+    return ''
+      + '<div class="menu-row">'
+      + '  <div><span class="label">Listen away from home</span>'
+      + '  <span class="hint">live mic through your reverse proxy, after unlocking. each session is logged and sent to your notification targets</span>'
+      + '  <span class="hint" data-remote-listen-status role="status"></span></div>'
+      + '  <button type="button" class="switch" role="switch" aria-label="Listen away from home" aria-checked="'
+      + (listen.remote_enabled ? 'true' : 'false') + '" data-remote-listen></button>'
+      + '</div>';
+  }
+  function wireRemoteListenControl(root) {
+    var sw = root.querySelector('[data-remote-listen]');
+    if (!sw) return;
+    var note = root.querySelector('[data-remote-listen-status]');
+    sw.addEventListener('click', function () {
+      if (sw.getAttribute('aria-busy') === 'true') return;
+      var next = sw.getAttribute('aria-checked') !== 'true';
+      sw.setAttribute('aria-busy', 'true');
+      if (note) { note.textContent = 'saving...'; note.classList.remove('err'); }
+      adminFetch('./avian/api/live-listen.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify({ action: 'set', enabled: next }),
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (body) {
+          if (!response.ok || !body.ok) throw new Error(body.error || ('HTTP ' + response.status));
+          sw.setAttribute('aria-checked', body.remote_enabled ? 'true' : 'false');
+          adminAuthMeta.remote_listen = !!body.remote_enabled;
+          if (note) note.textContent = body.remote_enabled
+            ? 'on: listen from the menu when you are away'
+            : 'off: anyone listening remotely has been cut off';
+        });
+      }).catch(function (error) {
+        if (adminAuthCancelled(error)) return;
+        if (note) { note.textContent = 'could not save (' + error.message + ')'; note.classList.add('err'); }
+      }).then(function () {
+        sw.removeAttribute('aria-busy');
+      });
+    });
+  }
+
   function renderAdminSettings() {
     if (settingsInfoCleanup) settingsInfoCleanup();
     if (settingsAccessCleanup) settingsAccessCleanup();
@@ -12419,12 +12818,22 @@
           if (adminAuthCancelled(error)) throw error;
           return { ok: false, error: 'archive controls unavailable', failure_kind: 'network' };
         }),
+      adminJson('./avian/api/live-listen.php?status=1').catch(function (error) {
+        if (adminAuthCancelled(error)) throw error;
+        return null;
+      }),
+      adminJson('./avian/api/notifications.php').catch(function (error) {
+        if (adminAuthCancelled(error)) throw error;
+        return null;
+      }),
     ])
       .then(function (parts) {
         var cfg = parts[0];
         var gen = parts[1] || {};
         var birdweather = parts[2] || { ok: false };
         var archive = parts[3] || { ok: false, failure_kind: 'network' };
+        var listen = parts[4];
+        var notify = parts[5];
         var v = cfg.values || {};
         var sec = cfg.secrets || {};
         var security = cfg.security || {};
@@ -12459,13 +12868,16 @@
           + settingsSlider('SF_THRESH', 'Range filter', 'min likelihood a species is here this week', v.SF_THRESH, 0.001, 0.5, 0.001, 3, 0.03)
           + settingsSlider('SENSITIVITY', 'Sensitivity', 'sigmoid slope on the classifier output', v.SENSITIVITY, 0.5, 1.5, 0.05, 2, 1.25)
           + settingsSlider('OVERLAP', 'Chunk overlap', 'seconds re-analyzed per pass', v.OVERLAP, 0, 2.5, 0.1, 1, 0.0)
+          + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-detection>reset detection to defaults</button></div>'
           + settingsToggle('RESET_AT_MIDNIGHT', 'Reset at midnight', 'keep time windows inside the current day', !!v.RESET_AT_MIDNIGHT)
           + '</section><section>'
           + stationRow(v)
           + settingsSecret('GEMINI_API_KEY', 'Gemini API key', 'for drawing birds on demand', sec.GEMINI_API_KEY)
           + settingsSecret('EBIRD_API_KEY', 'eBird API key', 'for regional species filters', sec.EBIRD_API_KEY)
+          + notificationsSection(notify, v)
           + '</section><section class="settings-retention">'
           + lanAuthRow(security)
+          + remoteListenRow(listen)
           + birdweatherRow(birdweather)
           + archiveSettingsRow(archive)
           + settingsToggle('preserve', 'Preserve all recordings', "don't auto-delete", preserve)
@@ -12475,8 +12887,11 @@
           ])
           + '</section>'
           + cutoutsNote
-          + '<div class="menu-save-row">'
-          + '  <span class="save-state" id="saveState"></span>'
+          + '<div class="menu-save-row settings-save-bar" id="settingsSaveBar" data-dirty="false">'
+          + '  <span class="save-count" data-save-count role="status" aria-live="polite"></span>'
+          + '  <span class="save-state" id="saveState" role="status" aria-live="polite"></span>'
+          + '  <button type="button" class="save-discard" data-save-discard disabled>discard</button>'
+          + '  <button type="button" class="save-go" data-save-go disabled>save</button>'
           + '</div>'
           + '</div>';
         var cutCopy = document.getElementById('cutCopy');
@@ -12493,11 +12908,23 @@
             pending.LATITUDE = la; pending.LONGITUDE = lo;
             var el = document.getElementById('stationCoords');
             if (el) { el.textContent = la.toFixed(4) + ', ' + lo.toFixed(4); el.classList.remove('warn'); }
-            queueSave(400);
+            syncSaveBar();
           });
         });
+        settingsBaseline = {};
+        pending = {};
         wireSettingsControls(adminBody);
+        syncSaveBar();
+        var saveGo = adminBody.querySelector('[data-save-go]');
+        if (saveGo) saveGo.addEventListener('click', function () { saveSettings(); });
+        var saveDiscard = adminBody.querySelector('[data-save-discard]');
+        if (saveDiscard) saveDiscard.addEventListener('click', function () {
+          discardPendingSettings();
+          renderAdminSettings();
+        });
         wireLanAuthControl(adminBody, security);
+        wireRemoteListenControl(adminBody);
+        wireNotifications(adminBody);
         wirePasswordChange(adminBody);
         wireSettingsAccessDismissal(adminBody);
         wireBirdweatherControl(adminBody, birdweather);
@@ -12585,56 +13012,107 @@
     var sys = j.system || {}, svc = j.services || {}, recLogs = j.recent_logs || {};
     var stream = sys.stream_data || {}, db = sys.birds_db || {};
     var streamAlert = !stream.exists || stream.newest_age_s == null || stream.newest_age_s > 600;
-    var dbAlert = db.exists && db.modified_s > 3600;
+    // Files arriving is not the same as hearing: a peak of 0 means the
+    // recorder is writing silence (no microphone reaching it).
+    var streamSilent = stream.newest_peak === 0;
+    // Health per card: 'ok' (green outline), 'warn' (amber), 'alert' (red),
+    // or '' for plain facts like uptime. No new detection for 6 hours is
+    // worth a look; a full day means something has stopped.
+    var dbState = !db.exists || db.modified_s > 86400 ? 'alert' : (db.modified_s > 21600 ? 'warn' : 'ok');
+    function level(value, warnAt, alertAt) {
+      if (value == null) return '';
+      return value > alertAt ? 'alert' : (value > warnAt ? 'warn' : 'ok');
+    }
     var keySvcs = ['birdnet_recording', 'birdnet_analysis', 'birdnet_log'];
     var dead = keySvcs.filter(function (n) { return svc[n] && svc[n].active !== 'active'; });
     var html = '<div class="admin-grid">';
     html += adminCard('recording pipeline', dead.length === 0 ? 'live' : (dead.length + ' down'),
       dead.length === 0 ? 'all services active' : dead.join(', '),
-      dead.length === 0 ? '' : 'alert', 'pipeline');
+      dead.length === 0 ? 'ok' : 'alert', 'pipeline');
     html += adminCard('newest live audio',
-      stream.newest_age_s == null ? 'no chunks' : adminFmtAge(stream.newest_age_s) + ' ago',
-      stream.newest_name || '',
-      streamAlert ? 'alert' : '', 'audio');
-    html += adminCard('birds.db updated',
-      db.exists ? adminFmtAge(db.modified_s) + ' ago' : 'missing',
-      db.mtime || '',
-      dbAlert ? 'warn' : '', 'db');
+      stream.newest_age_s == null ? 'no chunks' : (streamSilent ? 'silent' : adminFmtAge(stream.newest_age_s) + ' ago'),
+      streamSilent ? 'recordings contain no sound' : (stream.newest_name || ''),
+      streamAlert || streamSilent ? 'alert' : 'ok', 'audio');
+    // birds.db is written only when the analyzer logs a bird, so its age is
+    // the time since the last detection (no schedule to trigger by hand).
+    var dbWhen = db.mtime ? new Date(db.mtime) : null;
+    html += adminCard('last detection',
+      db.exists ? adminFmtAge(db.modified_s) + ' ago' : 'no database',
+      dbWhen && !isNaN(dbWhen) ? dbWhen.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+        + ' ' + dbWhen.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '',
+      dbState, 'db');
     html += adminCard('uptime', (sys.uptime || {}).pretty || '-',
       'load ' + ((sys.uptime || {}).load || []).map(function (n) { return n.toFixed(2); }).join(' / '),
-      '', 'clock');
+      'info', 'clock');
     html += adminCard('cpu temp',
       sys.temp_c != null ? sys.temp_c.toFixed(1) + '°C' : '-',
       sys.hostname + ' - ' + sys.kernel,
-      sys.temp_c != null && sys.temp_c > 75 ? 'warn' : '', 'temp');
+      level(sys.temp_c, 75, 85), 'temp');
     html += adminCard('memory used', sys.mem ? sys.mem.used_pct + '%' : '-',
       sys.mem ? adminFmtBytes(sys.mem.used_bytes) + ' / ' + adminFmtBytes(sys.mem.total_bytes) : '',
-      sys.mem && sys.mem.used_pct > 92 ? 'warn' : '', 'mem');
+      level(sys.mem ? sys.mem.used_pct : null, 90, 97), 'mem');
     html += adminCard('disk (birdsongs)', sys.disk_birds ? sys.disk_birds.used_pct + '%' : '-',
       sys.disk_birds ? adminFmtBytes(sys.disk_birds.total_bytes - sys.disk_birds.free_bytes) + ' / ' + adminFmtBytes(sys.disk_birds.total_bytes) : '',
-      sys.disk_birds && sys.disk_birds.used_pct > 92 ? 'warn' : '', 'disk');
+      level(sys.disk_birds ? sys.disk_birds.used_pct : null, 85, 95), 'disk');
     var audio = sys.audio || {}, cards = audio.arecord_l || [];
     var mic = cards.find ? cards.find(function (c) { return /usb-audio|microphone|mic/i.test(c); }) : null;
     // Without a USB mic, /proc/asound/cards only lists the Pi's HDMI
     // audio outputs - which aren't an input source. Flag that clearly
     // rather than showing "audio device: vc4hdmi0" as if it were a mic.
+    // In a container /proc/asound lists the host's cards even when none is
+    // attached here, so a listed mic without /dev/snd is no mic at all.
+    // ALSA's line is "0 [name ]: driver - long name - long name at usb-...":
+    // headline the kind of device, keep the hardware detail as the caption.
+    var micName = mic ? (/usb/i.test(mic) ? 'USB microphone' : 'microphone') : '';
+    var micBlocked = !!mic && audio.capture_device === false;
+    var micDetail = mic ? mic.replace(/^\s*\d+\s*\[[^\]]*\]:\s*/, '') : '';
     html += adminCard('audio device',
-      mic || (cards.length ? 'no microphone attached' : 'no audio devices'),
-      mic ? '' : (cards[0] || ''),
-      mic ? '' : 'warn', 'mic');
+      micBlocked ? 'no microphone' : (micName || (cards.length ? 'no microphone attached' : 'no audio devices')),
+      micBlocked ? 'none attached (no /dev/snd)'
+        : (mic ? micDetail : (cards[0] || '')),
+      mic && !micBlocked ? 'ok' : 'alert', 'mic');
     html += '</div>';
 
     html += '<h2 class="admin-section-head">services</h2>';
-    html += '<table class="admin-tbl"><thead><tr><th>unit</th><th>state</th><th>enabled</th><th>since</th><th></th></tr></thead><tbody>';
+    // systemctl answers SysV units with a paragraph before the verdict
+    // ("icecast2.service is not a native service, ... enabled"); keep the
+    // verdict. Timestamps lose the year and seconds: "Tue 6 Oct 12:17".
+    function svcEnabled(value) {
+      var words = String(value || '').trim().split(/\s+/);
+      return words[words.length - 1] || '-';
+    }
+    function svcSince(value) {
+      var m = String(value || '').match(/^(\w{3}) (\d{4})-(\d\d)-(\d\d) (\d\d:\d\d)/);
+      if (!m) return value || '-';
+      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return m[1] + ' ' + (+m[4]) + ' ' + months[+m[3] - 1] + ' ' + m[5];
+    }
+    // What each unit does, in a few words (these used to label the Tools
+    // service cards). Units without one are shown by name only.
+    var SERVICE_ABOUT = {
+      birdnet_recording: 'captures audio from the mic',
+      birdnet_analysis: 'runs the model on each chunk',
+      birdnet_log: 'writes detections to the database',
+      birdnet_stats: 'the old streamlit stats page',
+      spectrogram_viewer: 'legacy live fft view',
+      livestream: 'feed behind the live-audio button',
+      chart_viewer: 'draws the daily charts',
+      icecast2: 'serves that stream to the browser',
+      caddy: 'the web server',
+    };
+    html += '<table class="admin-tbl svc-tbl"><thead><tr><th>unit</th><th>state</th><th>enabled</th><th>since</th><th></th></tr></thead><tbody>';
     Object.keys(svc).forEach(function (name) {
       var s = svc[name];
       var pill = (s.active === 'active') ? 'active' : (s.active === 'failed' ? 'failed' : 'inactive');
       html += '<tr>'
-        + '<td>' + adminEsc(name) + '</td>'
-        + '<td><span class="pill ' + pill + '">' + adminEsc(s.active) + '</span></td>'
-        + '<td>' + adminEsc(s.enabled) + '</td>'
-        + '<td>' + adminEsc(s.since || '-') + '</td>'
-        + '<td>' + (s.restartable
+        + '<td class="svc-unit">' + adminEsc(name)
+        + (SERVICE_ABOUT[name] || /^php/.test(name)
+          ? '<span class="svc-about">' + adminEsc(SERVICE_ABOUT[name] || 'runs the site\'s php') + '</span>' : '')
+        + '</td>'
+        + '<td class="svc-state"><span class="pill ' + pill + '">' + adminEsc(s.active) + '</span></td>'
+        + '<td class="svc-enabled' + (svcEnabled(s.enabled) === 'enabled' ? ' is-ok' : '') + '">' + adminEsc(svcEnabled(s.enabled)) + '</td>'
+        + '<td class="svc-since" title="' + adminEsc(s.since || '') + '">' + adminEsc(svcSince(s.since)) + '</td>'
+        + '<td class="svc-act">' + (s.restartable
           ? '<button class="restart" data-unit="' + adminEsc(name) + '">restart</button>'
           : '<span class="muted">status only</span>') + '</td>'
         + '</tr>';
@@ -12705,6 +13183,7 @@
       // skips ones systemd doesn't know about.
       + ['birdnet_recording', 'birdnet_analysis', 'birdnet_log', 'birdnet_stats', 'spectrogram_viewer', 'livestream', 'icecast2', 'caddy', 'php8.4-fpm', 'php8.3-fpm', 'php8.2-fpm']
         .map(function (u) { return '<option value="' + u + '">' + u + '</option>'; }).join('')
+      + '<option value="live-listening">live listening</option>'
       + '  </select>'
       + '  <label>lines</label><input id="adminLogsLines" type="number" value="120" min="20" max="500" step="20">'
       + '</div>'
@@ -12717,8 +13196,28 @@
     pane.addEventListener('scroll', function () {
       autoScroll = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 20;
     });
+    function listenLog(request) {
+      adminJson('./avian/api/live-listen.php?log=1').then(function (j) {
+        if (request !== sequence) return;
+        var rows = (j && j.sessions) || [];
+        if (!rows.length) {
+          pane.textContent = 'No remote listening yet. Sessions away from home are listed here.';
+          return;
+        }
+        pane.textContent = rows.map(function (r) {
+          var d = new Date(r.started * 1000);
+          var when = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+            + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+          return when + '  ' + (r.active ? 'listening now' : r.minutes + ' min') + '  ' + r.ip + '  ' + r.device;
+        }).join('\n');
+      }).catch(function (error) {
+        if (request !== sequence || adminAuthCancelled(error)) return;
+        pane.textContent = 'listening log unavailable - ' + (error.message || 'no data');
+      });
+    }
     function tick() {
       var request = ++sequence;
+      if (unit === 'live-listening') { listenLog(request); return; }
       adminApi('./avian/api/birdnet-status.php?action=logs&unit=' + encodeURIComponent(unit) + '&lines=' + lines)
         .then(function (r) { return r.text().then(function (raw) { return { status: r.status, raw: raw }; }); })
         .then(function (res) {
@@ -12741,20 +13240,6 @@
     adminPollT = setInterval(tick, 4000);
   }
 
-  // Six services in one row. The whole card is the control: a run button
-  // beside a one-line description was more chrome than the action deserved.
-  var TOOL_ICONS = {
-    birdnet_recording: '<path d="M12 3.5a2 2 0 0 1 2 2v5a2 2 0 0 1-4 0v-5a2 2 0 0 1 2-2z"/><path d="M7.5 10.5a4.5 4.5 0 0 0 9 0"/><path d="M12 15v2.5"/>',
-    birdnet_analysis: '<path d="M3 12h2.5l2-6 3 12 2.5-9 2 3H21"/>',
-    birdnet_log: '<ellipse cx="12" cy="6" rx="6.5" ry="2.5"/><path d="M5.5 6v6c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V6"/><path d="M5.5 12v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5"/>',
-    spectrogram_viewer: '<path d="M4 14v3M7.5 10v7M11 6v11M14.5 11v6M18 8v9"/>',
-    livestream: '<circle cx="12" cy="12" r="1.8"/><path d="M8.2 15.8a5.4 5.4 0 0 1 0-7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6"/><path d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
-    icecast2: '<rect x="3.5" y="4.5" width="17" height="6" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="6" rx="1.6"/><path d="M7 7.5h.01M7 16.5h.01"/>'
-  };
-  function toolIcon(unit) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" '
-      + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TOOL_ICONS[unit] + '</svg>';
-  }
   function educatorExportSnapshot(scope) {
     var edu = educatorRequestScopeId();
     return {
@@ -12793,28 +13278,9 @@
     else link.removeAttribute('data-error');
   }
   function renderAdminTools() {
-    var actions = [
-      ['recording', 'captures audio from the mic', 'birdnet_recording'],
-      ['analysis', 'runs the model on each chunk', 'birdnet_analysis'],
-      ['log', 'writes detections to the database', 'birdnet_log'],
-      ['spectrogram', 'legacy live fft view', 'spectrogram_viewer'],
-      ['livestream', 'feed behind the live-audio button', 'livestream'],
-      ['icecast', 'serves that stream to the browser', 'icecast2'],
-    ];
-    var html = '<h2 class="admin-section-head">services</h2>';
-    html += '<div class="tool-row">';
-    actions.forEach(function (a) {
-      html += '<button type="button" class="tool-card" data-unit="' + adminEsc(a[2]) + '">'
-        + '<span class="badge" data-live="?"><i class="now">...</i><i class="act">restart</i></span>'
-        + '<span class="ic">' + toolIcon(a[2]) + '</span>'
-        + '<span class="ttl">' + adminEsc(a[0]) + '</span>'
-        + '<span class="dsc">' + adminEsc(a[1]) + '</span>'
-        + '<span class="state" data-out="' + adminEsc(a[2]) + '"></span>'
-        + '</button>';
-    });
-    html += '</div>';
-
-    html += '<h2 class="admin-section-head">update</h2>';
+    // Services live on System (status and restart in one place); Tools is
+    // only things you do: update, take your data, open the classic pages.
+    var html = '<h2 class="admin-section-head">update</h2>';
     html += '<div class="admin-actions-grid">';
     // The block is the button. A separate control below it was a second thing
     // to aim at for an action the block itself obviously affords.
@@ -12839,7 +13305,7 @@
     html += '</div>';
 
     html += '<h2 class="admin-section-head">your data</h2>';
-    html += '<div class="admin-actions-grid">';
+    html += '<div class="admin-actions-grid data-grid">';
     function dataCard(title, desc, what) {
       var snapshot = educatorExportSnapshot(what);
       var directRequired = educatorSavedExportNeedsDirect(snapshot);
@@ -12854,7 +13320,74 @@
     }
     html += dataCard('detections', 'every detection as csv: date, species, confidence, file', 'detections');
     html += dataCard('recordings', 'every clip as tar, by date and species. can run to many gb', 'recordings');
+    // Backup and restore carry the station's secrets and its config, so
+    // they need the admin password (once per session), not LAN trust.
+    html += '<div class="admin-action" data-backup>'
+      + '<a class="run" href="./avian/api/station.php?backup=1" download data-backup-link>download</a>'
+      + '<h4>full backup</h4>'
+      + '<p>detections, settings, species lists, charts and recordings in one file, to restore here or on a new station.'
+      + ' recording pauses while it is written. <span data-backup-size></span></p>'
+      + '<form class="proof-form" data-proof-form hidden>'
+      + '<input type="password" autocomplete="current-password" placeholder="admin password" aria-label="admin password" data-proof-pass>'
+      + '<button type="submit">unlock</button>'
+      + '</form>'
+      + '<span class="state out" data-proof-status role="status" aria-live="polite"></span>'
+      + '</div>';
+    html += '<div class="admin-action" data-restore>'
+      + '<button type="button" class="run" data-restore-pick>choose</button>'
+      + '<h4>restore a backup</h4>'
+      + '<p>replaces this station\'s detections, settings and recordings with those in a full backup</p>'
+      + '<input type="file" accept=".tar,application/x-tar" data-restore-file hidden>'
+      + '<form class="proof-form" data-proof-form hidden>'
+      + '<input type="password" autocomplete="current-password" placeholder="admin password" aria-label="admin password" data-proof-pass>'
+      + '<button type="submit">unlock</button>'
+      + '</form>'
+      + '<progress class="restore-progress" max="1" value="0" hidden></progress>'
+      + '<div class="restore-actions" hidden>'
+      + '<button type="button" class="restore-go" data-restore-go>restore now</button>'
+      + '<button type="button" class="restore-discard" data-restore-discard>discard</button>'
+      + '</div>'
+      + '<span class="state out" data-restore-status role="status" aria-live="polite"></span>'
+      + '</div>';
     html += '</div>';
+
+    html += '<h2 class="admin-section-head">species lists</h2>';
+    html += '<div class="admin-actions-grid species-lists">';
+    [
+      ['exclude', 'never log', 'the analyzer drops these, however sure it is. use it for a bird it keeps getting wrong'],
+      ['include', 'only log', 'when anything is listed here, every other species is dropped. leave empty to log everything'],
+      ['whitelist', 'always allow', 'logged even when the range filter says they don\'t live here'],
+    ].forEach(function (l) {
+      html += '<div class="admin-action species-list" data-species-list="' + l[0] + '">'
+        + '<h4>' + l[1] + '</h4>'
+        + '<p>' + adminEsc(l[2]) + '</p>'
+        + '<ul class="species-entries" data-entries><li class="species-none">loading...</li></ul>'
+        + '<div class="species-add">'
+        + '<input type="search" autocomplete="off" spellcheck="false" placeholder="add a species"'
+        + ' aria-label="add a species to ' + l[1] + '" aria-autocomplete="list" data-species-search>'
+        + '<ul class="species-suggest" role="listbox" data-suggest hidden></ul>'
+        + '</div>'
+        + '<span class="state out" data-species-status role="status" aria-live="polite"></span>'
+        + '</div>';
+    });
+    html += '</div>';
+
+    html += '<h2 class="admin-section-head">station</h2>';
+    html += '<div class="admin-actions-grid">';
+    html += '<div class="admin-action" data-power-card>'
+      + '<button type="button" class="run" data-power="reboot">reboot</button>'
+      + '<h4>reboot the station</h4>'
+      + '<p>restarts the whole station. back in a minute or two</p>'
+      + '<span class="state out" role="status" aria-live="polite"></span>'
+      + '</div>';
+    html += '<div class="admin-action" data-power-card>'
+      + '<button type="button" class="run danger" data-power="poweroff">shut down</button>'
+      + '<h4>shut down the station</h4>'
+      + '<p>stays off until it is powered on again (or started again on its host)</p>'
+      + '<span class="state out" role="status" aria-live="polite"></span>'
+      + '</div>';
+    html += '</div>';
+
     adminBody.innerHTML = html;
     adminBody.querySelectorAll('[data-admin-export]').forEach(function (link) {
       link.addEventListener('click', function (event) {
@@ -12911,71 +13444,6 @@
       });
     });
 
-    // Whether a unit is up is the first thing you want off this page, so the
-    // badge carries it and the card only has to be hovered to offer the fix.
-    function paintStates() {
-      adminJson('./avian/api/birdnet-status.php?action=services').then(function (j) {
-        var svc = (j && j.services) || {};
-        adminBody.querySelectorAll('.tool-card').forEach(function (card) {
-          if (card.dataset.busy) return;
-          var st = svc[card.dataset.unit];
-          var live = st && st.active === 'active' ? 'running'
-            : st && st.active === 'inactive' ? 'stopped'
-            : st ? 'error' : 'unknown';
-          var b = card.querySelector('.badge');
-          b.dataset.live = live;
-          b.querySelector('.now').textContent = live;
-        });
-      }).catch(function (error) {
-        if (adminAuthCancelled(error)) return;
-        adminBody.querySelectorAll('.tool-card .badge').forEach(function (b) {
-          b.dataset.live = 'unknown';
-          b.querySelector('.now').textContent = 'unknown';
-        });
-      });
-    }
-    paintStates();
-
-    // The card is the button, so a stray click restarts a service. The
-    // confirm matters more here than it did beside a labelled run button.
-    adminBody.querySelectorAll('.tool-card').forEach(function (card) {
-      card.addEventListener('click', function () {
-        var unit = card.dataset.unit;
-        if (card.dataset.busy) return;
-        if (!confirm('restart ' + unit + '?')) return;
-        card.dataset.busy = '1';
-        var out = card.querySelector('.state');
-        out.textContent = 'restarting...';
-        card.setAttribute('data-state', 'busy');
-        adminFetch('./avian/api/birdnet-status.php?action=restart&unit=' + encodeURIComponent(unit), {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
-          body: '{}',
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (j) {
-            card.setAttribute('data-state', j.ok ? 'ok' : 'err');
-            out.textContent = sudoBlocked(j.out) ? SUDO_HINT
-              : (j.ok ? 'restarted' : 'failed rc=' + j.rc);
-            setTimeout(function () {
-              delete card.dataset.busy;
-              card.removeAttribute('data-state');
-              out.textContent = '';
-              paintStates();
-            }, 2600);
-          })
-          .catch(function (e) {
-            if (adminAuthCancelled(e)) return;
-            card.setAttribute('data-state', 'err');
-            out.textContent = e.message || 'request failed';
-            setTimeout(function () {
-              delete card.dataset.busy;
-              card.removeAttribute('data-state');
-              out.textContent = '';
-            }, 2600);
-          });
-      });
-    });
     adminBody.querySelectorAll('.admin-action .code').forEach(function (box) {
       var take = function () {
         var pre = box.querySelector('pre');
@@ -13075,11 +13543,348 @@
       });
     });
     loadMaintenance();
+    wireSpeciesLists(adminBody);
+    wireStationControls(adminBody);
+  }
+
+  // ---- Tools: species lists ----
+  function speciesPost(body) {
+    return adminFetch('./avian/api/species-lists.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  function wireSpeciesLists(root) {
+    var cards = {};
+    root.querySelectorAll('[data-species-list]').forEach(function (card) { cards[card.dataset.speciesList] = card; });
+    function paint(list, entries, writable) {
+      var card = cards[list];
+      if (!card) return;
+      var ul = card.querySelector('[data-entries]');
+      ul.innerHTML = entries.length ? entries.map(function (e) {
+        return '<li><span class="species-name">' + adminEsc(e.com) + ' <i>' + adminEsc(e.sci) + '</i></span>'
+          + '<button type="button" class="species-remove" data-sci="' + adminAttr(e.sci) + '"'
+          + ' aria-label="remove ' + adminAttr(e.com) + '">remove</button></li>';
+      }).join('') : '<li class="species-none">none</li>';
+      if (list === 'include') card.toggleAttribute('data-active', entries.length > 0);
+      var input = card.querySelector('[data-species-search]');
+      if (writable === false) {
+        input.disabled = true;
+        input.placeholder = 'list file is not writable';
+      }
+    }
+    adminJson('./avian/api/species-lists.php').then(function (j) {
+      Object.keys(cards).forEach(function (list) {
+        paint(list, (j.lists && j.lists[list]) || [], j.writable ? j.writable[list] : true);
+      });
+    }).catch(function (error) {
+      if (adminAuthCancelled(error)) return;
+      Object.keys(cards).forEach(function (list) {
+        cards[list].querySelector('[data-entries]').innerHTML = '<li class="species-none">lists unavailable</li>';
+      });
+    });
+    Object.keys(cards).forEach(function (list) {
+      var card = cards[list];
+      var input = card.querySelector('[data-species-search]');
+      var suggest = card.querySelector('[data-suggest]');
+      var status = card.querySelector('[data-species-status]');
+      var timer = null, seq = 0;
+      function say(text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); }
+      function closeSuggest() { suggest.hidden = true; suggest.innerHTML = ''; input.removeAttribute('aria-expanded'); }
+      function change(action, sci) {
+        say(action === 'add' ? 'adding...' : 'removing...');
+        speciesPost({ action: action, list: list, sci: sci }).then(function (j) {
+          paint(list, j.entries || []);
+          say(action === 'add' ? 'added' : 'removed');
+          setTimeout(function () { say(''); }, 1600);
+        }).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          say(error.message, true);
+        });
+      }
+      input.addEventListener('input', function () {
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { closeSuggest(); return; }
+        timer = setTimeout(function () {
+          var mine = ++seq;
+          adminJson('./avian/api/species-lists.php?q=' + encodeURIComponent(q)).then(function (j) {
+            if (mine !== seq) return;
+            var rows = j.results || [];
+            suggest.innerHTML = rows.length ? rows.map(function (r) {
+              return '<li role="option"><button type="button" data-add="' + adminAttr(r.sci) + '">'
+                + adminEsc(r.com) + ' <i>' + adminEsc(r.sci) + '</i>'
+                + (r.heard ? '<span class="heard">heard ' + r.heard + '</span>' : '') + '</button></li>';
+            }).join('') : '<li class="species-none">no species match</li>';
+            suggest.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+          }).catch(function () { });
+        }, 180);
+      });
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { closeSuggest(); return; }
+        if (event.key === 'ArrowDown') {
+          var first = suggest.querySelector('button');
+          if (first) { event.preventDefault(); first.focus(); }
+        }
+      });
+      suggest.addEventListener('keydown', function (event) {
+        var buttons = [].slice.call(suggest.querySelectorAll('button'));
+        var i = buttons.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' && i < buttons.length - 1) { event.preventDefault(); buttons[i + 1].focus(); }
+        if (event.key === 'ArrowUp') { event.preventDefault(); (i > 0 ? buttons[i - 1] : input).focus(); }
+        if (event.key === 'Escape') { closeSuggest(); input.focus(); }
+      });
+      suggest.addEventListener('click', function (event) {
+        var b = event.target.closest('[data-add]');
+        if (!b) return;
+        change('add', b.dataset.add);
+        input.value = '';
+        closeSuggest();
+        input.focus();
+      });
+      card.querySelector('[data-entries]').addEventListener('click', function (event) {
+        var b = event.target.closest('.species-remove');
+        if (b) change('remove', b.dataset.sci);
+      });
+      // Close when focus leaves the card (no page-wide listener per render).
+      card.addEventListener('focusout', function (event) {
+        if (!event.relatedTarget || !card.contains(event.relatedTarget)) setTimeout(function () {
+          if (!card.contains(document.activeElement)) closeSuggest();
+        }, 120);
+      });
+    });
+  }
+
+  // ---- Tools: backup, restore, reboot, shut down ----
+  function stationPost(body) {
+    return adminFetch('./avian/api/station.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 401) stationProven = false;
+        if (!r.ok || !j.ok) throw new Error(r.status === 401 ? 'unlock with your admin password first' : (j.error || ('HTTP ' + r.status)));
+        return j;
+      });
+    });
+  }
+  // Password-backed session for backup and restore. `proven` is checked
+  // when Tools opens so a click can act synchronously (file pickers and
+  // downloads need the click's own gesture); without it the card asks for
+  // the password inline, once.
+  var stationProven = false;
+  function stationProofCheck() {
+    return fetch('./avian/api/station.php?proof=1', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { stationProven = r.status === 204; return stationProven; })
+      .catch(function () { return false; });
+  }
+  function askStationPassword(card, why) {
+    var form = card.querySelector('[data-proof-form]');
+    var status = card.querySelector('[data-proof-status], [data-restore-status]');
+    if (!form) return;
+    form.hidden = false;
+    if (status) { status.textContent = why || 'enter your admin password to continue'; status.classList.remove('err'); }
+    var input = form.querySelector('[data-proof-pass]');
+    input.focus();
+    if (form.dataset.wired) return;
+    form.dataset.wired = '1';
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var hdr = adminBasicAuthorization(input.value);
+      input.value = '';
+      if (!hdr) return;
+      fetch('./avian/api/station.php?proof=1', {
+        credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Authorization': hdr, 'X-Avian-Credential': '1' },
+      }).then(function (r) {
+        if (r.status === 204) {
+          stationProven = true;
+          form.hidden = true;
+          if (status) status.textContent = 'unlocked. go ahead';
+          return;
+        }
+        if (status) {
+          status.textContent = r.status === 429 ? 'too many tries. wait a moment' : 'that password did not work';
+          status.classList.add('err');
+        }
+        input.focus();
+      }).catch(function () {
+        if (status) { status.textContent = 'could not reach the station'; status.classList.add('err'); }
+      });
+    });
+  }
+  function wireStationControls(root) {
+    stationProofCheck();
+    var backup = root.querySelector('[data-backup]');
+    if (backup) backup.querySelector('[data-backup-link]').addEventListener('click', function (event) {
+      if (stationProven) return;   // the link downloads as a normal navigation
+      event.preventDefault();
+      askStationPassword(backup, 'enter your admin password, then press download again');
+    });
+    var size = root.querySelector('[data-backup-size]');
+    if (size) adminJson('./avian/api/station.php?size=1').then(function (j) {
+      if (j && j.ok) size.textContent = 'about ' + adminFmtBytes(j.bytes) + '.';
+    }).catch(function () { });
+
+    var card = root.querySelector('[data-restore]');
+    if (card) {
+      var file = card.querySelector('[data-restore-file]');
+      var pick = card.querySelector('[data-restore-pick]');
+      var bar = card.querySelector('.restore-progress');
+      var actions = card.querySelector('.restore-actions');
+      var status = card.querySelector('[data-restore-status]');
+      var CHUNK = 4 * 1024 * 1024;
+      var pollT = null;
+      var say = function (text, err) { status.textContent = text || ''; status.classList.toggle('err', !!err); };
+      var staged = function (bytes) {
+        actions.hidden = !bytes;
+        if (bytes) say(adminFmtBytes(bytes) + ' uploaded. nothing has changed yet.');
+      };
+      function poll() {
+        clearTimeout(pollT);
+        adminJson('./avian/api/station.php?restore=1').then(function (j) {
+          if (!document.body.contains(card)) return;
+          if (j.state === 'running') {
+            say('restoring... recording is paused. ' + (j.log ? j.log.split('\n').pop() : ''));
+            pick.disabled = true;
+            pollT = setTimeout(poll, 3000);
+            return;
+          }
+          pick.disabled = false;
+          if (j.state === 'complete') say('restore finished. reload the page to see the restored station.');
+          else if (j.state === 'failed') say('restore failed: ' + (j.log || 'see the logs'), true);
+          staged(j.staged_bytes);
+        }).catch(function () { });
+      }
+      poll();
+      pick.addEventListener('click', function () {
+        if (!stationProven) { askStationPassword(card, 'enter your admin password, then press choose again'); return; }
+        file.click();
+      });
+      file.addEventListener('change', function () {
+        var f = file.files && file.files[0];
+        if (!f) return;
+        pick.disabled = true;
+        actions.hidden = true;
+        bar.hidden = false;
+        bar.value = 0;
+        var offset = 0;
+        function next() {
+          var slice = f.slice(offset, offset + CHUNK);
+          adminFetch('./avian/api/station.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/octet-stream', 'X-Avian-Action': '1',
+              'X-Upload-Offset': String(offset), 'X-Upload-Total': String(f.size),
+            },
+            body: slice,
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+              if (r.status === 401) { stationProven = false; throw new Error('the admin session ended. unlock and choose the file again'); }
+              if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+              offset = j.have;
+              bar.value = offset / f.size;
+              say('uploading ' + adminFmtBytes(offset) + ' of ' + adminFmtBytes(f.size) + '...');
+              if (offset < f.size) next();
+              else { bar.hidden = true; pick.disabled = false; staged(offset); }
+            });
+          }).catch(function (error) {
+            if (adminAuthCancelled(error)) return;
+            bar.hidden = true;
+            pick.disabled = false;
+            say('upload failed: ' + error.message, true);
+            if (!stationProven) askStationPassword(card, 'upload failed: the admin session ended. unlock, then choose the file again');
+          });
+        }
+        say('uploading...');
+        next();
+        file.value = '';
+      });
+      card.querySelector('[data-restore-go]').addEventListener('click', function () {
+        if (!stationProven) { askStationPassword(card, 'enter your admin password, then press restore now again'); return; }
+        if (!confirm('Restore this backup? It replaces every detection, setting and recording on this station. Recording pauses until it finishes.')) return;
+        actions.hidden = true;
+        say('starting the restore...');
+        stationPost({ action: 'restore-start', confirm: 'restore-backup' }).then(poll).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          say(error.message, true);
+          poll();
+        });
+      });
+      card.querySelector('[data-restore-discard]').addEventListener('click', function () {
+        stationPost({ action: 'restore-clear', confirm: 'discard-upload' }).then(function () {
+          actions.hidden = true;
+          say('upload discarded');
+        }).catch(function (error) { if (!adminAuthCancelled(error)) say(error.message, true); });
+      });
+    }
+
+    root.querySelectorAll('[data-power]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var verb = button.dataset.power;
+        var prompt = verb === 'reboot'
+          ? 'Reboot the station? Recording stops for a minute or two.'
+          : 'Shut the station down? It stays off until it is powered on again.';
+        if (!confirm(prompt)) return;
+        var out = button.closest('[data-power-card]').querySelector('.state');
+        button.disabled = true;
+        out.textContent = verb === 'reboot' ? 'rebooting in a few seconds...' : 'shutting down in a few seconds...';
+        stationPost({ action: verb, confirm: verb === 'reboot' ? 'reboot-station' : 'shut-down-station' }).then(function () {
+          out.textContent = verb === 'reboot'
+            ? 'rebooting. refresh this page in a minute or two.'
+            : 'shutting down. the station is going offline.';
+        }).catch(function (error) {
+          if (adminAuthCancelled(error)) return;
+          button.disabled = false;
+          out.textContent = error.message;
+        });
+      });
+    });
   }
 
   // Initial load: if URL has a sci hash, jump to atlas, highlight, and
   // open the modal.
   if (readHash() && !educatorScopeBlocked) { go(2); highlightAtlas(readHash()); openDetailModal(readHash()); }
+
+  // "Listen here" links in notifications are /?filename=<recording>. BirdNET-Pi
+  // names recordings "<Common_Name>-<conf>-<date>-birdnet-<time>.mp3", so
+  // read the bird from the name, open its postcard, and open that recording.
+  (function openNotificationLink() {
+    var file = new URLSearchParams(location.search).get('filename');
+    if (!file || readHash() || educatorScopeBlocked) return;
+    var base = file.split('/').pop();
+    var m = base.match(/^(.+?)-\d{1,3}-\d{4}-\d{2}-\d{2}-birdnet-/);
+    if (!m) return;
+    var key = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    var wanted = key(m[1]);
+    var tries = 0;
+    (function waitForSpecies() {
+      var species = (DATA && DATA.lifelist && DATA.lifelist.species) || [];
+      if (!species.length && tries++ < 50) { setTimeout(waitForSpecies, 120); return; }
+      var hit = species.find(function (s) { return key(s.com) === wanted; });
+      if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + (hit ? '#sci=' + encodeURIComponent(hit.sci) : ''));
+      if (!hit) return;
+      go(2); highlightAtlas(hit.sci); openDetailModal(hit.sci);
+      var rowTries = 0;
+      (function openRow() {
+        var row = [].slice.call(document.querySelectorAll('#modalRecordings .rec-row')).find(function (r) {
+          return (r.dataset.file || '').split('/').pop() === base;
+        });
+        if (!row) { if (rowTries++ < 40) setTimeout(openRow, 150); return; }
+        var toggle = row.querySelector('.rec-row-toggle');
+        if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+        row.scrollIntoView({ block: 'center' });
+      })();
+    })();
+  })();
   // Admin overlay routing accepts only exact native admin section names.
   // screen with that sub-tab. Clearing the hash closes it.
   function readAdminHash() {
@@ -13875,6 +14680,35 @@
       }
     }).observe(postcardSlot);
   }
+  // Back button closes the postcard. A postcard opened from an Atlas stamp
+  // has no #sci= entry of its own, so it gets a history entry; Back pops it
+  // and closes the card. Closing any other way (X, swipe, Escape, backdrop)
+  // steps back over that entry so it never lingers as a dead Back press.
+  // Postcards opened through #sci= already own a hash entry and the router
+  // closes them on Back.
+  // Each pushed entry carries a unique token, so an entry left over from an
+  // earlier page load (reload, Forward) is never mistaken for the live one.
+  var postcardHistoryToken = '';
+  function pushPostcardHistory() {
+    if (postcardHistoryToken || !window.history || typeof history.pushState !== 'function') return;
+    var token = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    var state = Object.assign({}, history.state || {}, { avPostcard: token });
+    history.pushState(state, '', location.href);
+    postcardHistoryToken = token;
+  }
+  function releasePostcardHistory() {
+    if (!postcardHistoryToken) return;
+    var token = postcardHistoryToken;
+    postcardHistoryToken = '';
+    // Only step back while our own entry is current; if something else has
+    // navigated since (a hash route), leave history alone.
+    if (history.state && history.state.avPostcard === token) history.back();
+  }
+  window.addEventListener('popstate', function (ev) {
+    if (!postcardHistoryToken || (ev.state && ev.state.avPostcard === postcardHistoryToken)) return;
+    postcardHistoryToken = '';
+    closePostcard();
+  });
   function clearSciHash() {
     if (!readHash()) return;
     var url = new URL(location.href);
@@ -14072,6 +14906,10 @@
     if (!postcardModal) postcardModal = document.getElementById('postcard-modal');
     if (!postcardSlot && postcardModal) postcardSlot = postcardModal.querySelector('.postcard-stamp-slot');
     if (!postcardModal) return;
+    // The phone sheet scrolls and the hidden modal keeps its offset; every
+    // postcard starts at the top.
+    var sheetEl = postcardModal.querySelector('.postcard-sheet');
+    if (sheetEl) sheetEl.scrollTop = 0;
     resetPostcardDrawer();
     if (!Number.isFinite(postcardShellSequence)) postcardShellSequence = 0;
     if (!Number.isFinite(postcardOpenSequence)) postcardOpenSequence = 0;
@@ -14280,6 +15118,7 @@
       document.body.classList.remove('postcard-open');
     });
     clearSciHash();
+    releasePostcardHistory();
     activePostcardSci = '';
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = setTimeout(function () {
@@ -14296,7 +15135,7 @@
     if (!postcardModal || !postcardSlot || !card) return jumpToSci(card && card.dataset.sci);
     if (!privateEducatorCardCurrent(card)) { clearSciHash(); return false; }
     options = options || {};
-    if (!options.preserveHash) clearSciHash();
+    if (!options.preserveHash) { clearSciHash(); pushPostcardHistory(); }
     clearTimeout(postcardCloseTimer);
     postcardCloseTimer = 0;
     releasePostcardFlight();
@@ -14329,6 +15168,7 @@
     setPostcardAtlasSource('stamps');
     var fit = card.querySelector('.stamp-fit');
     if (!fit) return jumpToSci(card.dataset.sci);
+    if (!options.preserveHash) pushPostcardHistory();
     activePostcardSci = card.dataset.sci || '';
     populatePostcard(
       activePostcardSci,
@@ -14477,6 +15317,14 @@
     if (tlCol) return jumpToSci(tlCol.dataset.sci);
     var hmRow = ev.target.closest('.heatmap-row[data-sci]');
     if (hmRow) return jumpToSci(hmRow.dataset.sci);
+  });
+  // Enter on a focused Stats row does what a click does.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' || !ev.target.matches) return;
+    if (ev.target.matches('.stats-side li[data-sci]')) {
+      ev.preventDefault();
+      jumpToSci(ev.target.dataset.sci);
+    }
   });
 
   // After the atlas re-renders (window change, fresh fetch), re-apply

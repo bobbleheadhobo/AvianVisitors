@@ -1,0 +1,538 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T13:35:25.601827+00:00",
+  "title": "Design System: Avian Visitors",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Notebook Paper",
+        "canonical": "oklch(99.1% 0.001 106)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#a5a5a4",
+          "#c9c9c8",
+          "#eeeeed"
+        ]
+      },
+      "paper-recess": {
+        "role": "neutral",
+        "displayName": "Recessed Paper",
+        "canonical": "oklch(96.1% 0.005 95)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#262522",
+          "#43423f",
+          "#62615e",
+          "#83827f",
+          "#a6a5a1",
+          "#cac9c5",
+          "#efeeea"
+        ]
+      },
+      "paper-shade": {
+        "role": "neutral",
+        "displayName": "Shaded Paper",
+        "canonical": "oklch(92.5% 0.010 94)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#272520",
+          "#44423c",
+          "#63615b",
+          "#84827c",
+          "#a7a59e",
+          "#cbc9c2",
+          "#f0eee7"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Field Ink",
+        "canonical": "oklch(20.3% 0.010 67)",
+        "tonalRamp": [
+          "#0e0a07",
+          "#282420",
+          "#46413c",
+          "#65605b",
+          "#87817c",
+          "#a9a49e",
+          "#cec8c2",
+          "#f3ede7"
+        ]
+      },
+      "ink-umber": {
+        "role": "primary",
+        "displayName": "Umber Ink",
+        "canonical": "oklch(37.5% 0.027 74)",
+        "tonalRamp": [
+          "#120901",
+          "#2d2316",
+          "#4b4032",
+          "#6b5f50",
+          "#8d8071",
+          "#b0a393",
+          "#d4c7b6",
+          "#faecdb"
+        ]
+      },
+      "ink-faded": {
+        "role": "neutral",
+        "displayName": "Faded Ink",
+        "canonical": "oklch(62.2% 0.026 76)",
+        "tonalRamp": [
+          "#110902",
+          "#2c2317",
+          "#4a4033",
+          "#6a5f51",
+          "#8b8172",
+          "#afa394",
+          "#d3c7b7",
+          "#f9eddc"
+        ]
+      },
+      "danger": {
+        "role": "error",
+        "displayName": "Danger",
+        "canonical": "oklch(49.1% 0.125 28)",
+        "tonalRamp": [
+          "#2d0000",
+          "#510000",
+          "#751f1b",
+          "#9a4239",
+          "#c06359",
+          "#e7867b",
+          "#ffaa9e",
+          "#ffcfc2"
+        ]
+      },
+      "card-stock": {
+        "role": "neutral",
+        "displayName": "Card Stock",
+        "canonical": "oklch(97.3% 0.005 95)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#262522",
+          "#43423f",
+          "#62615e",
+          "#83827f",
+          "#a6a5a1",
+          "#cac9c5",
+          "#efeeea"
+        ]
+      },
+      "card-ink": {
+        "role": "neutral",
+        "displayName": "Card Ink",
+        "canonical": "oklch(26.7% 0.012 78)",
+        "tonalRamp": [
+          "#0e0b06",
+          "#28241e",
+          "#46413b",
+          "#65605a",
+          "#86827a",
+          "#a9a49d",
+          "#cec8c0",
+          "#f3eee5"
+        ]
+      },
+      "card-muted": {
+        "role": "neutral",
+        "displayName": "Card Muted",
+        "canonical": "oklch(55.7% 0.013 85)",
+        "tonalRamp": [
+          "#0e0b06",
+          "#28251e",
+          "#45423a",
+          "#656159",
+          "#86827a",
+          "#a9a59c",
+          "#cdc9c0",
+          "#f3eee5"
+        ]
+      },
+      "charcoal": {
+        "role": "neutral",
+        "displayName": "Charcoal",
+        "canonical": "oklch(21.0% 0.008 275)",
+        "tonalRamp": [
+          "#0a0b0f",
+          "#242529",
+          "#414246",
+          "#606166",
+          "#818287",
+          "#a3a5aa",
+          "#c7c9ce",
+          "#edeef4"
+        ]
+      },
+      "charcoal-recess": {
+        "role": "neutral",
+        "displayName": "Charcoal Recess",
+        "canonical": "oklch(25.7% 0.012 271)",
+        "tonalRamp": [
+          "#090b10",
+          "#23252b",
+          "#404248",
+          "#5f6168",
+          "#80828a",
+          "#a2a5ad",
+          "#c6c9d1",
+          "#ebeef7"
+        ]
+      },
+      "charcoal-shade": {
+        "role": "neutral",
+        "displayName": "Charcoal Shade",
+        "canonical": "oklch(30.5% 0.013 267)",
+        "tonalRamp": [
+          "#090b11",
+          "#22252c",
+          "#3f4249",
+          "#5e6169",
+          "#7f828b",
+          "#a1a5ae",
+          "#c5c9d2",
+          "#eaeef8"
+        ]
+      },
+      "charcoal-pill": {
+        "role": "neutral",
+        "displayName": "Charcoal Pill",
+        "canonical": "oklch(36.4% 0.018 268)",
+        "tonalRamp": [
+          "#080b13",
+          "#21252e",
+          "#3e424c",
+          "#5d616c",
+          "#7e828e",
+          "#a0a5b1",
+          "#c4c9d5",
+          "#e9eefb"
+        ]
+      },
+      "moon-ink": {
+        "role": "neutral",
+        "displayName": "Moonlit Ink",
+        "canonical": "oklch(93.2% 0.010 82)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#28251f",
+          "#45423c",
+          "#64615b",
+          "#85827b",
+          "#a8a49e",
+          "#ccc9c2",
+          "#f2eee7"
+        ]
+      },
+      "moon-ink-2": {
+        "role": "neutral",
+        "displayName": "Moonlit Ink 2",
+        "canonical": "oklch(75.7% 0.020 80)",
+        "tonalRamp": [
+          "#100a03",
+          "#2a241a",
+          "#484136",
+          "#676054",
+          "#898175",
+          "#aca497",
+          "#d0c8bb",
+          "#f6ede0"
+        ]
+      },
+      "moon-ink-soft": {
+        "role": "neutral",
+        "displayName": "Moonlit Ink Soft",
+        "canonical": "oklch(58.9% 0.020 81)",
+        "tonalRamp": [
+          "#0f0a03",
+          "#2a241a",
+          "#474136",
+          "#676055",
+          "#888175",
+          "#aba497",
+          "#d0c8bb",
+          "#f5ede0"
+        ]
+      },
+      "moon-accent": {
+        "role": "neutral",
+        "displayName": "Moonlit Accent",
+        "canonical": "oklch(86.5% 0.018 85)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#29241b",
+          "#464138",
+          "#666156",
+          "#878277",
+          "#aaa499",
+          "#cec8bd",
+          "#f4eee2"
+        ]
+      },
+      "danger-dark": {
+        "role": "error",
+        "displayName": "Danger (dark)",
+        "canonical": "oklch(71.8% 0.101 27)",
+        "tonalRamp": [
+          "#290000",
+          "#4b0505",
+          "#6e2822",
+          "#924841",
+          "#b76a61",
+          "#dd8c82",
+          "#ffb0a5",
+          "#ffd5c9"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "rgba(26,22,18,0.14)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page title, uppercase."
+      },
+      "display-compact": {
+        "displayName": "Display (compact)",
+        "purpose": "Folded title when a view scrolls."
+      },
+      "overline": {
+        "displayName": "Overline",
+        "purpose": "Italic umber 'your birds' line; opens About."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Menu links, postcard names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Stats ledger rows (15px on desktop and phone)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono uppercase section heads and control labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Sub-captions under headings (12px)."
+      },
+      "hand": {
+        "displayName": "Hand",
+        "purpose": "Caveat handwriting for collage bird labels only."
+      },
+      "body-phone": {
+        "displayName": "Body (phone)",
+        "purpose": "Stats ledger rows on phones, 15px with 4px row padding."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Mono measures in Stats: ticks, counts, chart labels. 11px floor on every screen."
+      }
+    },
+    "shadows": [
+      {
+        "name": "edge",
+        "value": "inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px rgba(26,22,18,0.04)",
+        "purpose": "Hairline lip on flat paper objects."
+      },
+      {
+        "name": "edge-lg",
+        "value": "inset 0 0 0 1px rgba(255,255,255,0.6), 0 0 0 1px rgba(26,22,18,0.06), 0 8px 28px rgba(26,22,18,0.06)",
+        "purpose": "Open menu sheet lifted off the page."
+      },
+      {
+        "name": "recess",
+        "value": "inset 0 1px 2px rgba(26,22,18,0.06), inset 0 0 0 1px rgba(26,22,18,0.04)",
+        "purpose": "Sunken tracks behind pickers and the view slider."
+      },
+      {
+        "name": "raised",
+        "value": "inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 1px rgba(26,22,18,0.05), 0 1px 2px rgba(26,22,18,0.07)",
+        "purpose": "Paper thumbs, pills, closed menu button."
+      },
+      {
+        "name": "card-shadow",
+        "value": "0 2px 1px rgba(42,34,24,.07), 0 26px 68px rgba(38,30,20,.22)",
+        "purpose": "Postcard contact + long soft fall."
+      }
+    ],
+    "motion": [
+      {
+        "name": "thumb-slide",
+        "value": "320ms cubic-bezier(.7,.05,.2,1)",
+        "purpose": "Segmented picker thumb travel."
+      },
+      {
+        "name": "settle",
+        "value": "440ms cubic-bezier(.22,1,.36,1)",
+        "purpose": "Head folding / title resize."
+      },
+      {
+        "name": "menu-open",
+        "value": "320ms cubic-bezier(.22,.61,.36,1)",
+        "purpose": "Menu pill grows into sheet."
+      },
+      {
+        "name": "menu-close",
+        "value": "380ms cubic-bezier(.33,0,.15,1)",
+        "purpose": "Menu sheet returns to pill."
+      },
+      {
+        "name": "postcard-in",
+        "value": "280ms cubic-bezier(.23,1,.32,1)",
+        "purpose": "Postcard rise and turn."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "700px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "narrow-desktop",
+        "value": "1050px"
+      },
+      {
+        "name": "small-phone",
+        "value": "420px"
+      },
+      {
+        "name": "tiny-phone",
+        "value": "350px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Time-Window Picker",
+      "kind": "nav",
+      "refersTo": "window-pick",
+      "description": "Recessed track with a raised paper thumb behind the active window.",
+      "html": "<div class=\"ds-pick\" role=\"tablist\"><button>1H</button><button>12H</button><button class=\"on\" aria-current=\"true\">24H</button><button>7D</button><button>ALL</button></div>",
+      "css": ".ds-pick{display:inline-flex;padding:4px;background:#f3f2ee;border-radius:999px;box-shadow:inset 0 1px 2px rgba(26,22,18,0.06), inset 0 0 0 1px rgba(26,22,18,0.04);} .ds-pick button{background:transparent;border:0;color:#908576;font:10px/1 ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.18em;padding:9px 16px;border-radius:999px;cursor:pointer;transition:color 200ms ease,background 320ms cubic-bezier(.7,.05,.2,1);} .ds-pick button:hover{color:#1a1612;} .ds-pick button:focus-visible{outline:1.5px solid #4a3f31;outline-offset:2px;} .ds-pick button.on{color:#1a1612;background:#fcfcfb;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 1px rgba(26,22,18,0.05), 0 1px 2px rgba(26,22,18,0.07);}"
+    },
+    {
+      "name": "Menu Button",
+      "kind": "button",
+      "refersTo": "menu-button",
+      "description": "Lowercase mono pill that grows into the menu sheet.",
+      "html": "<button class=\"ds-menu-btn\">menu</button>",
+      "css": ".ds-menu-btn{background:#fcfcfb;border:0;color:#1a1612;font:11px/1 ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.18em;padding:0 14px;min-height:36px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 1px rgba(26,22,18,0.05), 0 1px 2px rgba(26,22,18,0.07);cursor:pointer;transition:transform 160ms ease;} .ds-menu-btn:hover{transform:translateY(-1px);} .ds-menu-btn:active{transform:none;} .ds-menu-btn:focus-visible{outline:1.5px solid #4a3f31;outline-offset:2px;}"
+    },
+    {
+      "name": "Menu Sheet",
+      "kind": "card",
+      "refersTo": "menu-sheet",
+      "description": "The opened menu: 14px-corner paper sheet with serif links and mono section heads.",
+      "html": "<div class=\"ds-sheet\"><h3>Station</h3><a href=\"#\">Settings</a><a href=\"#\">System</a><a href=\"#\">Logs</a><a href=\"#\">Tools</a></div>",
+      "css": ".ds-sheet{width:300px;background:#fcfcfb;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.6), 0 0 0 1px rgba(26,22,18,0.06), 0 8px 28px rgba(26,22,18,0.06);padding:12px;} .ds-sheet h3{font:700 9px ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.2em;text-transform:uppercase;color:#1a1612;margin:0 0 8px 4px;} .ds-sheet a{display:block;padding:9px 8px;color:#1a1612;text-decoration:none;font:14px ui-serif, 'Iowan Old Style', Georgia, serif;border-radius:6px;} .ds-sheet a:hover{color:#4a3f31;text-decoration:underline;text-underline-offset:3px;} .ds-sheet a:focus-visible{outline:1.5px solid #4a3f31;outline-offset:1px;}"
+    },
+    {
+      "name": "View Slider",
+      "kind": "nav",
+      "refersTo": "view-slider",
+      "description": "Bottom-center track switching Collage / Stats / Atlas.",
+      "html": "<div class=\"ds-slider\"><button class=\"on\">Collage</button><button>Stats</button><button>Atlas</button></div>",
+      "css": ".ds-slider{display:inline-flex;padding:4px;background:#f3f2ee;border-radius:999px;box-shadow:inset 0 1px 2px rgba(26,22,18,0.06), inset 0 0 0 1px rgba(26,22,18,0.04);} .ds-slider button{background:transparent;border:0;color:#908576;font:10px/1 ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.2em;text-transform:uppercase;padding:11px 24px;border-radius:999px;cursor:pointer;transition:color 200ms ease;} .ds-slider button:hover{color:#1a1612;} .ds-slider button:focus-visible{outline:1.5px solid #4a3f31;outline-offset:2px;} .ds-slider button.on{color:#1a1612;background:#fcfcfb;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 1px rgba(26,22,18,0.05), 0 1px 2px rgba(26,22,18,0.07);}"
+    },
+    {
+      "name": "Stats Group",
+      "kind": "custom",
+      "refersTo": "stats-row",
+      "description": "Mono heading with umber rule, mono caption, serif ledger rows.",
+      "html": "<div class=\"ds-grp\"><h3>Top Species</h3><small>most-heard, current window</small><ol><li><span class=\"t\">06:12</span><span>Carolina Wren</span><span class=\"c\">48</span></li><li><span class=\"t\">07:40</span><span>Northern Cardinal</span><span class=\"c\">31</span></li><li><span class=\"t\">08:05</span><span>Blue Jay</span><span class=\"c\">12</span></li></ol></div>",
+      "css": ".ds-grp{width:280px;} .ds-grp h3{font:700 10px ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.18em;text-transform:uppercase;color:#1a1612;margin:0 0 1px;border-left:2px solid #4a3f31;padding-left:10px;} .ds-grp small{display:block;font:12px ui-monospace, 'SF Mono', Menlo, monospace;color:#7b705f;letter-spacing:.06em;margin:0 0 3px 12px;} .ds-grp ol{list-style:none;padding:0;margin:0;} .ds-grp li{display:grid;grid-template-columns:44px 1fr auto;gap:10px;padding:2px 0;box-shadow:inset 0 -1px 0 rgba(26,22,18,.05);font:15px/1.3 ui-serif, 'Iowan Old Style', Georgia, serif;color:#1a1612;cursor:pointer;} .ds-grp li:hover span:nth-child(2){color:#4a3f31;text-decoration:underline;text-underline-offset:2px;} .ds-grp .t{font:9.5px ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.04em;} .ds-grp .c{font:11px ui-monospace, 'SF Mono', Menlo, monospace;color:#7b705f;font-variant-numeric:tabular-nums;}"
+    },
+    {
+      "name": "Timeline Squares",
+      "kind": "custom",
+      "refersTo": "stats-timeline",
+      "description": "Ink squares on hairline columns; height encodes detection count.",
+      "html": "<div class=\"ds-tl\"><i style=\"left:10%;bottom:20%\"></i><i style=\"left:10%;bottom:28%\"></i><i style=\"left:30%;bottom:55%\"></i><i style=\"left:50%;bottom:35%\"></i><i style=\"left:70%;bottom:70%\"></i><i style=\"left:90%;bottom:45%\"></i></div>",
+      "css": ".ds-tl{position:relative;width:320px;height:140px;background:repeating-linear-gradient(90deg,rgba(26,22,18,.14) 0 1px,transparent 1px 20%);} .ds-tl i{position:absolute;width:14px;height:14px;background:#1a1612;border-left:1px solid #fcfcfb;border-right:1px solid #fcfcfb;transform:translateX(-50%);transition:background 140ms ease;} .ds-tl i:hover{background:#4a3f31;}"
+    },
+    {
+      "name": "Postcard",
+      "kind": "card",
+      "refersTo": "postcard",
+      "description": "Field-guide postcard on card stock with a two-part drop shadow.",
+      "html": "<div class=\"ds-postcard\"><div class=\"art\"></div><div class=\"txt\"><h2>Carolina Wren</h2><p class=\"sci\">Thryothorus ludovicianus</p><p class=\"meta\">FIRST HEARD \u00b7 14 MAR</p></div></div>",
+      "css": ".ds-postcard{display:grid;grid-template-columns:.82fr 1.18fr;gap:8px;padding:8px;width:440px;height:240px;background:#f7f6f2;color:#29251f;border:1px solid rgba(41,37,31,.18);border-radius:3px;box-shadow:0 2px 1px rgba(42,34,24,.07),0 26px 68px rgba(38,30,20,.22);transform:rotate(-.6deg);} .ds-postcard .art{background:#e8e6df;} .ds-postcard .txt{padding:14px;} .ds-postcard h2{font:400 20px/1.1 ui-serif, 'Iowan Old Style', Georgia, serif;margin:0 0 4px;} .ds-postcard .sci{font:italic 13px/1.3 ui-serif, 'Iowan Old Style', Georgia, serif;color:#77736b;margin:0 0 14px;} .ds-postcard .meta{font:11px ui-monospace, 'SF Mono', Menlo, monospace;letter-spacing:.18em;color:#77736b;margin:0;}"
+    },
+    {
+      "name": "Stats Calendar",
+      "kind": "custom",
+      "refersTo": "stats-calendar",
+      "description": "The year-at-a-glance filter on Species Stats: ink squares in four steps, paper seams, the span at full ink, a picked day outlined solid and today dashed.",
+      "html": "<div class=\"ds-cal\"><a class=\"ds-day l0\"></a><a class=\"ds-day l1\"></a><a class=\"ds-day l2 is-in\"></a><a class=\"ds-day l0 is-in\"></a><a class=\"ds-day l4 is-in is-pick\"></a><a class=\"ds-day l3 is-in\"></a><a class=\"ds-day l1 is-in is-today\"></a><a class=\"ds-day l2\"></a><a class=\"ds-day l4\"></a><a class=\"ds-day l1\"></a><a class=\"ds-day l3 is-in\"></a><a class=\"ds-day l2 is-in\"></a><a class=\"ds-day l4 is-in\"></a><a class=\"ds-day l0 is-in\"></a></div>",
+      "css": ".ds-cal { --sq: 17px; display: grid; grid-template-rows: repeat(7, var(--sq)); grid-auto-columns: var(--sq); grid-auto-flow: column; gap: 3px; padding: 6px; background: var(--paper, #fcfcfb); } .ds-day { display: block; transition: opacity 200ms ease; } .ds-day.l0 { box-shadow: inset 0 0 0 1px var(--hairline, rgba(26,22,18,0.14)); } .ds-day.l1 { background: color-mix(in srgb, var(--ink, #1a1612) 26%, var(--paper, #fcfcfb)); } .ds-day.l2 { background: color-mix(in srgb, var(--ink, #1a1612) 48%, var(--paper, #fcfcfb)); } .ds-day.l3 { background: color-mix(in srgb, var(--ink, #1a1612) 72%, var(--paper, #fcfcfb)); } .ds-day.l4 { background: var(--ink, #1a1612); } .ds-day:not(.is-in) { opacity: 0.2; } .ds-day.l0.is-in { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink, #1a1612) 55%, transparent); } .ds-day:hover, .ds-day:focus-visible { opacity: 1; outline: 1.5px solid var(--ink-2, #4a3f31); outline-offset: 1px; } .ds-day.is-today { outline: 1px dashed var(--ink-2, #4a3f31); outline-offset: 2px; } .ds-day.is-pick { outline: 2.5px solid var(--ink, #1a1612); outline-offset: 2px; opacity: 1; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Notebook at the Window",
+    "overview": "Avian Visitors reads like a naturalist's notebook kept beside one particular window: ink on warm paper, small typewritten annotations in the margins, and the birds as the only real drawings. The stats views extend that into a quiet ledger of who came by and when, and the Atlas collects each species as a stamp or postcard. It's a record you keep, not a dashboard you monitor.\n\nThe mood is calm, editorial and tactile. The palette is almost colorless: near-white paper, near-black warm ink, and a single umber in between. All the color comes from the illustrations. Depth is physical rather than digital. Controls sit in recessed paper tracks with a raised paper thumb, sheets lift off the page with a soft drop shadow, and postcards carry a real paper texture. The type pairs a bookish serif for names and titles with tracked, uppercase monospace for the margin notes.\n\nThe interface stays out of the way. Chrome is small, pale and pushed to the edges, and the collage fills the viewport. Typography and hairlines carry the hierarchy, not boxes and fills.",
+    "keyCharacteristics": [
+      "Ink-on-paper neutrals with a full charcoal dark theme; the birds supply every saturated color.",
+      "A serif for names and titles, with tracked uppercase monospace for labels, axes and counts.",
+      "Physical depth: recessed tracks, raised paper thumbs, lifted sheets, textured card stock.",
+      "Hairlines and black squares instead of boxes and filled charts.",
+      "Text sits directly on the paper, never on a backing plate."
+    ],
+    "rules": [
+      {
+        "name": "Birds Bring the Color Rule",
+        "body": "The interface never adds a hue. Ink, umber and paper only; any saturated color on screen comes from an illustration or a stamp.",
+        "section": "colors"
+      },
+      {
+        "name": "Variable-Only Rule",
+        "body": "Every UI color comes from a custom property on `:root` and its `[data-theme=\"dark\"]` twin, so the theme flips without per-component overrides. Hard-coded `rgba(26,22,18,\u2026)` hairlines are legacy; new work uses `--hairline`.",
+        "section": "colors"
+      },
+      {
+        "name": "Serif Names, Mono Measures Rule",
+        "body": "Bird names, titles and prose are serif. Times, counts, axes, controls and section labels are mono. Don't mix them within one role.",
+        "section": "typography"
+      },
+      {
+        "name": "Readable Floor Rule",
+        "body": "The tracked mono label style is identity, but no interface text renders below **11px** on any screen: Stats, collage chrome, Atlas, postcard and menu. The collage/Atlas/postcard sizes live in the \"Readable type floor\" block at the end of `styles.css`; stamp artwork keeps its own lettering (owner reads on 1080p monitors at 1x, where smaller mono pixelates). The incumbent shrinks labels on mobile (picker 8\u20138.5px, many captions 8\u20139px); new and revised work raises them to the floor instead of shrinking. Desktop may use 9\u201310px for non-essential captions.",
+        "section": "typography"
+      },
+      {
+        "name": "Track and Thumb Rule",
+        "body": "Every choice control is a recessed track with a raised paper thumb that slides (320ms, `cubic-bezier(.7,.05,.2,1)`). Toggles, segmented pickers and the view slider all share this one depth language.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** let the birds carry all color; keep UI marks in ink, umber and paper.",
+      "**Do** build every choice control as a recessed track with a raised paper thumb.",
+      "**Do** set names in the serif and measurements, labels and controls in tracked uppercase mono.",
+      "**Do** keep phone text at 11px or larger, even for mono labels and captions.",
+      "**Do** define new colors and shadows as custom properties with a `[data-theme=\"dark\"]` twin.",
+      "**Do** give every motion a `prefers-reduced-motion` alternative that still shows the state change."
+    ],
+    "donts": [
+      "**Don't** put a background behind reading text. Labels, names, headings, captions and counts sit directly on the paper. The owner finds backing plates (fills, frosted bars, highlight washes, chips) harder to read. Use ink weight, umber, or an underline for emphasis and hover instead. Incumbent exceptions to revisit: the frosted compact head bar and the 34% paper postcard backdrop.",
+      "**Don't** introduce a new hue, gradient accent, or colored chart series.",
+      "**Don't** use Faded Ink for anything the user must read to complete a task.",
+      "**Don't** shrink labels on phones below 11px; phones are the primary device.",
+      "**Don't** replace hairline shadows with solid 1px borders, or add drop shadows to flat page content.",
+      "**Don't** use the stamp display faces or Caveat outside stamps and collage labels.",
+      "**Don't** lay a texture or print screen over text. The ink-press screen is for data marks only (timeline squares, heatmap cells); text stays clean."
+    ]
+  }
+}

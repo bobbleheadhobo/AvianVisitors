@@ -70,6 +70,23 @@ sudo /usr/local/sbin/avian-admin-control password-reset
 
 The command prompts privately for a new password. Return to **Settings** after it finishes.
 
+### Admin pages
+
+Open **menu** (top right). Away from home you unlock it with the admin password first.
+
+- **Live audio** - listen to the window mic, with a line saying who else is listening. Away from home see [Listening away from home](#listening-away-from-home).
+- **Settings** - changes are held until you press **Save** in the bar at the bottom (Discard puts everything back; leaving with unsaved changes asks first). Sliders move only when you drag the thumb, and each shows a `default` link when it is off its default. **Notifications** sets where alerts go (Apprise URLs, e.g. a Discord webhook) and when: first of each species each day, a new species for the station, every detection, the weekly report. Use **send test** to check a target.
+- **System** - health at a glance: a green outline is passing, amber is getting close, red is failing. It flags a mic-less station (`no microphone`) and a recorder writing silence (`silent`), lists every service with what it does and a restart button, and shows the time since the last detection.
+- **Logs** - service journals, plus **live listening**: every remote listening session.
+- **Tools** - pull the latest code, reinstall services, download detections / recordings, take a **full backup** or **restore** one, edit the **species lists** (never log / only log / always allow), and **reboot** or **shut down** the station. Backup and restore ask for the admin password even on the home network: a backup holds the station's API keys and webhooks, and a restore replaces its config.
+- **classic birdnet-pi** - the original BirdNET-Pi pages in a new tab.
+
+### Classic BirdNET-Pi pages
+
+The classic pages are for viewing (overview, detections, charts, stats, recordings, logs). Their **Settings** and **Advanced** pages cannot save on this fork: stock BirdNET-Pi gives the web server passwordless root for anything, and AvianVisitors removed that, leaving only a few root-owned helpers with fixed actions. Change settings in the app instead.
+
+From the app's menu the classic pages open with a signed two-hour pass (no second login), issued only to an admin session unlocked with the password; locking the admin controls ends it. Opened any other way they ask for user `birdnet` and the admin password. With **Require password on local network** on, they are closed entirely.
+
 ### Educators mode
 
 Educators mode is an optional profile for the BirdNET-Pi website. It adds a fifth menu page for starting, pausing, organizing, and reviewing listening periods. Enable it after installation over SSH:
@@ -137,6 +154,16 @@ See [illustration bundles](illustration-bundles.md) for pregenerated bundles sha
 
 ## 4. (Optional) Forward off your LAN
 
+### Listening away from home
+
+Behind a reverse proxy (Cloudflare Tunnel, Pangolin, ...) the raw `/stream` stays local-only. To listen remotely, turn on **Settings → Listen away from home**; the menu then offers **listen** once unlocked. Each remote session:
+
+- is relayed only for an unlocked admin session, with a one-use 15-second grant;
+- stops itself after 30 minutes (**keep listening** starts another), and is cut when the admin controls lock or the switch goes off;
+- is logged (**Logs → live listening**) and announced through your notification targets: when it starts, every 20 minutes it continues, and on the fifth remote session of a day.
+
+At most two people can listen remotely at once (each holds a PHP worker).
+
 See [`avian/forwarding/`](avian/forwarding/) for three independent recipes:
 
 - **Cloudflare Tunnel** for a public HTTPS URL.
@@ -154,7 +181,7 @@ avian/                  # everything we add to BirdNET-Pi
 ├── api/                # PHP shims served by BirdNET-Pi's PHP-FPM
 ├── scripts/            # generate -> cutout -> masks pipeline + prompt
 └── forwarding/         # optional HA / MQTT / Cloudflare configs
-frame/                  # optional e-ink wall display
+frame/                  # optional e-ink wall display (Pi + Inky, or ESP32 + ESPHome)
 ```
 
 Everything outside `avian/` and `frame/` is upstream BirdNET-Pi.
@@ -164,6 +191,8 @@ Everything outside `avian/` and `frame/` is upstream BirdNET-Pi.
 ## Wall frame
 
 An optional e-ink frame puts the bird collage on a panel by your window. Build it from [`frame/`](frame/README.md). It can run off your own BirdNET mic, from BirdWeather around a ZIP code, or from one public BirdWeather station with `frame/install.sh --station-id <ID>`.
+
+This fork also supports a smaller 7.3" Spectra 6 panel on a Seeed XIAO EE04 (ESP32, ESPHome): the BirdNET server renders the frame and the board just downloads and draws it, on USB power or a battery. See [7.3" Spectra 6 on a XIAO EE04](frame/README.md#73-spectra-6-on-a-xiao-ee04-esphome).
 
 ---
 

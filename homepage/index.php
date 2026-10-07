@@ -23,8 +23,11 @@ set_timezone();
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link id="iconLink" rel="shortcut icon" sizes=85x85 href="images/bird.png" />
 <link rel="stylesheet" href="<?php echo $color_scheme . '?v=' . date('n.d.y', filemtime($color_scheme)); ?>">
+<link rel="stylesheet" href="static/avian-classic.css?v=<?php echo filemtime(__DIR__.'/static/avian-classic.css'); ?>">
+<script src="static/avian-classic.js?v=<?php echo filemtime(__DIR__.'/static/avian-classic.js'); ?>"></script>
 <link rel="stylesheet" type="text/css" href="static/dialog-polyfill.css" />
 <body>
+<a class="av-return" href="/" aria-label="back to collage"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 L4 8 L10 13"/></svg>collage</a>
 <div class="banner">
   <div class="logo">
 <?php if(isset($_GET['logo'])) {

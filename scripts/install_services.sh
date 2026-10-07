@@ -51,6 +51,7 @@ install_avian_controls() {
 admin_control.sh avian-admin-control
 archive_control.sh avian-archive-control
 maintenance_control.sh avian-maintenance-control
+station_control.sh avian-station-control
 update_birdnet.sh avian-update-control
 reinstall_services.sh avian-service-refresh
 security_refresh.sh avian-security-refresh
@@ -86,6 +87,40 @@ EOF
     && [ "$(stat -c '%u:%g:%a:%h' -- "$educator_lock")" = \
       "0:$caddy_gid:660:1" ] \
     || { echo "Unsafe Educators coordination lock" >&2; return 1; }
+  # Restore uploads are staged here by station.php (running as caddy) and
+  # handed to the BirdNET-Pi user by avian-station-control.
+  restore_dir=$auth_state_dir/restore
+  if [ ! -e "$restore_dir" ] && [ ! -L "$restore_dir" ]; then
+    install -d -o root -g caddy -m 0770 "$restore_dir"
+  fi
+  # The analyzer's species lists, editable from Tools: the web server
+  # (caddy, in the BirdNET-Pi user's group) rewrites them in place.
+  for species_list in exclude include whitelist; do
+    species_file=${my_dir}/${species_list}_species_list.txt
+    if [ ! -e "$species_file" ] && [ ! -L "$species_file" ]; then
+      install -o "${BIRDNET_USER}" -g "${BIRDNET_USER}" -m 0664 /dev/null "$species_file"
+    fi
+    [ -f "$species_file" ] && [ ! -L "$species_file" ] && chmod g+rw "$species_file"
+  done
+  # Notification targets (Settings > Notifications rewrites them in place).
+  # They are secrets, so no world access.
+  apprise_file=${my_dir}/apprise.txt
+  if [ ! -e "$apprise_file" ] && [ ! -L "$apprise_file" ]; then
+    install -o "${BIRDNET_USER}" -g "${BIRDNET_USER}" -m 0660 /dev/null "$apprise_file"
+  fi
+  [ -f "$apprise_file" ] && [ ! -L "$apprise_file" ] && chmod 0660 "$apprise_file"
+  # The notification message template (Settings > Notifications > message).
+  body_file=${my_dir}/body.txt
+  [ -f "$body_file" ] && [ ! -L "$body_file" ] && chmod g+w "$body_file"
+  # Live listening keeps its switch and session log here (live-listen.php,
+  # running as caddy).
+  listen_dir=$auth_state_dir/listen
+  if [ ! -e "$listen_dir" ] && [ ! -L "$listen_dir" ]; then
+    install -d -o root -g caddy -m 0770 "$listen_dir"
+  fi
+  [ -d "$listen_dir" ] && [ ! -L "$listen_dir" ] \
+    && [ "$(stat -c '%u:%g:%a' -- "$listen_dir")" = "0:$caddy_gid:770" ] \
+    || { echo "Unsafe live listening directory" >&2; return 1; }
   # Initialize the verifier and atomically provision the derived rate state
   # before the first managed Caddy render. Runtime readers fail closed while
   # either state is absent, so a clean install must not defer this step.

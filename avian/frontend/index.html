@@ -14,7 +14,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r196">
+  <link rel="stylesheet" href="./styles.css?v=r234">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -70,7 +70,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
   </div>
   <nav class="menu-items" id="dd-items"></nav>
   <div class="menu-footer">
-    <p class="built-by">built by <a href="https://theodore.net" target="_blank" rel="noopener">teddy</a> · <a href="https://github.com/Twarner491/AvianVisitors" target="_blank" rel="noopener">github</a></p>
     <button type="button" class="menu-lock" id="adminLock" hidden>lock admin controls</button>
   </div>
     </div>
@@ -396,6 +395,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r234"></script>
+<script src="./apt.js?v=r263"></script>
 </body>
 </html>

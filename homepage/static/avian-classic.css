@@ -1,0 +1,828 @@
+/* =====================================================================
+   Classic BirdNET-Pi pages, dressed as Avian Visitors.
+
+   Loaded after the stock color-scheme stylesheet (style.css or
+   static/dark-style.css) by homepage/index.php and homepage/views.php.
+   It only overrides; the stock sheets and page markup stay untouched so
+   upstream BirdNET-Pi changes keep merging. Tokens mirror
+   avian/frontend/styles.css; theme follows the collage's saved choice
+   (static/avian-classic.js sets data-theme on <html>).
+
+   Rules carried over from DESIGN.md:
+   - Paper, ink and umber only. The birds (photos, spectrograms) bring
+     the color; charts are printed in ink.
+   - Serif for names and prose, tracked uppercase mono for labels,
+     measures and controls. Nothing below 11px.
+   - No fills behind reading text. Rows are hairline ledgers; only
+     controls (pills, tracks, inputs) sit on paper shapes.
+   ===================================================================== */
+
+:root {
+  color-scheme: light;
+  --paper:    #fcfcfb;
+  --paper-2:  #f3f2ee;
+  --paper-3:  #e8e6df;
+  --ink:      #1a1612;
+  --ink-2:    #4a3f31;
+  --ink-soft: #908576;
+  --quiet:    color-mix(in srgb, var(--ink-soft) 70%, var(--ink-2));
+  /* Secondary text that sits on the recessed paper-2 controls, where
+     --quiet only reaches 4.3:1. */
+  --quiet-strong: color-mix(in srgb, var(--ink-soft) 40%, var(--ink-2));
+  --danger:   #9b3f37;
+  --hairline: rgba(26,22,18,0.14);
+  --pill:     #fcfcfb;
+  --edge:    inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px rgba(26,22,18,0.04);
+  --edge-lg: inset 0 0 0 1px rgba(255,255,255,0.6), 0 0 0 1px rgba(26,22,18,0.06), 0 8px 28px rgba(26,22,18,0.06);
+  --recess:  inset 0 1px 2px rgba(26,22,18,0.06), inset 0 0 0 1px rgba(26,22,18,0.04);
+  --raised:  inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 1px rgba(26,22,18,0.05), 0 1px 2px rgba(26,22,18,0.07);
+  --lift:    0 4px 14px rgba(26,22,18,0.08);
+  --icon-filter: grayscale(1);
+  --serif: ui-serif, "Iowan Old Style", "Apple Garamond", Georgia, serif;
+  --mono:  ui-monospace, "SF Mono", Menlo, monospace;
+  --ease:  cubic-bezier(.7,.05,.2,1);
+  --ctl-h: 36px;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper:    #17181c;
+  --paper-2:  #212329;
+  --paper-3:  #2c2f36;
+  --ink:      #ece8e1;
+  --ink-2:    #b7afa2;
+  --ink-soft: #837c70;
+  --danger:   #dc8b81;
+  --hairline: rgba(236,232,225,0.20);
+  --pill:     #3a3e48;
+  --edge:    inset 0 0 0 1px rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.4);
+  --edge-lg: inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 0 1px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.5);
+  --recess:  inset 0 1px 2px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04);
+  --raised:  inset 0 0 0 1px rgba(255,255,255,0.07), 0 0 0 1px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.5);
+  --lift:    0 4px 14px rgba(0,0,0,0.45);
+  --icon-filter: grayscale(1) invert(0.88);
+}
+@media (max-width: 700px) { :root { --ctl-h: 30px; } }
+
+/* ---- Base ------------------------------------------------------------ */
+
+/* The stock sheet pins every element to Roboto at font-size: medium. */
+* { font-family: inherit; font-size: inherit; }
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.45 var(--serif);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+::selection { background: color-mix(in srgb, var(--ink-2) 24%, transparent); color: var(--ink); }
+:focus-visible { outline: 1.5px solid var(--ink-2); outline-offset: 2px; border-radius: 4px; }
+input, select, textarea { caret-color: var(--ink); accent-color: var(--ink-2); }
+
+a, a:visited { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { font-weight: inherit; text-decoration-color: currentColor; }
+a:has(> img:only-child), a:has(> button) { text-decoration: none; }
+
+hr { border: 0; border-top: 1px solid var(--hairline); margin: 20px 0; }
+b, strong, label, dt { font-weight: 600; }
+i, em { color: var(--ink-2); }
+p { max-width: 70ch; margin-left: auto; margin-right: auto; }
+
+h1, h2 { font-family: var(--serif); color: var(--ink); font-weight: 700; }
+h3 {
+  margin: 30px 0 12px;
+  font: 700 12px/1.3 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-align: center;
+}
+small { font: 12px/1.4 var(--mono); color: var(--quiet); }
+small * { font-size: inherit !important; }
+
+/* Status words the stock pages color inline (service state, week deltas,
+   the lat/lon warning). Keep the meaning, drop the hue. */
+[style*="color:green"], [style*="color: green"] { color: var(--ink-2) !important; }
+[style*="color:red"], [style*="color: red"] { color: var(--danger) !important; }
+[style*="color:blue"], [style*="color: blue"] { color: var(--ink) !important; }
+[style*="color:orange"], [style*="color: orange"], [style*="color:#fc6603"] { color: var(--danger) !important; }
+/* Week-over-week deltas: the sign already says which way; a quiet week
+   shouldn't read as an error. */
+small [style*="color:red"], small [style*="color:green"] { color: var(--quiet) !important; }
+
+/* Little utility icons: info, wiki, chart, delete, open, sort. Printed in
+   ink like everything else; bird photos and spectrograms keep color. */
+img[src$="info.png"], img[src$="wiki.png"], img[src$="chart.svg"],
+img[src$="delete.svg"], img[src$="copy.png"], img[src*="images/sort_"],
+img[src$="menu.png"], img[src*="images/spinner"] {
+  filter: var(--icon-filter);
+  opacity: .72;
+  transition: opacity 140ms ease;
+}
+img[src$="info.png"]:hover, img[src$="wiki.png"]:hover, img[src$="chart.svg"]:hover,
+img[src$="delete.svg"]:hover, img[src$="copy.png"]:hover { opacity: 1; }
+
+/* Generated charts (overview combo, daily charts) are green PNGs. Print
+   them in ink: grayscale, then drop the white sheet into the paper. */
+/* daily_plot.py draws them in greys on white; grayscale also covers
+   charts drawn before that change. */
+img[src*="Charts/"] {
+  filter: grayscale(1);
+  mix-blend-mode: multiply;
+  display: block;
+  width: 960px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+picture:has(> img[src*="Charts/"]) { display: block; }
+/* On phones a chart with a stacked phone layout (<source>) fills the column.
+   An older wide-only chart keeps a readable size and scrolls sideways. */
+@media (max-width: 700px) {
+  .overview .chart, .history.centered { overflow-x: auto; overscroll-behavior-x: contain; }
+  /* Fade the right edge so it reads as "more this way". */
+  .overview .chart:not(:has(source)) { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+  img[src*="Charts/"] { width: 800px; max-width: none; margin: 0; }
+  source + img[src*="Charts/"] { width: 100%; max-width: 480px; margin: 0 auto; }
+}
+[data-theme="dark"] img[src*="Charts/"] { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
+
+/* ---- Outer page (index.php): head + the views frame ------------------ */
+
+body:has(> .banner) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-items: start;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+body:has(> .banner) .banner { display: contents; }
+.banner .logo { display: none; }
+
+.av-return,
+.banner .stream button,
+.banner .stream form button {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: var(--ctl-h);
+  padding: 0 14px;
+  border: 0; border-radius: 999px;
+  background: var(--paper-2);
+  box-shadow: var(--recess);
+  color: var(--quiet-strong);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+.av-return:visited { color: var(--quiet-strong); }
+.av-return:hover, .banner .stream button:hover { color: var(--ink); }
+.av-return svg { width: 10px; height: 10px; flex: none; }
+.av-return {
+  grid-area: 1 / 1;
+  justify-self: start;
+  margin: 18px 0 0 20px;
+}
+.banner .stream {
+  grid-area: 1 / 3;
+  justify-self: end;
+  float: none; width: auto;
+  margin: 18px 20px 0 0;
+}
+.banner .stream form, .banner .stream audio { float: none; width: auto; margin: 0; }
+.banner .stream audio { display: block; width: 280px; height: var(--ctl-h); }
+
+body > .centered {
+  grid-area: 1 / 2;
+  margin: 0; padding-top: 24px;
+}
+body > .centered h3 {
+  margin: 0;
+  font: italic 400 clamp(14px, 1.4vw, 18px)/1.22 var(--serif);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--ink-2);
+}
+.banner h1 {
+  grid-area: 2 / 2;
+  margin: 6px 0 16px;
+  padding: 0;
+  text-align: center;
+  letter-spacing: normal;
+}
+.banner h1 .topimage { display: none !important; }
+.banner h1 a, .banner h1 a:visited {
+  font: 700 clamp(24px, 3.2vw, 40px)/1 var(--serif);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+}
+.banner h1 a::after { content: "BirdNET-Pi"; }
+body > iframe {
+  grid-area: 3 / 1 / 4 / 4;
+  position: static;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--paper);
+}
+
+@media (max-width: 700px) {
+  .av-return { margin: 12px 0 0 12px; padding: 0 11px; }
+  .banner .stream { margin: 12px 12px 0 0; }
+  .banner .stream button, .banner .stream form button { padding: 0 11px; }
+  .banner .stream audio { width: 150px; }
+  body > .centered { padding-top: 18px; }
+  .banner h1 { margin: 4px 0 10px; }
+}
+
+/* ---- Inner page (views.php) ------------------------------------------ */
+
+body:has(.views) { padding: 4px 20px 48px; }
+.views { max-width: 1240px; margin: 0 auto; }
+
+/* View list: the Avian track-and-thumb. One row at every width; on a
+   phone it scrolls sideways instead of collapsing to a hamburger. */
+.topnav {
+  display: flex;
+  flex-direction: row;
+  flex: none;
+  gap: 2px;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  margin: 2px auto 26px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--paper-2);
+  border-radius: 999px;
+  box-shadow: var(--recess) !important;
+}
+.topnav::-webkit-scrollbar { display: none; }
+.topnav button[name="view"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  width: auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--quiet-strong);
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 200ms ease, background-color 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+.topnav button[name="view"]:hover { background: transparent; color: var(--ink); }
+.topnav .button-hover[name="view"] { background: var(--pill) !important; box-shadow: var(--raised); color: var(--ink); }
+.topnav button.icon { display: none; }
+.updatenumber, form#views button .updatenumber {
+  display: inline;
+  position: static;
+  width: auto !important;
+  margin-left: 6px; padding: 0;
+  background: none;
+  color: var(--danger);
+  font: 700 11px/1 var(--mono);
+  letter-spacing: 0;
+}
+
+/* Below desktop width the ten views don't fit one row. The stock
+   hamburger (.icon, which toggles .responsive via myFunction) becomes a
+   "menu · current view" pill that opens the list as a side drawer.
+   avian-classic.js labels the pill and handles Escape, scrim and focus. */
+@media (max-width: 1100px) {
+  body:has(.views) { padding: 2px 12px 40px; }
+  form#views:has(> .topnav) { min-height: calc(var(--ctl-h) + 26px); }
+  .topnav {
+    display: flex; justify-content: center;
+    width: auto; max-width: none;
+    margin: 4px 0 22px; padding: 0;
+    overflow: visible;
+    background: none; box-shadow: none !important; border-radius: 0;
+  }
+  .topnav button[name="view"] { display: none; }
+  .topnav button.icon {
+    display: inline-flex; align-items: center; gap: 10px;
+    width: auto; min-height: var(--ctl-h); margin: 0;
+    padding: 0 16px 0 14px;
+    border-radius: 999px;
+    background: var(--paper-2);
+    box-shadow: var(--recess);
+    color: var(--ink);
+    font: 600 11px/1 var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .topnav button.icon img { width: 14px; height: 14px; opacity: .85; }
+  .topnav button.icon::after { content: attr(data-label); }
+
+  .topnav.responsive {
+    position: fixed; inset: 0 auto 0 0; z-index: 50;
+    flex-direction: column; justify-content: flex-start; gap: 2px;
+    width: min(300px, 84vw);
+    margin: 0; padding: 14px 12px 24px;
+    overflow-y: auto; overscroll-behavior: contain;
+    background: var(--paper);
+    border-radius: 0 14px 14px 0;
+    box-shadow: var(--edge-lg) !important;
+    animation: av-drawer 320ms var(--ease);
+  }
+  .topnav.responsive button.icon {
+    order: -1;
+    align-self: flex-start;
+    margin: 0 0 10px;
+    color: var(--quiet-strong);
+  }
+  .topnav.responsive button.icon::after { content: "close"; }
+  .topnav.responsive button[name="view"] {
+    display: flex; justify-content: flex-start;
+    width: 100%; min-height: 44px; padding: 0 12px;
+    border-radius: 6px;
+    font: 400 18px/1.2 var(--serif);
+    letter-spacing: normal; text-transform: none;
+    color: var(--ink-2);
+  }
+  .topnav.responsive button[name="view"]:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  .topnav.responsive .button-hover[name="view"] {
+    background: none !important; box-shadow: none;
+    color: var(--ink); font-weight: 700;
+  }
+  body:has(.topnav.responsive) { overflow: hidden; }
+  body:has(.topnav.responsive)::after {
+    content: ""; position: fixed; inset: 0; z-index: 40;
+    background: color-mix(in srgb, var(--paper) 40%, transparent);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+}
+@keyframes av-drawer { from { transform: translateX(-100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .topnav.responsive { animation: none; } }
+
+/* ---- Tables become ledgers ------------------------------------------- */
+
+table {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+tr { background: transparent; }
+td, .overview td {
+  padding: 10px 12px;
+  background: transparent;
+  font-weight: 400;
+  vertical-align: middle;
+}
+th, .overview th {
+  padding: 10px 12px;
+  background: transparent;
+  font: 600 11px/1.35 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--quiet);
+}
+tr + tr > td, tr + tr > th { box-shadow: inset 0 1px 0 var(--hairline); }
+table table tr > td { box-shadow: none; }
+table table tr + tr > td { box-shadow: inset 0 1px 0 var(--hairline); }
+td[style*="background-color:transparent"] { box-shadow: none !important; vertical-align: top; }
+
+/* Counts across the overview and today pages are measures: mono figures. */
+.overview-stats .left-column td, .overview-stats .center-column td,
+#todaystats td, .history table.overview td {
+  font: 500 17px/1.2 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.overview-stats .left-column td button, .overview-stats .center-column td button,
+#todaystats td button {
+  font: inherit;
+  color: var(--ink);
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.overview-stats .left-column td button:hover, .overview-stats .center-column td button:hover,
+#todaystats td button:hover { color: var(--ink); text-decoration-color: currentColor; }
+.overview-stats .left-column { flex: 0 0 auto; padding: 0 28px 0 0; }
+.overview-stats .left-column table { margin: 6px 0 0; }
+.overview-stats .left-column th { text-align: left; padding-left: 0; max-width: 12em; }
+.overview-stats .left-column td { text-align: right; padding-right: 0; }
+.overview-stats .right-column { margin-right: 0; min-width: 0; }
+
+/* Plain buttons the stock pages use as links. */
+button { color: var(--ink); font: inherit; }
+button:hover { color: var(--ink); }
+.overview button, .center button, .stats button, td.spec button, .a2 {
+  padding: 0;
+  font: 400 17px/1.3 var(--serif);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 140ms ease;
+}
+.overview button:hover, .center button:hover, .stats button:hover, td.spec button:hover, .a2:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
+
+/* ---- Recent / today's detections ------------------------------------- */
+
+#detections_table table, #detections_table_overview table { width: min(944px, 100%); }
+#detections_table td:first-child:not(.relative) { font: 13px/1.3 var(--mono); color: var(--quiet); white-space: nowrap; }
+#recent_detection_middle_td { text-align: left; }
+#recent_detection_middle_td i { font-size: 15px; }
+#recent_detection_middle_td img.img1,
+#recent_detection_middle_td #birdimage {
+  float: left;
+  width: 56px !important; height: 56px !important;
+  max-width: none; max-height: none;
+  margin: 2px 14px 0 0;
+  object-fit: cover;
+}
+#birdimage, .centered_image_container img.img1 {
+  border-radius: 4px;
+  box-shadow: var(--edge);
+  transition: opacity 140ms ease;
+}
+#birdimage:hover, .centered_image_container img.img1:hover { box-shadow: var(--edge); opacity: .86; }
+
+/* Today's list: photo on the left, text beside it, actions at the right. */
+#detections_table td.relative { position: relative; text-align: left; padding: 16px 12px; }
+.views .centered_image_container,
+.views .centered_image_container * { font-size: inherit !important; }
+.views .centered_image_container {
+  display: block;
+  position: relative;
+  min-height: 76px;
+  padding: 0 72px 0 92px;
+  font-size: 15px !important;
+  line-height: 1.45;
+  color: var(--quiet);
+}
+.centered_image_container img.img1 {
+  position: absolute;
+  left: 0; right: auto; top: 2px;
+  width: 76px; height: 76px;
+  object-fit: cover;
+}
+.centered_image_container b { font-weight: 400; }
+.centered_image_container .a2, .centered_image_container b .a2 { font-size: 18px !important; text-decoration-color: transparent; }
+.centered_image_container i { font-size: 15px !important; }
+.centered_image_container b:last-of-type { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.copyimage {
+  top: 8px; right: 6px;
+  width: 20px !important; height: 20px !important;
+  padding: 6px; box-sizing: content-box;
+}
+/* Delete sits at the bottom of the row, well away from "open". */
+.copyimage[style*="right:45px"] { top: auto; bottom: 8px; right: 6px !important; }
+.centered_image_container + br { display: none; }
+pre:empty { display: none; }
+.custom-audio-player { margin: 10px 0 0 92px; max-width: 520px; }
+/* "Confidence: 87%" cell: a tracked mono label over a mono figure, like
+   every other measure, instead of a bold serif label jammed on the value. */
+#detections_table td:has(> b:first-child) { font: 15px/1.3 var(--mono); color: var(--ink); white-space: nowrap; }
+#detections_table td > b:first-child {
+  display: block; margin-bottom: 4px;
+  font: 600 10.5px/1.2 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--quiet-strong);
+}
+#detections_table audio { width: 100%; max-width: 300px; height: 40px; color-scheme: light; }
+[data-theme="dark"] #detections_table audio { color-scheme: dark; }
+audio::-webkit-media-controls-panel { background: var(--paper-2); }
+/* The live spectrogram is data, so it keeps its colors, but at a size that
+   lets it sit under the detections instead of filling the screen. */
+#spectrogramimage { display: block; width: 100%; max-width: 720px; height: auto; margin: 0 auto; border-radius: 8px; }
+
+#searchterm, #species_searchterm {
+  margin-left: 8px;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#searchterm:hover { box-shadow: var(--recess); }
+#most_recent_detection h3 {
+  max-width: 60ch; margin: 22px auto;
+  font: italic 400 15px/1.5 var(--serif);
+  letter-spacing: normal; text-transform: none;
+  color: var(--ink-2);
+}
+
+/* ---- Controls: paper pills ------------------------------------------- */
+
+.views .centered button,
+.settings button, .systemcontrols button, .servicecontrols button,
+.customlabels button, .customlabels2 button,
+button.loadmore, button.legacyview, button.testbtn, #pickfile,
+.btn-group-center button, dialog button, .modal-content button,
+.history.centered form button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--ctl-h);
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pill) !important;
+  box-shadow: var(--raised);
+  color: var(--ink);
+  font: 600 11.5px/1.2 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.views .centered button:hover,
+.settings button:hover, .systemcontrols button:hover, .servicecontrols button:hover,
+.customlabels button:hover, .customlabels2 button:hover,
+button.loadmore:hover, button.legacyview:hover, button.testbtn:hover, #pickfile:hover,
+.btn-group-center button:hover, dialog button:hover, .modal-content button:hover,
+.history.centered form button:hover {
+  background: var(--pill) !important;
+  color: var(--ink);
+  box-shadow: var(--raised), var(--lift);
+}
+.views .centered button:active, .settings button:active, .systemcontrols button:active,
+.servicecontrols button:active, .btn-group-center button:active { transform: translateY(1px); }
+button.legacyview { margin: 16px 4px; }
+button.loadmore { margin: 18px auto; }
+
+/* The species-name list on Recordings is reading text, not controls. */
+.views .play td.spec button, .views .centered td.spec button {
+  display: inline; min-height: 0; padding: 0;
+  background: transparent !important; box-shadow: none;
+  font: 400 17px/1.3 var(--serif); letter-spacing: normal; text-transform: none;
+  white-space: normal;
+}
+
+/* Tools sub-menu and Recordings mode switch: a wrapped row of pills. */
+.views > .centered > form#views, .views .centered > form#views {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  max-width: 980px; margin: 0 auto 8px;
+}
+.centered form#views button { margin: 0; box-shadow: var(--raised); }
+.centered form#views button:hover { box-shadow: var(--raised), var(--lift); }
+
+/* Sort toggles. */
+.sortbutton {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 40px; margin: 10px 2px 0; padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+.sortbutton img { width: 24px !important; height: 24px; }
+.sortbutton:hover { background: transparent; }
+.sortbutton:hover img { opacity: 1; }
+.sortbutton.active, .sortbutton.active:hover { background: var(--pill); box-shadow: var(--raised); }
+.sortbutton.active img { opacity: 1; }
+
+/* Destructive system actions. */
+button[value*="shutdown"], button[value*="clear_all_data"], button[value*="reboot"] { color: var(--danger) !important; }
+
+/* ---- Forms ------------------------------------------------------------ */
+
+input, textarea, select { box-shadow: none; color: var(--ink); }
+input[type="text"], input[type="number"], input[type="password"], input[type="date"],
+input[type="time"], input[type="email"], input[type="url"], input[type="search"],
+input:not([type]), select, textarea {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--paper-2);
+  box-shadow: var(--recess);
+  font: 400 15px/1.3 var(--serif);
+}
+input::placeholder, textarea::placeholder { color: var(--quiet-strong); opacity: 1; }
+select[multiple] { padding: 6px; border-radius: 8px; width: 100%; }
+select[multiple] option { padding: 4px 6px; border-radius: 4px; }
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; vertical-align: -2px; margin: 0 6px 0 0; }
+textarea { font: 13px/1.5 var(--mono); }
+/* Stock Settings tags its selects and the notification-body textarea with
+   .testbtn (a button class). Keep them fields: same recess as every input. */
+select.testbtn, textarea.testbtn {
+  display: inline-block; min-height: 34px; padding: 6px 10px; border-radius: 6px;
+  background: var(--paper-2) !important; box-shadow: var(--recess);
+  font: 400 15px/1.3 var(--serif); letter-spacing: normal; text-transform: none; white-space: normal;
+}
+select.testbtn:hover, textarea.testbtn:hover { background: var(--paper-2) !important; box-shadow: var(--recess); transform: none; }
+textarea.testbtn { display: block; font: 13px/1.5 var(--mono); }
+select { cursor: pointer; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
+.exclude_species_list_option_highlight { background: var(--paper-3); color: var(--ink); font-weight: 600; }
+#showpassword, #newrtspstream { background: var(--paper-2); box-shadow: var(--recess); border-radius: 4px; }
+
+.slider, input[type="range"].slider {
+  -webkit-appearance: none; appearance: none;
+  width: min(320px, 60%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hairline);
+  opacity: 1;
+  vertical-align: middle;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--pill);
+  box-shadow: var(--raised), 0 0 0 1px var(--ink-soft);
+}
+.slider::-moz-range-thumb {
+  width: 18px; height: 18px; border: 0; border-radius: 50%;
+  background: var(--pill);
+  box-shadow: var(--raised), 0 0 0 1px var(--ink-soft);
+}
+
+/* ---- Settings, tools, reports ---------------------------------------- */
+
+.brbanner {
+  padding: 6px 0 2px;
+  background: transparent;
+  text-align: center;
+  font: italic 400 16px/1.4 var(--serif);
+  color: var(--ink-2);
+}
+.brbanner h1 {
+  margin: 0 0 6px;
+  font: 700 clamp(22px, 2.6vw, 30px)/1.1 var(--serif);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-style: normal;
+  color: var(--ink);
+}
+.settings { max-width: 880px; margin: 0 auto; padding: 0; }
+.settingstable { width: 100%; margin: 0 auto; table-layout: fixed; }
+.settingstable td, .settings p, .settings dl, .settings dd, .settings label { overflow-wrap: anywhere; min-width: 0; }
+.settings input:not([type="checkbox"]):not([type="radio"]), .settings select, .settings textarea { max-width: 100%; }
+.settings p, .settings dl { max-width: 66ch; }
+.settingstable td { padding: 22px 2px; text-align: left; line-height: 1.6; }
+.settingstable h2, .settings h2 {
+  margin: 0 0 10px;
+  font: 700 12px/1.3 var(--mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.settings h3 { text-align: left; }
+.settings label { font-weight: 500; }
+.settings p { margin-left: 0; }
+.plaintable td { padding: 4px 0; }
+.settingstable.plaintable { table-layout: auto; width: auto; min-width: min(520px, 100%); margin: 0; }
+.settingstable.plaintable td { padding: 8px 12px 8px 0; vertical-align: middle; box-shadow: none; }
+.settingstable.plaintable tr + tr > td { box-shadow: none; }
+.settingstable.plaintable tr { box-shadow: inset 0 -1px 0 var(--hairline); }
+.settingstable.plaintable td:first-child { width: 9em; }
+.settingstable.plaintable td:last-child:not(:nth-child(2)) { color: var(--quiet-strong); font-style: italic; overflow-wrap: normal; white-space: nowrap; }
+@media (max-width: 700px) {
+  .settingstable.plaintable td:first-child { width: auto; white-space: nowrap; }
+  .settings input[name="site_name"] { width: 100%; }
+}
+.settings input[name="latitude"], .settings input[name="longitude"] { width: 9em !important; font-family: var(--mono); font-size: 14px; }
+
+/* Save is the one primary action: ink on paper, set apart from the
+   secondary Advanced Settings link and from the last section. */
+.settings .float { display: inline-block; margin: 0 8px 0 0; }
+.settings form#basicform > br:last-of-type, .settings form#basicform > br + br { display: none; }
+.settings form#basicform .float { margin-top: 8px; }
+.settings #basicformsubmit {
+  background: var(--ink) !important; color: var(--paper);
+  box-shadow: var(--lift);
+}
+.settings #basicformsubmit:hover { background: var(--ink) !important; color: var(--paper); }
+.settings #basicformsubmit.disabled { opacity: .6; pointer-events: none; }
+
+.systemcontrols { display: flex; flex-direction: column; max-width: 420px; margin: 0 auto; }
+.systemcontrols > form { display: contents; }
+.systemcontrols button { display: flex; width: 100%; margin: 8px auto; }
+.systemcontrols #container { position: relative; }
+/* Safe actions first; reboot, shutdown and clear-all-data last, set apart
+   under a rule and drawn as outlines rather than raised paper. */
+.systemcontrols > form > div:has(#updatebtn) { order: 1; }
+.systemcontrols > #container { order: 2; }
+.systemcontrols > div:has(a[href*="backup"]) { order: 3; }
+.systemcontrols > form > div:has(button[value="sudo reboot"]) {
+  order: 10; margin-top: 28px; padding-top: 20px;
+  box-shadow: inset 0 1px 0 var(--hairline);
+}
+.systemcontrols > form > div:has(button[value*="shutdown"]) { order: 11; }
+.systemcontrols > form > div:has(button[value*="clear_all_data"]) { order: 12; }
+.systemcontrols > :not(form):not(#container):not(div) { order: 20; }
+.systemcontrols button[value="sudo reboot"],
+.systemcontrols button[value*="shutdown"],
+.systemcontrols button[value*="clear_all_data"] {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent);
+}
+.servicecontrols { max-width: 760px; margin: 0 auto; }
+.servicecontrols h3 { margin-top: 26px; }
+.servicecontrols button { width: auto; }
+.btn-group-center { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px auto 4px; }
+
+.customlabels h3, .customlabels2 h3 { margin-top: 10px; }
+.column2 table td { box-shadow: none !important; }
+.views > .left-column { color: var(--danger); font-style: italic; }
+
+pre, pre.bash {
+  display: block;
+  width: auto; max-width: 100%;
+  margin: 12px auto;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--paper-2);
+  box-shadow: var(--recess);
+  color: var(--ink);
+  font: 12.5px/1.55 var(--mono);
+  white-space: pre-wrap;
+  text-align: left;
+}
+pre#timer.bash { display: inline-block; padding: 2px 8px; margin: 0; }
+
+dl { margin: 1em 0 0; }
+dt { color: var(--ink); }
+dd { color: var(--ink-2); }
+
+/* Daily charts date picker row. */
+.history.centered form { gap: 8px; align-items: center; }
+.history.centered input { margin-right: 0; }
+.history.centered > img, .history.centered > picture { display: block; margin: 18px auto; }
+/* One row: previous day, the picker, next day. Phones put the picker on
+   its own line with the two steps under it at either edge. */
+.history.centered .day-bar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
+  max-width: 960px; margin: 0 auto 4px;
+}
+.history.centered .day-bar form { margin: 0; }
+.history.centered .day-bar [rel="prev"] { justify-self: end; }
+.history.centered .day-bar [rel="next"] { justify-self: start; }
+.history.centered a.day-step {
+  display: inline-flex; align-items: center; min-height: var(--ctl-h); padding: 0 14px;
+  border-radius: 999px; background: var(--pill); box-shadow: var(--raised);
+  color: var(--ink); font: 13px/1 var(--mono); letter-spacing: .02em; text-decoration: none; white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .history.centered .day-bar { grid-template-columns: 1fr 1fr; grid-template-areas: "pick pick" "prev next"; }
+  .history.centered .day-bar form { grid-area: pick; justify-self: center; }
+  .history.centered .day-bar [rel="prev"] { grid-area: prev; justify-self: start; }
+  .history.centered .day-bar [rel="next"], .history.centered .day-bar .is-none { grid-area: next; justify-self: end; }
+}
+/* The chart's own header already gives the day's total. */
+.history.centered:has(> picture) > table.overview { display: none; }
+.history.centered a.day-step:hover { box-shadow: var(--raised), var(--lift); }
+.history.centered a.day-step:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.history.centered .chart-note { margin: 28px auto; color: var(--quiet-strong); font-family: var(--serif); font-style: italic; }
+
+/* ---- Dialogs and popovers -------------------------------------------- */
+
+dialog, .modal-content {
+  max-width: min(640px, 92vw);
+  padding: 24px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--edge-lg);
+}
+dialog h1, .modal-content h1 { font-size: clamp(24px, 3.2vw, 30px); margin: 0 0 12px; }
+dialog img { border-radius: 4px; max-width: 100%; }
+dialog::backdrop {
+  background: color-mix(in srgb, var(--paper, #fcfcfb) 40%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.modal { background: color-mix(in srgb, var(--paper) 40%, transparent); backdrop-filter: blur(6px); }
+.modal-content { margin: 10vh auto; }
+.chartdiv { background: var(--paper); border-radius: 14px; box-shadow: var(--edge-lg); }
+
+/* ---- Phones ------------------------------------------------------------ */
+
+@media (max-width: 700px) {
+  h3 { margin-top: 24px; }
+  td, th, .overview td, .overview th { padding: 9px 6px; }
+  .overview-stats td, #todaystats td { font-size: 15px; }
+  #todaystats th, .center-column th { letter-spacing: 0.08em; }
+  #detections_table td:first-child:not(.relative) { font-size: 12px; }
+  #recent_detection_middle_td img.img1, #recent_detection_middle_td #birdimage { width: 48px !important; height: 48px !important; margin-right: 10px; }
+  .views .centered_image_container { padding: 0 52px 0 72px; min-height: 60px; }
+  .centered_image_container img.img1 { width: 60px; height: 60px; }
+  .custom-audio-player { margin-left: 0; }
+  .systemcontrols { max-width: none; }
+  .settingstable td { padding: 18px 2px; }
+}

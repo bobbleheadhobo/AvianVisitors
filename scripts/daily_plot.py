@@ -2,19 +2,15 @@ import argparse
 import gc
 import os
 import sqlite3
-import textwrap
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib import rcParams
-from matplotlib.colors import LogNorm
 
 from utils.helpers import DB_PATH, FONT_DIR, get_settings, get_font
 
@@ -24,8 +20,7 @@ def get_data(now=None):
     conn = sqlite3.connect(uri, uri=True)
     if now is None:
         now = datetime.now()
-    df = pd.read_sql_query(f"SELECT * from detections WHERE Date = DATE('{now.strftime('%Y-%m-%d')}')",
-                           conn)
+    df = pd.read_sql_query("SELECT * from detections WHERE Date = ?", conn, params=(now.strftime('%Y-%m-%d'),))
     conn.close()
 
     # Convert Date and Time Fields to Panda's format
@@ -38,155 +33,222 @@ def get_data(now=None):
     return df, now
 
 
-# Function to show value on bars - from https://stackoverflow.com/questions/43214978/seaborn-barplot-displaying-values
-def show_values_on_bars(ax, label):
-    conf = get_settings()
-
-    for i, p in enumerate(ax.patches):
-        x = p.get_x() + p.get_width() * 0.9
-        y = p.get_y() + p.get_height() / 2
-        # Species confidence
-        # value = '{:.0%}'.format(label.iloc[i])
-        # Species Count Total
-        value = '{:n}'.format(p.get_width())
-        bbox = {'facecolor': 'lightgrey', 'edgecolor': 'none', 'pad': 1.0}
-        if conf['COLOR_SCHEME'] == "dark":
-            color = 'black'
-        else:
-            color = 'darkgreen'
-
-        ax.text(x, y, value, bbox=bbox, ha='center', va='center', size=9, color=color)
+# Avian Visitors chart: a printed ledger in one ink. One row per species,
+# most heard first: common name, a bar whose length is the day's count, and
+# a 24-hour strip of squares sized by detections in that hour. The page
+# shows it grayscale on paper (multiply) or inverted on charcoal (screen),
+# so everything here is drawn as ink on white.
+INK = '#1a1612'
+QUIET = '#6b6050'
+HAIRLINE = '#dedad2'
+NOW_BAND = '#efede8'
+ROW_IN = 0.34       # row height, inches
+WIDTH_IN = 9.6      # rendered at 200 dpi, shown at ~960 CSS px
 
 
-def wrap_width(txt):
-    # try to estimate wrap width
-    w = 16
-    for c in txt:
-        if c in ['M', 'm', 'W', 'w']:
-            w -= 0.33
-        if c in ['I', 'i', 'j', 'l']:
-            w += 0.33
-    return round(w)
+def chart_fonts():
+    """Serif names and mono figures, unless the database language needs
+    one of the bundled Noto faces to render its names."""
+    family = get_font()['font.family']
+    if family == 'Roboto Flex':
+        return 'STIXGeneral', 'DejaVu Sans Mono'  # both ship with matplotlib
+    return family, 'DejaVu Sans Mono'
 
 
 def create_plot(df_plt_today, now, is_top=None):
+    counts = df_plt_today['Sci_Name'].value_counts()
     if is_top is not None:
-        readings = 10
-        if is_top:
-            plt_selection_today = (df_plt_today['Sci_Name'].value_counts()[:readings])
-        else:
-            plt_selection_today = (df_plt_today['Sci_Name'].value_counts()[-readings:])
+        counts = counts[:10] if is_top else counts[-10:]
+    if is_top is False:
+        name, scope = "Combo2", "least heard"
     else:
-        plt_selection_today = df_plt_today['Sci_Name'].value_counts()
-        readings = len(df_plt_today['Sci_Name'].value_counts())
+        name, scope = "Combo", "most heard" if is_top else "all species"
 
-    df_plt_selection_today = df_plt_today[df_plt_today.Sci_Name.isin(plt_selection_today.index)]
-
-    conf = get_settings()
-
-    # Set up plot axes and titles
-    height = max(readings / 3, 0) + 1.06
-    if conf['COLOR_SCHEME'] == "dark":
-        facecolor = 'darkgrey'
-    else:
-        facecolor = '#77C487'
-
-    f, axs = plt.subplots(1, 2, figsize=(10, height), gridspec_kw=dict(width_ratios=[3, 6]), facecolor=facecolor)
-
-    # generate y-axis order for all figures based on frequency
-    freq_order = df_plt_selection_today['Sci_Name'].value_counts().index
-
-    # make color for max confidence --> this groups by name and calculates max conf
-    confmax = df_plt_selection_today.groupby('Sci_Name')['Confidence'].max()
-    # reorder confmax to detection frequency order
-    confmax = confmax.reindex(freq_order)
-
-    # norm values for color palette
-    norm = plt.Normalize(confmax.values.min(), confmax.values.max())
-    if is_top or is_top is None:
-        # Set Palette for graphics
-        if conf['COLOR_SCHEME'] == "dark":
-            pal = "Greys"
-            colors = plt.cm.Greys(norm(confmax)).tolist()
-        else:
-            pal = "Greens"
-            colors = plt.cm.Greens(norm(confmax)).tolist()
-        if is_top:
-            plot_type = "Top"
-        else:
-            plot_type = 'All'
-        name = "Combo"
-    else:
-        # Set Palette for graphics
-        pal = "Reds"
-        colors = plt.cm.Reds(norm(confmax)).tolist()
-        plot_type = "Bottom"
-        name = "Combo2"
-
-    # Generate frequency plot
-    plot = sns.countplot(y='Sci_Name', hue='Sci_Name', legend=False, data=df_plt_selection_today,
-                         palette=dict(zip(confmax.index, colors)), order=freq_order, ax=axs[0], edgecolor='lightgrey')
-
-    # Prints Max Confidence on bars
-    show_values_on_bars(axs[0], confmax)
-
-    # Try plot grid lines between bars - problem at the moment plots grid lines on bars - want between bars
+    df = df_plt_today[df_plt_today.Sci_Name.isin(counts.index)]
+    order = list(counts.index)
+    rows = len(order)
     names_key = df_plt_today.sort_values('Time', ascending=False).groupby('Sci_Name').first()['Com_Name']
-    common_names = [names_key[tick_label.get_text()] for tick_label in plot.get_yticklabels()]
-    yticklabels = ['\n'.join(textwrap.wrap(ticklabel, wrap_width(ticklabel))) for ticklabel in common_names]
-    # Next two lines avoid a UserWarning on set_ticklabels() requesting a fixed number of ticks
-    yticks = plot.get_yticks()
-    plot.set_yticks(yticks)
-    plot.set_yticklabels(yticklabels, fontsize=10)
-    plot.set(ylabel=None)
-    plot.set(xlabel="Detections")
+    hours = pd.crosstab(df['Sci_Name'], df['Hour of Day']).reindex(index=order, columns=range(24), fill_value=0)
 
-    # Generate crosstab matrix for heatmap plot
-    heat = pd.crosstab(df_plt_selection_today['Sci_Name'], df_plt_selection_today['Hour of Day'])
+    serif, mono = chart_fonts()
+    head_in, foot_in = 0.86, 0.46
+    height = head_in + rows * ROW_IN + foot_in
+    f = plt.figure(figsize=(WIDTH_IN, height), facecolor='white')
 
-    # Order heatmap Birds by frequency of occurrance
-    heat.index = pd.CategoricalIndex(heat.index, categories=freq_order)
-    heat.sort_index(level=0, inplace=True)
+    # Column plan (fractions of the figure width).
+    name_x, bar_x0, bar_x1, strip_x0, strip_x1 = 0.02, 0.255, 0.405, 0.43, 0.985
+    bottom = foot_in / height
+    top = 1 - head_in / height
+    ax = f.add_axes([0, bottom, 1, top - bottom])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(rows, 0)
+    ax.axis('off')
 
-    hours_in_day = pd.Series(data=range(0, 24))
-    heat_frame = pd.DataFrame(data=0, index=heat.index, columns=hours_in_day)
-    heat = (heat+heat_frame).fillna(0)
-    # mask out zeros, so they do not show up in the final plot. this happens when max count/h is one
-    heat[heat == 0] = np.nan
+    cell = (strip_x1 - strip_x0) / 24
+    hour_x = [strip_x0 + cell * (h + 0.5) for h in range(24)]
 
-    # Generatie heatmap plot
-    plot = sns.heatmap(heat, norm=LogNorm(),  annot=True,  annot_kws={"fontsize": 7}, fmt="g", cmap=pal, square=False,
-                       cbar=False, linewidths=0.5, linecolor="Grey", ax=axs[1], yticklabels=False)
+    # Current hour: a faint band down the strip and a bold tick below.
+    is_today = now.date() == datetime.now().date()
+    if is_today:
+        ax.add_patch(plt.Rectangle((strip_x0 + cell * now.hour, 0), cell, rows, facecolor=NOW_BAND, edgecolor='none', zorder=0))
 
-    # Set color and weight of tick label for current hour
-    for label in plot.get_xticklabels():
-        if int(label.get_text()) == now.hour:
-            if conf['COLOR_SCHEME'] == "dark":
-                label.set_color('white')
-            else:
-                label.set_color('yellow')
+    # Hairline hour grid and row rules.
+    for h in range(25):
+        x = strip_x0 + cell * h
+        ax.plot([x, x], [0, rows], color=HAIRLINE, lw=0.6 if h % 6 else 1.0, zorder=1)
+    for r in range(rows + 1):
+        ax.plot([name_x, strip_x1], [r, r], color=HAIRLINE, lw=0.6, zorder=1)
 
-    plot.set_xticklabels(plot.get_xticklabels(), rotation=0, size=8)
+    max_count = max(int(counts.max()), 1)
+    max_hour = max(int(hours.values.max()), 1)
+    for r, sci in enumerate(order):
+        y = r + 0.5
+        com = names_key.get(sci, sci)
+        if len(com) > 28:
+            com = com[:27] + '…'
+        ax.text(name_x, y, com, ha='left', va='center', fontsize=11.5, family=serif, color=INK)
+        n = int(counts[sci])
+        length = (bar_x1 - bar_x0) * n / max_count
+        ax.add_patch(plt.Rectangle((bar_x0, y - 0.13), max(length, 0.004), 0.26, facecolor=INK, edgecolor='none', zorder=2))
+        ax.text(bar_x0 + length + 0.006, y, str(n), ha='left', va='center', fontsize=10.5, family=mono, color=INK)
+        for h in range(24):
+            k = int(hours.at[sci, h])
+            if not k:
+                continue
+            # True squares (sized in inches); side grows with sqrt(count) so
+            # area tracks detections.
+            side_in = min(cell * WIDTH_IN, ROW_IN) * (0.34 + 0.5 * ((k / max_hour) ** 0.5))
+            w, hgt = side_in / WIDTH_IN, side_in / ROW_IN
+            ax.add_patch(plt.Rectangle((hour_x[h] - w / 2, y - hgt / 2), w, hgt, facecolor=INK, edgecolor='white', lw=0.6, zorder=3))
 
-    # Set heatmap border
-    for _, spine in plot.spines.items():
-        spine.set_visible(True)
+    # Header: what this is, in the Stats label voice.
+    total = int(counts.sum())
+    f.text(name_x, 1 - 0.3 / height, f"{now.strftime('%A %-d %B').upper()}  ·  {scope.upper()}",
+           ha='left', va='center', fontsize=10, family=mono, color=INK, fontweight='bold')
+    stamp = f"UPDATED {now.strftime('%H:%M')}" if is_today else "FULL DAY"
+    f.text(strip_x1, 1 - 0.3 / height, f"{rows} SPECIES  ·  {total} DETECTIONS  ·  {stamp}",
+           ha='right', va='center', fontsize=10, family=mono, color=QUIET)
+    f.text(bar_x0, top + 0.08 / height, "HEARD", ha='left', va='bottom', fontsize=9.5, family=mono, color=QUIET)
+    f.text(strip_x0, top + 0.08 / height, "BY HOUR", ha='left', va='bottom', fontsize=9.5, family=mono, color=QUIET)
 
-    plot.set(ylabel=None)
-    plot.set(xlabel="Hour of Day")
-    # Set combined plot layout and titles
-    y = 1 - 8 / (height * 100)
-    plt.suptitle(f"{plot_type} {readings} Last Updated: {now.strftime('%Y-%m-%d %H:%M')}", y=y)
-    f.tight_layout()
-    top = 1 - 40 / (height * 100)
-    f.subplots_adjust(left=0.125, right=0.9, top=top, wspace=0)
+    # Hour ticks under the strip, every third hour plus the current one,
+    # which displaces a regular tick right beside it so labels never touch.
+    ticks = set(range(0, 24, 3))
+    if is_today:
+        ticks -= {now.hour - 1, now.hour + 1}
+        ticks.add(now.hour)
+    for h in sorted(ticks):
+        current = is_today and h == now.hour
+        f.text(hour_x[h], bottom - 0.16 / height, f"{h:02d}", ha='center', va='top', fontsize=10, family=mono,
+               color=INK if current else QUIET, fontweight='bold' if current else 'normal')
 
-    # Save combined plot
-    save_name = os.path.expanduser(f"~/BirdSongs/Extracted/Charts/{name}-{now.strftime('%Y-%m-%d')}.png")
-    plt.savefig(save_name)
-    plt.show()
+    save_name = chart_path(now, name)
+    tmp_name = save_name[:-4] + '.tmp.png'
+    plt.savefig(tmp_name, dpi=200, facecolor='white')
+    os.replace(tmp_name, save_name)  # never serve a half-written PNG
     plt.close(f)
     gc.collect()
+
+
+def create_phone_plot(df_plt_today, now):
+    """The same ledger, stacked for a phone: name and count on one line, the
+    full 24-hour strip beneath it at the width of the screen."""
+    counts = df_plt_today['Sci_Name'].value_counts()
+    order = list(counts.index)
+    rows = len(order)
+    names_key = df_plt_today.sort_values('Time', ascending=False).groupby('Sci_Name').first()['Com_Name']
+    hours = pd.crosstab(df_plt_today['Sci_Name'], df_plt_today['Hour of Day']).reindex(index=order, columns=range(24), fill_value=0)
+    is_today = now.date() == datetime.now().date()
+
+    serif, mono = chart_fonts()
+    width_in, row_in = 4.8, 0.56
+    head_in, foot_in = 0.78, 0.36
+    height = head_in + rows * row_in + foot_in
+    f = plt.figure(figsize=(width_in, height), facecolor='white')
+    bottom = foot_in / height
+    top = 1 - head_in / height
+    ax = f.add_axes([0, bottom, 1, top - bottom])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(rows, 0)
+    ax.axis('off')
+
+    x0, x1 = 0.03, 0.97
+    cell = (x1 - x0) / 24
+    name_y, strip_y0, strip_y1 = 0.27, 0.46, 0.92  # within a row, top to bottom
+    strip_h_in = (strip_y1 - strip_y0) * row_in
+    max_hour = max(int(hours.values.max()), 1)
+
+    for r, sci in enumerate(order):
+        if is_today:
+            ax.add_patch(plt.Rectangle((x0 + cell * now.hour, r + strip_y0), cell, strip_y1 - strip_y0,
+                                       facecolor=NOW_BAND, edgecolor='none', zorder=0))
+        for h in range(25):
+            ax.plot([x0 + cell * h] * 2, [r + strip_y0, r + strip_y1], color=HAIRLINE,
+                    lw=0.5 if h % 6 else 0.9, zorder=1)
+        ax.plot([x0, x1], [r + strip_y1] * 2, color=HAIRLINE, lw=0.5, zorder=1)
+        com = names_key.get(sci, sci)
+        if len(com) > 30:
+            com = com[:29] + '…'
+        ax.text(x0, r + name_y, com, ha='left', va='center', fontsize=11.5, family=serif, color=INK)
+        ax.text(x1, r + name_y, str(int(counts[sci])), ha='right', va='center', fontsize=10.5, family=mono, color=INK)
+        mid = r + (strip_y0 + strip_y1) / 2
+        for h in range(24):
+            k = int(hours.at[sci, h])
+            if not k:
+                continue
+            side_in = min(cell * width_in, strip_h_in) * (0.4 + 0.5 * ((k / max_hour) ** 0.5))
+            w, hgt = side_in / width_in, side_in / row_in
+            ax.add_patch(plt.Rectangle((x0 + cell * (h + 0.5) - w / 2, mid - hgt / 2), w, hgt,
+                                       facecolor=INK, edgecolor='white', lw=0.5, zorder=3))
+
+    stamp = f"UPDATED {now.strftime('%H:%M')}" if is_today else "FULL DAY"
+    f.text(x0, 1 - 0.24 / height, now.strftime('%A %-d %B').upper(), ha='left', va='center',
+           fontsize=10, family=mono, color=INK, fontweight='bold')
+    f.text(x0, 1 - 0.5 / height, f"{rows} SPECIES  ·  {int(counts.sum())} DETECTIONS  ·  {stamp}",
+           ha='left', va='center', fontsize=8.5, family=mono, color=QUIET)
+
+    ticks = set(range(0, 24, 6))
+    if is_today:
+        ticks -= {now.hour - 2, now.hour - 1, now.hour + 1, now.hour + 2}
+        ticks.add(now.hour)
+    for h in sorted(ticks):
+        current = is_today and h == now.hour
+        f.text(x0 + cell * (h + 0.5), bottom - 0.1 / height, f"{h:02d}", ha='center', va='top', fontsize=9,
+               family=mono, color=INK if current else QUIET, fontweight='bold' if current else 'normal')
+
+    save_name = chart_path(now, 'Combo-phone')
+    tmp_name = save_name[:-4] + '.tmp.png'
+    plt.savefig(tmp_name, dpi=200, facecolor='white')
+    os.replace(tmp_name, save_name)
+    plt.close(f)
+    gc.collect()
+
+
+def chart_path(day, name='Combo'):
+    return os.path.expanduser(f"~/BirdSongs/Extracted/Charts/{name}-{day.strftime('%Y-%m-%d')}.png")
+
+
+def stale_days(today, limit):
+    """Past days with detections whose chart is missing, or was drawn before
+    the day ended (so it is missing that evening's birds). Newest first."""
+    uri = f"file:{DB_PATH}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True)
+    dates = [r[0] for r in conn.execute("SELECT DISTINCT Date FROM detections WHERE Date < ? ORDER BY Date DESC",
+                                        (today.strftime('%Y-%m-%d'),))]
+    conn.close()
+    stale = []
+    for d in dates:
+        try:
+            day = datetime.strptime(d, '%Y-%m-%d')
+        except (TypeError, ValueError):
+            continue
+        paths = [chart_path(day), chart_path(day, 'Combo-phone')]
+        if any(not os.path.exists(p) or datetime.fromtimestamp(os.path.getmtime(p)) < day + timedelta(days=1)
+               for p in paths):
+            stale.append(day.replace(hour=23, minute=59))
+            if len(stale) >= limit:
+                break
+    return stale
 
 
 def load_fonts():
@@ -200,26 +262,23 @@ def load_fonts():
 
 def main(daemon, sleep_m):
     load_fonts()
-    last_run = None
     while True:
         now = datetime.now()
-        # now = datetime.strptime('2023-12-13T23:59:59', "%Y-%m-%dT%H:%M:%S")
-        # now = datetime.strptime('2024-01-02T23:59:59', "%Y-%m-%dT%H:%M:%S")
-        # now = datetime.strptime('2024-02-26T23:59:59', "%Y-%m-%dT%H:%M:%S")
-        # now = datetime.strptime('2024-04-03T23:59:59', "%Y-%m-%dT%H:%M:%S")
-        # now = datetime.strptime('2024-04-07T23:59:59', "%Y-%m-%dT%H:%M:%S")
-        if last_run and now.day != last_run.day:
-            print("getting yesterday's dataset")
-            yesterday = last_run.replace(hour=23, minute=59)
-            data, time = get_data(yesterday)
-        else:
-            data, time = get_data(now)
-        if not data.empty:
-            create_plot(data, time)
-        else:
-            print('empty dataset')
+        # Today first, then catch up on past days (yesterday after midnight,
+        # or every day the station recorded while the daemon was down), a
+        # few per pass so a long backlog never stalls today's chart.
+        for day in [now] + stale_days(now, 6):
+            try:
+                data, time = get_data(day)
+                if not data.empty:
+                    create_plot(data, time)
+                    create_phone_plot(data, time)
+                elif day is now:
+                    print('empty dataset')
+            except Exception as e:  # one bad day must not stop the daemon
+                print(f"chart for {day.strftime('%Y-%m-%d')} failed: {e!r}")
+                plt.close('all')
         if daemon:
-            last_run = now
             sleep(60 * sleep_m)
         else:
             break

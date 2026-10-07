@@ -10,19 +10,19 @@ ini_set('display_startup_errors',1);
 require_once 'scripts/common.php';
 $config = get_config();
 
-if(isset($_GET['date'])){
-$theDate = $_GET['date'];
-} else {
+// Only a real YYYY-MM-DD reaches the queries and the chart path.
 $theDate = date('Y-m-d');
+if (isset($_GET['date']) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $_GET['date'], $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+  $theDate = $_GET['date'];
 }
 $chart = "Combo-$theDate.png";
-$chart2 = "Combo2-$theDate.png";
 
 $db = new SQLite3('./scripts/birds.db', SQLITE3_OPEN_READONLY);
 $db->busyTimeout(1000);
 
-$statement1 = $db->prepare("SELECT COUNT(*) FROM detections WHERE Date == \"$theDate\"");
+$statement1 = $db->prepare("SELECT COUNT(*) FROM detections WHERE Date == :date");
 ensure_db_ok($statement1);
+$statement1->bindValue(':date', $theDate);
 $result1 = $statement1->execute();
 $totalcount = $result1->fetchArray(SQLITE3_ASSOC);
 
@@ -130,10 +130,22 @@ function submitID() {
 
 </script>  
 
-<form action="views.php" method="GET">
-  <input type="date" name="date" value="<?php echo $theDate;?>">
-  <button type="submit" name="view" value="Daily Charts">Submit Date</button>
-</form>
+<?php
+$prevDay = date('Y-m-d', strtotime("$theDate -1 day"));
+$nextDay = date('Y-m-d', strtotime("$theDate +1 day"));
+?>
+<div class="day-bar">
+  <a class="day-step" href="views.php?view=Daily+Charts&amp;date=<?php echo $prevDay; ?>" rel="prev">&larr; <?php echo date('D j M', strtotime($prevDay)); ?></a>
+  <form action="views.php" method="GET">
+    <input type="date" name="date" value="<?php echo $theDate;?>" max="<?php echo date('Y-m-d'); ?>" aria-label="Day">
+    <button type="submit" name="view" value="Daily Charts">Submit Date</button>
+  </form>
+<?php if ($theDate < date('Y-m-d')) { ?>
+  <a class="day-step" href="views.php?view=Daily+Charts&amp;date=<?php echo $nextDay; ?>" rel="next"><?php echo date('D j M', strtotime($nextDay)); ?> &rarr;</a>
+<?php } else { ?>
+  <span class="day-step is-none" aria-hidden="true"></span>
+<?php } ?>
+</div>
 <br>
 <table class="overview">
   <tr>
@@ -147,15 +159,17 @@ function submitID() {
 $time = time();
 
 if (file_exists('./Charts/'.$chart)) {
-  echo "<img src=\"/Charts/$chart?nocache=$time\" >";
+  // Phones get the stacked layout daily_plot.py draws alongside the wide one.
+  $phoneChart = "Combo-phone-$theDate.png";
+  echo "<picture>";
+  if (file_exists('./Charts/'.$phoneChart)) {
+    echo "<source media=\"(max-width: 700px)\" srcset=\"/Charts/$phoneChart?nocache=$time\">";
+  }
+  echo "<img src=\"/Charts/$chart?nocache=$time\" alt=\"Species heard on $theDate, by hour\"></picture>";
+} elseif ($totalcount['COUNT(*)'] > 0) {
+  echo "<p class=\"chart-note\">The chart for $theDate is being drawn. It appears within a few minutes.</p>";
 } else {
-  echo "<p>No Charts for $theDate</p>";
-}
-echo "<hr>";
-if (file_exists('./Charts/'.$chart2)) {
-  echo "<img src=\"/Charts/$chart2?nocache=$time\">";
-} else {
-  echo "<p>No Charts For $theDate</p>";
+  echo "<p class=\"chart-note\">No detections on $theDate, so there is no chart.</p>";
 }
 echo "</div>";
 if (get_included_files()[0] === __FILE__) {

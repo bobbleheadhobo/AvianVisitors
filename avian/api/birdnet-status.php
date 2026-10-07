@@ -151,6 +151,10 @@ function read_audio(): array {
     $usb = shellout('lsusb');
     return [
         'arecord_l' => $cards,
+        // The kernel can list a card that this system still cannot open:
+        // in a container without /dev/snd passed through, recording falls
+        // back to a null source and writes silence.
+        'capture_device' => is_dir('/dev/snd'),
         'usb' => array_values(array_filter(explode("\n", $usb), function ($l) {
             return $l !== '' && (
                 stripos($l, 'audio') !== false ||
@@ -159,6 +163,29 @@ function read_audio(): array {
             );
         })),
     ];
+}
+
+/** Loudest sample (0..1) in the first second or so of a 16-bit WAV, or
+ *  null when it can't be read. 0 means the recorder is writing silence. */
+function wav_peak(string $path): ?float {
+    if (!preg_match('/\.wav$/i', $path)) return null;
+    $h = @fopen($path, 'rb');
+    if (!$h) return null;
+    $head = fread($h, 44);
+    if (!is_string($head) || strlen($head) < 44 || substr($head, 0, 4) !== 'RIFF'
+        || unpack('v', substr($head, 34, 2))[1] !== 16) {
+        fclose($h);
+        return null;
+    }
+    $data = fread($h, 192000);
+    fclose($h);
+    if (!is_string($data) || strlen($data) < 2) return null;
+    $peak = 0;
+    foreach (unpack('s*', substr($data, 0, strlen($data) & ~1)) as $v) {
+        $a = $v < 0 ? -$v : $v;
+        if ($a > $peak) $peak = $a;
+    }
+    return round($peak / 32768, 4);
 }
 
 function read_streamdata(string $dir): array {
@@ -176,6 +203,7 @@ function read_streamdata(string $dir): array {
         'file_count'    => count($wav),
         'newest_age_s'  => $newest_age,
         'newest_name'   => $wav[0] ?? null,
+        'newest_peak'   => isset($wav[0]) ? wav_peak("$dir/" . $wav[0]) : null,
     ];
 }
 

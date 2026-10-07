@@ -56,6 +56,8 @@ elseif ($config["LONGITUDE"] == "0.000") {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BirdNET-Pi DB</title>
   <link rel="stylesheet" href="<?php echo $color_scheme . '?v=' . date('n.d.y', filemtime($color_scheme)); ?>">
+  <link rel="stylesheet" href="static/avian-classic.css?v=<?php echo filemtime(__DIR__.'/static/avian-classic.css'); ?>">
+  <script src="static/avian-classic.js?v=<?php echo filemtime(__DIR__.'/static/avian-classic.js'); ?>"></script>
 </head>
 <body>
 <form action="views.php" method="GET" id="views">
@@ -156,7 +158,7 @@ if(isset($_GET['view'])){
   if($_GET['view'] == "Kiosk"){$kiosk = true;include('todays_detections.php');}
   if($_GET['view'] == "Species Stats"){include('stats.php');}
   if($_GET['view'] == "Weekly Report"){include('weekly_report.php');}
-  if($_GET['view'] == "Streamlit"){echo "<iframe src=\"stats\"></iframe>";}
+  if($_GET['view'] == "Streamlit"){include('scripts/avian_stats.php');}
   if($_GET['view'] == "Daily Charts"){include('history.php');}
   if($_GET['view'] == "Tools"){
     ensure_authenticated();
@@ -379,8 +381,11 @@ window.onbeforeunload = function(event) {
 function getTheDate(increment) {
   var theDate = "<?php if (isset($theDate)) echo $theDate;?>";
 
-  d = new Date(theDate);
-  d.setDate(d.getDate(theDate) + increment);
+  // Build the date in local time; new Date("YYYY-MM-DD") is UTC midnight,
+  // which is the previous evening west of Greenwich.
+  var p = theDate.split("-");
+  d = new Date(+p[0], +p[1] - 1, +p[2]);
+  d.setDate(d.getDate() + increment);
   yyyy = d.getFullYear();
   mm = d.getMonth() + 1; if (mm < 10) mm = "0" + mm;
   dd = d.getDate(); if (dd < 10) dd = "0" + dd;
@@ -391,9 +396,9 @@ function getTheDate(increment) {
 }
 
 function installKeyAndSwipeEventHandler() {
-  for (var i = 0; i < topbuttons.length; i++) {
-    if (topbuttons[i].textContent == "Daily Charts" && 
-        topbuttons[i].className == "button-hover") {
+    // Read the view parameter itself; the nav highlight only matches the
+    // last query value, which is the date on most Daily Charts links.
+    if (new URLSearchParams(window.location.search).get("view") == "Daily Charts") {
 
       document.onkeydown = function(event) {
         switch (event.keyCode) {
@@ -422,6 +427,9 @@ function installKeyAndSwipeEventHandler() {
       }
 
       document.addEventListener('touchstart', e => {
+        // A swipe on a chart wider than the screen scrolls it; not a day change.
+        var chart = e.target.closest && e.target.closest('img[src*="Charts/"]');
+        if (chart && chart.offsetWidth > chart.parentNode.clientWidth) { startTime = 0; return; }
         touchstartX = e.changedTouches[0].screenX;
         touchstartY = e.changedTouches[0].screenY;
         startTime = Date.now();
@@ -430,11 +438,11 @@ function installKeyAndSwipeEventHandler() {
       document.addEventListener('touchend', e => {
         diffX = touchstartX - e.changedTouches[0].screenX;
         diffY = touchstartY - e.changedTouches[0].screenY;
+        if (!startTime) return;
         diffTime = Date.now() - startTime;
         checkDirection();
       });
     }
-  }
 }
 
 installKeyAndSwipeEventHandler();

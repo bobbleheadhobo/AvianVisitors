@@ -582,6 +582,7 @@ if [ "$state_input" = "$auth_state" ] \
 fi
 
 legacy_gate=''
+legacy_surface_paths='/index.php /index.php/* /views.php /views.php/* /play.php /play.php/* /spectrogram.php /spectrogram.php/* /overview.php /overview.php/* /stats.php /stats.php/* /todays_detections.php /todays_detections.php/* /history.php /history.php/* /weekly_report.php /weekly_report.php/* /scripts /scripts/* /Processed /Processed/* /terminal /terminal/* /log /log/* /stats /stats/* /phpsysinfo /phpsysinfo/*'
 legacy_handles=''
 if [ "$AVIAN_REQUIRE_LAN_AUTH" = 1 ]; then
   # Required mode exposes only AvianVisitors' reviewed native controls.
@@ -590,8 +591,23 @@ if [ "$AVIAN_REQUIRE_LAN_AUTH" = 1 ]; then
     respond 404
   }"
 elif [ -n "$hashword" ]; then
-  legacy_gate="  basicauth @legacySurface {
+  # Without a pass the browser is asked for Basic credentials as before. A
+  # request carrying the "avian_classic" pass (set by classic.php for an
+  # unlocked admin session, for browsers and proxies that never show the
+  # Basic box) is checked by classic.php instead.
+  legacy_gate="  @legacyWithPass {
+    path $legacy_surface_paths
+    header Cookie *avian_classic=*
+  }
+  @legacyWithoutPass {
+    path $legacy_surface_paths
+    not header Cookie *avian_classic=*
+  }
+  basicauth @legacyWithoutPass {
     birdnet $hashword
+  }
+  forward_auth @legacyWithPass 127.0.0.1:80 {
+    uri /avian/api/classic.php?check=1
   }"
   legacy_handles="  handle @legacyProcessed {
     respond @executableSource 404
@@ -735,7 +751,7 @@ ${site_overlay_import}  root * $AVIAN_EXTRACTED_ROOT
   # AvianVisitors' session gate. Protect the whole legacy surface with the
   # configured password, or limit it to direct read pages when none exists.
   @legacySurface {
-    path /index.php /index.php/* /views.php /views.php/* /play.php /play.php/* /spectrogram.php /spectrogram.php/* /overview.php /overview.php/* /stats.php /stats.php/* /todays_detections.php /todays_detections.php/* /history.php /history.php/* /weekly_report.php /weekly_report.php/* /scripts /scripts/* /Processed /Processed/* /terminal /terminal/* /log /log/* /stats /stats/* /phpsysinfo /phpsysinfo/*
+    path $legacy_surface_paths
   }
   @legacyAdmin {
     path /index.php /index.php/* /views.php /views.php/* /play.php /play.php/* /spectrogram.php /spectrogram.php/* /overview.php /overview.php/* /stats.php /stats.php/* /todays_detections.php /todays_detections.php/* /history.php /history.php/* /weekly_report.php /weekly_report.php/* /scripts /scripts/* /terminal /terminal/* /log /log/* /stats /stats/* /phpsysinfo /phpsysinfo/*
@@ -795,7 +811,7 @@ $legacy_handles
   # existing checkout during an update, including their source text.
   @unknownAvianApi {
     path /avian/api/*
-    not path /avian/api/archive.php /avian/api/birdnet-api.php /avian/api/birdnet-status.php /avian/api/birdweather.php /avian/api/config.php /avian/api/cutout.php /avian/api/educator-audio-check.php /avian/api/educator-audio.php /avian/api/educators.php /avian/api/export.php /avian/api/generate.php /avian/api/maintenance.php /avian/api/menu.php /avian/api/recording.php /avian/api/spectrogram.php /avian/api/wiki.php
+    not path /avian/api/archive.php /avian/api/birdnet-api.php /avian/api/birdnet-status.php /avian/api/birdweather.php /avian/api/config.php /avian/api/classic.php /avian/api/cutout.php /avian/api/educator-audio-check.php /avian/api/educator-audio.php /avian/api/educators.php /avian/api/export.php /avian/api/generate.php /avian/api/live-listen.php /avian/api/maintenance.php /avian/api/menu.php /avian/api/notifications.php /avian/api/recording.php /avian/api/species-lists.php /avian/api/spectrogram.php /avian/api/station.php /avian/api/wiki.php
   }
   handle @unknownAvianApi {
     respond 404
@@ -903,6 +919,8 @@ $stream_guard
       env AVIAN_FORCE_AUTH 1
       env AVIAN_EXTRACTED_ROOT $AVIAN_EXTRACTED_ROOT
       env AVIAN_STATION_TIMEZONE $AVIAN_STATION_TIMEZONE
+      # live-listen.php relays audio through the proxy as it arrives.
+      flush_interval -1
     }
   }
 

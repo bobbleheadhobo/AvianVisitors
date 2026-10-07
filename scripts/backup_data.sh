@@ -207,7 +207,8 @@ optional=("$birdnet_home/BirdNET-Pi/apprise.txt"
 "$birdnet_home/BirdNET-Pi/scripts/disk_check_exclude.txt"
 "$birdnet_home/BirdNET-Pi/exclude_species_list.txt"
 "$birdnet_home/BirdNET-Pi/confirmed_species_list.txt"
-"$birdnet_home/BirdNET-Pi/include_species_list.txt")
+"$birdnet_home/BirdNET-Pi/include_species_list.txt"
+"$birdnet_home/BirdNET-Pi/whitelist_species_list.txt")
 
 educator_pair=''
 backup_required=()
