@@ -76,3 +76,7 @@ avian/assets/_legacy/
 # to whatever hardware happened to produce them.
 tflite_runtime-*.whl
 requirements_custom.txt
+
+# Impeccable design-review screenshots: regenerated each review and stale
+# after the next UI change. Critiques and design notes stay tracked.
+.impeccable/review/

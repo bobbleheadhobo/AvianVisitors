@@ -118,3 +118,4 @@ function remove() {
 }
 alias rerc="source ~/.bashrc"
 alias vimrc="vim ~/.bashrc"
+export PATH="$HOME/.local/bin:$PATH"
