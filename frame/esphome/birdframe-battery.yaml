@@ -21,7 +21,7 @@ substitutions:
   low_battery_volts: "3.5"
 
 packages:
-  common: !include common.yaml
+  common: !include birdframe/common.yaml
 
 esphome:
   on_boot:
@@ -50,6 +50,7 @@ esphome:
         - delay: 20ms
         - component.update: battery_voltage
         - switch.turn_off: battery_sense_enable
+        - component.update: battery_level
         - lambda: |-
             float v = id(battery_voltage).state;
             // No reading, or USB with no cell attached: not "low".
@@ -65,6 +66,17 @@ esphome:
                   id: check_frame
                   force: !lambda "return id(wake_reason) == birdframe::WAKE_REFRESH || id(wake_reason) == birdframe::WAKE_NAMES;"
               - script.wait: check_frame
+              # Give Home Assistant a moment to connect and take this wake's
+              # readings (battery, status, Wi-Fi); it keeps them while the
+              # frame sleeps. Without Home Assistant this costs at most 10 s.
+              - component.update: wifi_rssi
+              - wait_until:
+                  condition: api.connected
+                  timeout: 10s
+              - if:
+                  condition: api.connected
+                  then:
+                    - delay: 1s
         - if:
             condition:
               lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
@@ -112,8 +124,27 @@ switch:
 sensor:
   - platform: adc
     id: battery_voltage
+    name: Battery voltage
     pin: GPIO1
     attenuation: 12db
     update_interval: never
+    accuracy_decimals: 2
+    device_class: voltage
+    state_class: measurement
+    entity_category: diagnostic
     filters:
       - multiply: 2.0
+  # A rough LiPo level from the resting voltage: 3.3 V empty, 4.2 V full.
+  # Unknown with no cell attached (USB only), as for the low-battery mark.
+  - platform: template
+    id: battery_level
+    name: Battery level
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: never
+    lambda: |-
+      float v = id(battery_voltage).state;
+      if (std::isnan(v) || v <= 2.5f) return NAN;
+      return std::clamp((v - 3.3f) / (4.2f - 3.3f) * 100.0f, 0.0f, 100.0f);
