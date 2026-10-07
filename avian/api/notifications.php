@@ -64,8 +64,12 @@ function notify_json(int $status, array $body): never {
     exit;
 }
 
-/** "discord · discord.com/…" - enough to recognise a target, never its secret. */
+/** "discord webhook 1557…" or "mailto · example.com/…" - enough to recognise
+ *  a target, never its secret (a Discord webhook's ID is not; its token is). */
 function notify_mask(string $url): string {
+    if (preg_match('~\A(?:https://(?:[a-z]+\.)?discord(?:app)?\.com/api/webhooks|discord:/)/(\d{4})\d*/~i', $url, $m)) {
+        return 'discord webhook ' . $m[1] . '…';
+    }
     $scheme = strtolower((string)strtok($url, ':'));
     $host = (string)(parse_url($url, PHP_URL_HOST) ?: '');
     return $scheme . ($host !== '' ? ' · ' . $host . '/…' : '');
@@ -161,6 +165,7 @@ if ($action === 'test') {
         '$sciname' => $d['Sci_Name'], '$comname' => $d['Com_Name'],
         '$confidencepct' => (string)round($d['Confidence'] * 100), '$confidence' => (string)$d['Confidence'],
         '$listenurl' => $listen, '$friendlyurl' => '[Listen here](' . $listen . ')',
+        '$birdurl' => $site . '/#sci=' . rawurlencode($d['Sci_Name']) . '&rec=' . rawurlencode(basename($d['File_Name'])),
         '$date' => $d['Date'], '$time' => $d['Time'], '$week' => date('W', strtotime($d['Date'])),
         '$latitude' => (string)($conf['LATITUDE'] ?? ''), '$longitude' => (string)($conf['LONGITUDE'] ?? ''),
         '$cutoff' => (string)($conf['CONFIDENCE'] ?? ''), '$sens' => (string)($conf['SENSITIVITY'] ?? ''),
@@ -170,6 +175,7 @@ if ($action === 'test') {
     $text = $template;
     foreach ($fill as $k => $v) $text = str_replace($k, $v, $text);   // in the notifier's order
     $title = html_entity_decode((string)($conf['APPRISE_NOTIFICATION_TITLE'] ?? 'BirdNET-Pi'), ENT_QUOTES);
+    foreach ($fill as $k => $v) $title = str_replace($k, $v, $title);   // the notifier fills titles too
     $out = [];
     $rc = 0;
     exec(escapeshellarg($appriseBin)

@@ -362,6 +362,24 @@ for runtime_file in \
   chmod 0660 "$runtime_file"
 done
 
+# The bird photo caches behind /api/v1/image (classic pages, notification
+# photos). Caddy can no longer create files in scripts/, so seed the schema
+# from common.php here; PHP keeps its journal in memory and only needs the
+# file itself writable.
+for image_cache in "$repo_dir/scripts/wikipedia.db" "$repo_dir/scripts/flickr.db"; do
+  if [ -L "$image_cache" ]; then
+    echo "Unsafe image cache: $image_cache" >&2
+    exit 1
+  fi
+  if [ ! -e "$image_cache" ]; then
+    sqlite3 "$image_cache" \
+      'CREATE TABLE images (sci_name VARCHAR(63) NOT NULL PRIMARY KEY, com_en_name VARCHAR(63) NOT NULL, image_url TEXT NOT NULL, title TEXT NOT NULL, id TEXT NOT NULL UNIQUE, author_url TEXT NOT NULL, license_url TEXT NOT NULL, date_created DATE);
+       CREATE TABLE source (ID INTEGER PRIMARY KEY, email VARCHAR(63), uid VARCHAR(63), date_created DATE);'
+  fi
+  chown "$birdnet_user:$runtime_group" "$image_cache"
+  chmod 0660 "$image_cache"
+done
+
 rm -f "$sudoers_temp"
 trap - EXIT
 echo "security refresh: ok"

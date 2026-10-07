@@ -282,6 +282,10 @@ class ImageProvider {
       $this->create_tables();
     }
     $this->db->busyTimeout(1000);
+    // The web server may write this cache file but not the scripts/
+    // directory around it, so SQLite cannot create a -journal beside it.
+    // Keep the journal in memory; losing a cache row on a crash is fine.
+    $this->db->exec('PRAGMA journal_mode = MEMORY');
   }
 
   protected function create_tables() {
@@ -455,15 +459,24 @@ class Wikipedia extends ImageProvider {
     if ($data == false or !isset($data['originalimage']))
       return;
 
-    $image_name = substr($data['originalimage']['source'], strrpos($data['originalimage']['source'], '/') + 1);
-    $metadata = $this->get_json("https://commons.wikimedia.org/w/api.php?action=query&titles=File:$image_name&prop=imageinfo&iiprop=extmetadata|size&format=json");
+    // Wikipedia now hands back a sized thumbnail with tracking parameters,
+    // .../wikipedia/commons/thumb/3/3e/Name.jpg/3840px-Name.jpg?utm_source=...
+    // (or /wikipedia/en/thumb/... for a file kept on English Wikipedia).
+    // Reduce it to the original file so its metadata can be found.
+    $image_url = strtok($data['originalimage']['source'], '?');
+    if (preg_match('#^https://[^/]+(/wikipedia/[a-z-]+)/thumb(/[0-9a-f]/[0-9a-f]{2}/[^/]+)/[^/]+$#', $image_url, $m))
+      $image_url = 'https://upload.wikimedia.org' . $m[1] . $m[2];
+    $image_name = substr($image_url, strrpos($image_url, '/') + 1);
+    // English Wikipedia's API answers for its own files and for Commons'.
+    $metadata = $this->get_json("https://en.wikipedia.org/w/api.php?action=query&titles=File:" . rawurlencode(rawurldecode($image_name)) . "&prop=imageinfo&iiprop=extmetadata|size&format=json");
     if ($metadata == false or !isset($metadata['query']['pages']))
       return;
 
-    $image_url = $data['originalimage']['source'];
     $title = $data['title'];
 
     foreach ($metadata['query']['pages'] as $page) {
+      if (!isset($page['imageinfo'][0]))
+        return;
       $details = $page['imageinfo']['0']['extmetadata'];
       $author = $details['Artist']['value'];
       $matches = [];

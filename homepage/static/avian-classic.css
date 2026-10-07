@@ -492,8 +492,12 @@ button:hover { color: var(--ink); }
   width: 20px !important; height: 20px !important;
   padding: 6px; box-sizing: content-box;
 }
-/* Delete sits at the bottom of the row, well away from "open". */
-.copyimage[style*="right:45px"] { top: auto; bottom: 8px; right: 6px !important; }
+/* Today's Detections: delete sits at the bottom of the row, well away from
+   "open". (Recordings' "keep" icon shares the right:45px offset, hence the
+   onclick match.) */
+.copyimage[onclick^="deleteDetection"][style*="right:45px"] { top: auto; bottom: 8px; right: 6px !important; }
+/* A recording whose audio is gone, in the player's place. */
+.recording-missing { margin: 10px 0 0 92px; font: 12px/1.4 var(--mono); color: var(--quiet); }
 .centered_image_container + br { display: none; }
 pre:empty { display: none; }
 .custom-audio-player { margin: 10px 0 0 92px; max-width: 520px; }
@@ -823,6 +827,15 @@ dialog::backdrop {
   .views .centered_image_container { padding: 0 52px 0 72px; min-height: 60px; }
   .centered_image_container img.img1 { width: 60px; height: 60px; }
   .custom-audio-player { margin-left: 0; }
+  .recording-missing { margin-left: 0; }
+  /* Recordings (play.php): delete, change species, keep and frequency
+     shift. Their inline right: offsets suit a wide row but land on the
+     centered date here, so they form one row along the top instead. */
+  td.rec-actions { padding-top: 50px !important; }
+  td.rec-actions > .copyimage { top: 10px; }
+  td.rec-actions > .copyimage[onclick^="deleteDetection"] { right: 126px !important; }
+  td.rec-actions > .copyimage[onclick^="changeDetection"] { right: 86px !important; }
+  td.rec-actions > .copyimage[onclick^="toggleLock"] { right: 46px !important; }
   .systemcontrols { max-width: none; }
   .settingstable td { padding: 18px 2px; }
 }

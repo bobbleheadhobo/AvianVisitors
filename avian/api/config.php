@@ -24,6 +24,10 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/admin-auth.php';
 avian_require_admin();
 
+// The $variables scripts/utils/notifications.py fills in a notification
+// title; the only $ a saved title may hold.
+const NOTIFY_TITLE_VARS = 'comname|sciname|confidencepct|confidence|date|time|week|reason';
+
 // Path layout: /home/{USER}/BirdNET-Pi/avian/api/config.php
 $BIRDNETPI_DIR = dirname(__DIR__, 2);
 $CONF_PATH     = '/etc/birdnet/birdnet.conf';
@@ -265,15 +269,19 @@ if ($method === 'POST') {
         } elseif ($spec['type'] === 'title') {
             if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
             $v = trim($v);
+            // birdnet.conf is sourced by shell scripts, so a bare $ could
+            // expand ${…} or $(…). The notifier's own $variables are plain
+            // names, which a shell can only read, so those alone may stay.
+            $plain = preg_replace('/\$(?:' . NOTIFY_TITLE_VARS . ')\b/', '', $v);
             if (strlen($v) > $spec['maxlen'] || !mb_check_encoding($v, 'UTF-8')
-                || preg_match('/[\x00-\x1f\x7f`"\\\\$]/', $v)) {
-                $errors[$k] = 'plain text only, without $ " ` or \\'; continue;
+                || preg_match('/[\x00-\x1f\x7f`"\\\\$]/', $plain)) {
+                $errors[$k] = 'plain text and $variables like $comname, without other $ " ` or \\'; continue;
             }
         } elseif ($spec['type'] === 'url') {
             if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
             $v = rtrim(trim($v), '/');
             if ($v !== '' && (strlen($v) > $spec['maxlen']
-                || !preg_match('~\Ahttps?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?\z~', $v))) {
+                || !preg_match('#\Ahttps?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?\z#', $v))) {
                 $errors[$k] = 'an address like https://birds.example.com'; continue;
             }
         } elseif ($spec['type'] === 'secret') {
