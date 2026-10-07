@@ -414,11 +414,17 @@ class LanAdminAuthStaticTests(unittest.TestCase):
         items = payload["items"]
         self.assertEqual(
             [item["label"] for item in items],
-            ["settings", "system", "logs", "tools"],
+            ["settings", "system", "logs", "tools", "classic birdnet-pi"],
         )
-        self.assertTrue(all(item["native"] is True for item in items))
-        self.assertTrue(all("full" not in item for item in items))
-        self.assertEqual(items[-1]["href"], "/#admin=tools")
+        native, classic = items[:-1], items[-1]
+        self.assertTrue(all(item["native"] is True for item in native))
+        self.assertTrue(all("full" not in item for item in native))
+        self.assertEqual(native[-1]["href"], "/#admin=tools")
+        # The LAN-password setting is off in this state file, so the
+        # stock pages are linked as a full-width, non-native item.
+        self.assertIs(classic["native"], False)
+        self.assertIs(classic["full"], True)
+        self.assertEqual(classic["href"], "/avian/api/classic.php?open=1")
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is unavailable")
     def test_frontend_auth_runtime_suite(self):
