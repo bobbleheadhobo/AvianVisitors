@@ -68,8 +68,15 @@ else
       ;;
   esac
   CAPTURE_DEVICE=${REC_CARD:-default}
+  # ALSA packet timestamps jitter (more so through dsnoop), and the mp3 muxer
+  # logs "non monotonically increasing dts" many times a second. Rebuild them
+  # from the sample count. One -af chain, since a second -af would replace it.
+  ALSA_FILTER='asetpts=N/SR/TB'
+  if [ "$ACTIVATE_FREQSHIFT_IN_LIVESTREAM" == "true" ]; then
+    ALSA_FILTER="${ALSA_FILTER},rubberband=pitch=${FREQSHIFT_LO}/${FREQSHIFT_HI}"
+  fi
 	ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -thread_queue_size 2048 -f alsa -i "${CAPTURE_DEVICE}" -acodec libmp3lame \
     -b:a 320k -ac ${CHANNELS} -content_type 'audio/mpeg' \
-    ${FREQSHIFT_OPT} \
+    -af "${ALSA_FILTER}" \
     -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream -re
 fi
