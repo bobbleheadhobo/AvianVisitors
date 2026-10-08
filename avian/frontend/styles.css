@@ -4688,6 +4688,13 @@ body.av-local #dd-items  { display: block; }
   -webkit-mask-repeat: repeat;       mask-repeat: repeat;
   mix-blend-mode: lighten;
 }
+/* Timeline bars share one screen-anchored sheet of texture; apt.js
+   (pinTimelineTexture) sets --tex-x/--tex-y to each bar's negated screen
+   position, so the dots hold still while the bars scroll across them. */
+.stats-tl-square::after {
+  -webkit-mask-position: var(--tex-x, 0) var(--tex-y, 0);
+  mask-position: var(--tex-x, 0) var(--tex-y, 0);
+}
 :root[data-theme="dark"] .stats-tl-square::after,
 :root[data-theme="dark"] .heatmap-table td[style*="background"]::after { mix-blend-mode: darken; }
 /* The picker is an affordance, not printed content, so it sits over the

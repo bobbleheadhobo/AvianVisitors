@@ -3464,8 +3464,39 @@
       + gridlines + cols + xaxis
       + '</div>'
       + note;
+    pinTimelineTexture();
     if (animate) playStatsEntrance();
   }
+
+  // The bars are windows onto one still sheet of ink texture: each bar's
+  // texture is offset by the bar's own position on screen, so scrolling
+  // the chart (or the page) slides the bars across a pattern that stays
+  // put. CSS can't pin a mask to the viewport (and iOS ignores
+  // background-attachment: fixed), so this re-anchors once per frame.
+  var timelineTextureRaf = 0;
+  function pinTimelineTexture() {
+    if (!timelineTextureRaf) timelineTextureRaf = requestAnimationFrame(pinTimelineTextureNow);
+  }
+  function pinTimelineTextureNow() {
+    timelineTextureRaf = 0;
+    var tl = document.getElementById('statsTimeline');
+    if (!tl) return;
+    var box = tl.getBoundingClientRect();
+    if (!box.width || box.right < 0 || box.left > window.innerWidth) return;   // stats view off screen
+    var bars = tl.querySelectorAll('.stats-tl-square');
+    // Read every position first, then write, so the writes never force a
+    // layout between reads (mask-position doesn't affect layout anyway).
+    var rects = [].map.call(bars, function (bar) { return bar.getBoundingClientRect(); });
+    [].forEach.call(bars, function (bar, i) {
+      bar.style.setProperty('--tex-x', (-rects[i].left).toFixed(1) + 'px');
+      bar.style.setProperty('--tex-y', (-rects[i].top).toFixed(1) + 'px');
+    });
+  }
+  // Capturing on the document catches the timeline's own sideways scroll
+  // as well as the page's; transitionend covers the view slide.
+  document.addEventListener('scroll', pinTimelineTexture, { capture: true, passive: true });
+  document.addEventListener('transitionend', pinTimelineTexture, true);
+  window.addEventListener('resize', pinTimelineTexture);
 
   // Cross-highlight between the timeline squares and the right-side
   // species lists. Delegated off the stats view so it survives the
