@@ -15,7 +15,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r240">
+  <link rel="stylesheet" href="./styles.css?v=r241">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -149,11 +149,13 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
           </div>
           <div class="stats-timeline" id="statsTimeline">
             <!-- Editorial detection timeline. Each column = one species
-                 from the current time window. The black square's vertical
-                 position encodes detection count; the species name + sci
-                 name sit rotated below. Vertical hairlines separate
-                 columns. Hard-rendered by renderStatsTimeline(). -->
+                 from the current time window: a bar up to its detection
+                 count, the count on top, the names rotated above. Columns
+                 run in last-heard order. Rendered by drawHistograms(). -->
           </div>
+          <!-- Outside the timeline so it stays put while a phone scrolls the
+               chart sideways. -->
+          <div class="stats-tl-xtitle" id="statsTimelineXTitle" aria-hidden="true">last heard &rarr;</div>
           <!-- Species-by-hour ledger for the globally selected Stats date.
                Rendered by renderHourly(); hidden until its icon. -->
           <div class="stats-heatmap" id="statsHeatmap">
@@ -396,6 +398,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r277"></script>
+<script src="./apt.js?v=r278"></script>
 </body>
 </html>

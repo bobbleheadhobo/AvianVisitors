@@ -3348,6 +3348,8 @@
     var tl = document.getElementById('statsTimeline');
     if (!tl) return;
     var all = ((DATA.statsRecent && DATA.statsRecent.species) || []).slice();
+    var xTitle = document.getElementById('statsTimelineXTitle');
+    if (xTitle) xTitle.hidden = !all.length;
     if (!all.length) {
       tl.innerHTML = '<div class="stats-data-empty window-empty">' + EMPTY_WINDOW_COPY + '</div>';
       return;
@@ -3442,7 +3444,8 @@
       var barTop = 'max(' + MIN_BAR + 'px, ' + ((n / maxN) * SPAN * 100).toFixed(2) + '%)';   // bar height = quantity
       cols += ''
         + '<div class="stats-tl-col" data-sci="' + s.sci + '" style="left:' + centerPct.toFixed(3) + '%;width:' + colW.toFixed(2) + 'px">'
-        + '<div class="stats-tl-square" style="bottom:0;width:' + barW.toFixed(1) + 'px;height:' + barTop + '"></div>'
+        + '<div class="stats-tl-square" style="bottom:0;width:' + barW.toFixed(1) + 'px;height:' + barTop
+        + ';--tex-x:' + ((i + 0.5) / C * plotW - barW / 2).toFixed(1) + 'px"></div>'
         + '<span class="stats-tl-count" style="bottom:calc(' + barTop + ' + 3px)">' + n.toLocaleString() + '</span>'
         + '<div class="stats-tl-label" style="bottom:calc(' + barTop + ' + ' + (COUNT_H + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
         + '</div>';
@@ -3468,34 +3471,29 @@
     if (animate) playStatsEntrance();
   }
 
-  // The bars are windows onto one still sheet of ink texture: each bar's
-  // texture is offset by the bar's own position on screen, so scrolling
-  // the chart (or the page) slides the bars across a pattern that stays
-  // put. CSS can't pin a mask to the viewport (and iOS ignores
-  // background-attachment: fixed), so this re-anchors once per frame.
-  var timelineTextureRaf = 0;
+  // The bars are windows onto one still sheet of ink texture: scrolling the
+  // chart (or the page) slides the bars across a pattern that holds still.
+  // styles.css drives this with scroll-linked animations, which the browser
+  // keeps in step with the scroll itself. A script nudging the texture on
+  // scroll events lags a frame behind and shimmers. The animations only
+  // need each scroller's full travel, measured here when it can change.
   function pinTimelineTexture() {
-    if (!timelineTextureRaf) timelineTextureRaf = requestAnimationFrame(pinTimelineTextureNow);
-  }
-  function pinTimelineTextureNow() {
-    timelineTextureRaf = 0;
     var tl = document.getElementById('statsTimeline');
-    if (!tl) return;
-    var box = tl.getBoundingClientRect();
-    if (!box.width || box.right < 0 || box.left > window.innerWidth) return;   // stats view off screen
-    var bars = tl.querySelectorAll('.stats-tl-square');
-    // Read every position first, then write, so the writes never force a
-    // layout between reads (mask-position doesn't affect layout anyway).
-    var rects = [].map.call(bars, function (bar) { return bar.getBoundingClientRect(); });
-    [].forEach.call(bars, function (bar, i) {
-      bar.style.setProperty('--tex-x', (-rects[i].left).toFixed(1) + 'px');
-      bar.style.setProperty('--tex-y', (-rects[i].top).toFixed(1) + 'px');
-    });
+    var page = document.getElementById('v1');
+    if (!tl || !page) return;
+    tl.style.setProperty('--pin-x', Math.max(0, tl.scrollWidth - tl.clientWidth) + 'px');
+    tl.style.setProperty('--pin-y', Math.max(0, page.scrollHeight - page.clientHeight) + 'px');
   }
-  // Capturing on the document catches the timeline's own sideways scroll
-  // as well as the page's; transitionend covers the view slide.
-  document.addEventListener('scroll', pinTimelineTexture, { capture: true, passive: true });
-  document.addEventListener('transitionend', pinTimelineTexture, true);
+  if (window.ResizeObserver) {
+    // The stats page's height changes as its lists and ledger render.
+    (function () {
+      var page = document.getElementById('v1');
+      if (!page) return;
+      var observer = new ResizeObserver(function () { pinTimelineTexture(); });
+      observer.observe(page);
+      [].forEach.call(page.children, function (child) { observer.observe(child); });
+    })();
+  }
   window.addEventListener('resize', pinTimelineTexture);
 
   // Cross-highlight between the timeline squares and the right-side
@@ -4252,6 +4250,8 @@
       b.setAttribute('aria-current', b.dataset.chart === name ? 'true' : 'false');
     });
     statsTimelineEl.style.display = name === 'hourly' ? 'none' : '';
+    var timelineXTitle = document.getElementById('statsTimelineXTitle');
+    if (timelineXTitle) timelineXTitle.style.display = name === 'hourly' ? 'none' : '';
     statsHeatmapEl.style.display = name === 'hourly' ? 'flex' : 'none';
     if (save) writeLS('bird:chart', name);
     syncPill(chartPickEl);

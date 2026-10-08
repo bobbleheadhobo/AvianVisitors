@@ -1624,6 +1624,15 @@
     transition: color 130ms ease;
   }
   .stats-tl-col.sync-hi .stats-tl-count { color: var(--accent); }
+  /* X-axis title. Lines up with the plot's left edge (past the y-axis
+     gutter); the arrow says time runs left to right. */
+  .stats-tl-xtitle {
+    flex: 0 0 auto;
+    padding: 4px 0 0 32px;
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
+    letter-spacing: .04em;
+  }
+  .stats-tl-xtitle[hidden] { display: none; }
   .stats-tl-col.sync-hi .stats-tl-label {
     transform: rotate(-90deg) translateY(55%) scale(1.1);
   }
@@ -4688,13 +4697,32 @@ body.av-local #dd-items  { display: block; }
   -webkit-mask-repeat: repeat;       mask-repeat: repeat;
   mix-blend-mode: lighten;
 }
-/* Timeline bars share one screen-anchored sheet of texture; apt.js
-   (pinTimelineTexture) sets --tex-x/--tex-y to each bar's negated screen
-   position, so the dots hold still while the bars scroll across them. */
+/* Timeline bars are windows onto one sheet of texture that holds still
+   while the chart or the page scrolls. Each bar's texture layer reaches
+   back the full scroll travel (--pin-x/--pin-y, measured by
+   pinTimelineTexture in apt.js) and a scroll-linked animation slides it
+   forward exactly as far as the scroller has moved, so on screen it never
+   moves. A transform runs in step with the scroll, unlike a script on
+   scroll events. --tex-x lines every bar's dots up on one shared grid,
+   anchored to the axis line. Browsers without scroll timelines keep the
+   texture riding along with each bar. */
 .stats-tl-square::after {
-  -webkit-mask-position: var(--tex-x, 0) var(--tex-y, 0);
-  mask-position: var(--tex-x, 0) var(--tex-y, 0);
+  -webkit-mask-position: calc(var(--pin-x, 0px) - var(--tex-x, 0px)) 100%;
+  mask-position: calc(var(--pin-x, 0px) - var(--tex-x, 0px)) 100%;
 }
+@supports (animation-timeline: scroll()) {
+  #v1 { scroll-timeline: --stats-page y; }
+  .stats-timeline { scroll-timeline: --stats-chart x; }
+  .stats-tl-square { overflow: hidden; }
+  .stats-tl-square::after {
+    left: calc(-1 * var(--pin-x, 0px));
+    top: calc(-1 * var(--pin-y, 0px));
+    animation: stats-tex-pin-x linear both, stats-tex-pin-y linear both;
+    animation-timeline: --stats-chart, --stats-page;
+  }
+}
+@keyframes stats-tex-pin-x { from { translate: 0 0; } to { translate: var(--pin-x, 0px) 0; } }
+@keyframes stats-tex-pin-y { from { transform: translateY(0); } to { transform: translateY(var(--pin-y, 0px)); } }
 :root[data-theme="dark"] .stats-tl-square::after,
 :root[data-theme="dark"] .heatmap-table td[style*="background"]::after { mix-blend-mode: darken; }
 /* The picker is an affordance, not printed content, so it sits over the
