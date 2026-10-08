@@ -1243,6 +1243,16 @@
   .frame-preview-side { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
   .frame-preview-side .label { font: 12.5px ui-serif, Georgia, serif; color: var(--ink); }
   .frame-preview-side .hint.warn { color: var(--ink); }
+  .frame-online {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 9px ui-monospace, Menlo, monospace; letter-spacing: 0.04em; color: var(--ink-2);
+  }
+  .frame-online i {
+    width: 7px; height: 7px; border-radius: 999px; flex: 0 0 auto;
+    background: var(--ink-soft); opacity: 0.5;
+  }
+  .frame-online[data-state="online"] i { background: var(--ok); opacity: 1; }
+  .frame-online[data-state="offline"] i { background: var(--bad); opacity: 1; }
   .frame-preview-side .chip {
     margin-top: 8px;
     display: inline-flex; align-items: center; justify-content: center;

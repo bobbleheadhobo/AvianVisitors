@@ -53,6 +53,13 @@ function frame_export_dir(string $confPath): string {
 
 /** Check one value against its schema entry; returns [ok, clean value or error]. */
 function frame_clean(array $spec, $value): array {
+    if ($spec['type'] === 'host') {
+        // A hostname or IPv4 address, nothing that could reach past the LAN probe.
+        if (!is_string($value) || !preg_match('/\A[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\z/', trim($value))) {
+            return [false, 'must be a hostname or IP address'];
+        }
+        return [true, trim($value)];
+    }
     if ($spec['type'] === 'string') {
         if (!is_string($value) || !mb_check_encoding($value, 'UTF-8')) return [false, 'must be text'];
         $value = trim($value);
@@ -76,6 +83,19 @@ function frame_write(string $dir, string $name, string $text): bool {
     return @rename($tmp, $dir . '/' . $name);
 }
 
+/** Whether the frame answers on its ESPHome API port. A battery build that
+ *  is deep asleep reads as offline between its wakes. */
+function frame_online(string $host, int $port): bool {
+    $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return false;
+    $sock = @fsockopen($ip, $port, $errno, $errstr, 1.0);
+    if (!$sock) return false;
+    fclose($sock);
+    return true;
+}
+
+$schemaDoc = json_decode((string)@file_get_contents($schemaFile), true);
+$device = is_array($schemaDoc['device'] ?? null) ? $schemaDoc['device'] : [];
 $schema = frame_schema($schemaFile);
 if (!$schema) frame_json(500, ['ok' => false, 'error' => 'frame/web_settings.json is missing']);
 $ready = is_dir($stateDir) && is_writable($stateDir);
@@ -92,6 +112,7 @@ if ($method === 'GET') {
         $values[$key] = $ok ? $clean : $spec['default'];
     }
     $meta = json_decode((string)@file_get_contents(frame_export_dir($confPath) . '/frame.json'), true);
+    $online = isset($_GET['online']) ? frame_online((string)$values['device_host'], (int)($device['port'] ?? 6053)) : null;
     frame_json(200, [
         'ok' => true,
         'ready' => $ready,
@@ -99,6 +120,8 @@ if ($method === 'GET') {
         'values' => $values,
         'defaults' => $defaults,
         'limits' => $schema,
+        'online' => $online,
+        'poll_minutes' => (int)($device['poll_minutes'] ?? 3),
         'frame' => is_array($meta) ? [
             'updated' => (int)($meta['updated'] ?? 0),
             'sig' => (string)($meta['sig_names'] ?? $meta['sig'] ?? ''),

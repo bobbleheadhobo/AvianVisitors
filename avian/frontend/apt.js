@@ -12761,12 +12761,14 @@
       + '  </a>'
       + '  <div class="frame-preview-side">'
       + '    <span class="label">Frame</span>'
+      + '    <span class="frame-online" data-frame-online data-state="checking"><i aria-hidden="true"></i><span>checking...</span></span>'
       + '    <span class="hint" data-frame-status>' + adminEsc(frameAgo(f.updated)) + '</span>'
       + '    <span class="hint">an approximation of the six inks</span>'
       + (frame.ready ? '' : '<span class="hint warn">' + adminEsc(frame.hint || '') + '</span>')
       + '    <button type="button" class="chip" data-frame-refresh' + (frame.ready ? '' : ' disabled') + '>refresh now</button>'
       + '  </div>'
       + '</div>'
+      + settingsText('frame.device_host', 'Frame address', v.device_host, lim.device_host.maxlen)
       + settingsText('frame.shoot_title', 'Frame title', v.shoot_title, lim.shoot_title.maxlen)
       + settingsText('frame.shoot_subtitle', 'Frame subtitle', v.shoot_subtitle, lim.shoot_subtitle.maxlen)
       + slider('paper_warmth', 'Background warmth', 'share of the white dotted yellow: 0 is white, 0.12 cream', 0.01, 2)
@@ -12786,6 +12788,30 @@
     var refresh = section.querySelector('[data-frame-refresh]');
     var last = frame.frame.updated || 0;
     var pollT = null;
+    var poll_minutes = frame.poll_minutes || 3;
+    var pickup = 'the frame picks it up within ' + poll_minutes + ' min';
+    // Online: whether the frame answers on its ESPHome API port, checked by
+    // the station (a probe can take a second, so not on the page load).
+    var online = section.querySelector('[data-frame-online]');
+    var onlineT = null;
+    function checkOnline() {
+      clearTimeout(onlineT);
+      if (!section.isConnected) return;
+      adminJson('./avian/api/frame.php?online=1').then(function (j) {
+        if (!section.isConnected) return;
+        var up = !!j.online;
+        online.setAttribute('data-state', up ? 'online' : 'offline');
+        online.querySelector('span').textContent = up
+          ? 'online at ' + j.values.device_host
+          : 'offline: not answering at ' + j.values.device_host;
+      }).catch(function () {
+        online.setAttribute('data-state', 'offline');
+        online.querySelector('span').textContent = 'status unavailable';
+      }).then(function () {
+        if (section.isConnected) onlineT = setTimeout(checkOnline, 60000);
+      });
+    }
+    checkOnline();
     // A render takes about a minute (it screenshots the collage first), so
     // watch the public frame.json until it moves, then swap in the preview.
     function poll(deadline) {
@@ -12803,8 +12829,9 @@
           if (meta && meta.updated > last) {
             last = meta.updated;
             img.src = './frame/preview-names.png?v=' + encodeURIComponent(meta.sig_names || meta.sig || meta.updated);
-            status.textContent = frameAgo(meta.updated);
+            status.textContent = frameAgo(meta.updated) + '; ' + pickup;
             if (refresh) refresh.disabled = false;
+            checkOnline();
             return;
           }
           pollT = setTimeout(function () { poll(deadline); }, 5000);
