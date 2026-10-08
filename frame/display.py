@@ -25,7 +25,7 @@ import time
 import urllib.request
 from datetime import datetime
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 try:
     import tomllib
@@ -336,23 +336,75 @@ def _ink_palette(inks):
 NEUTRAL_CHROMA = 28  # max-min channel spread below which a pixel is grey
 
 
+def tune_for_inks(img):
+    """Push the picture toward what six inks can show before dithering: more
+    saturation and contrast so most pixels land near a single ink and need
+    less mixing, and a light sharpen to keep feather detail through the grain."""
+    img = ImageEnhance.Color(img).enhance(1.35)
+    img = ImageEnhance.Contrast(img).enhance(1.12)
+    return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=70, threshold=2))
+
+
+# (dx, dy) neighbours, each taking 1/8 of the error. Atkinson spreads only 6/8
+# of it, so flat areas settle on a single ink instead of a busy dot pattern,
+# which reads cleaner on e-paper than Floyd-Steinberg.
+_ATKINSON = ((1, 0), (2, 0), (-1, 1), (0, 1), (1, 1), (0, 2))
+
+
+def _atkinson(rgb, inks):
+    """Serpentine Atkinson dither of `rgb` onto `inks`; returns a P image
+    indexing `inks` in order. Plain Python, as the server has no numpy."""
+    w, h = rgb.size
+    data = rgb.tobytes()
+    r, g, b = [float(v) for v in data[0::3]], [float(v) for v in data[1::3]], [float(v) for v in data[2::3]]
+    out = bytearray(w * h)
+    nearest = {}
+    for y in range(h):
+        step = -1 if y % 2 else 1
+        for x in (range(w - 1, -1, -1) if step < 0 else range(w)):
+            i = y * w + x
+            pr = min(255.0, max(0.0, r[i]))
+            pg = min(255.0, max(0.0, g[i]))
+            pb = min(255.0, max(0.0, b[i]))
+            key = (int(pr) >> 2, int(pg) >> 2, int(pb) >> 2)
+            k = nearest.get(key)
+            if k is None:
+                k = min(range(len(inks)), key=lambda j: (inks[j][0] - pr) ** 2
+                        + (inks[j][1] - pg) ** 2 + (inks[j][2] - pb) ** 2)
+                nearest[key] = k
+            out[i] = k
+            ir, ig, ib = inks[k]
+            er, eg, eb = (pr - ir) / 8, (pg - ig) / 8, (pb - ib) / 8
+            for dx, dy in _ATKINSON:
+                xx, yy = x + dx * step, y + dy
+                if 0 <= xx < w and yy < h:
+                    j = yy * w + xx
+                    r[j] += er
+                    g[j] += eg
+                    b[j] += eb
+    img = Image.frombytes("P", (w, h), bytes(out))
+    img.putpalette(_ink_palette(inks).getpalette())
+    return img
+
+
 def dither_spectra6(img):
-    """Floyd-Steinberg onto the approximate real inks; returns a P image whose
-    indexes 0-5 are SPECTRA6 order. Dithering against what the panel actually
-    shows, not pure RGB, keeps the paper tone and muted colours honest.
+    """Tune, then Atkinson-dither onto the approximate real inks; returns a P
+    image whose indexes 0-5 are SPECTRA6 order. Dithering against what the
+    panel actually shows, not pure RGB, keeps the paper tone and muted colours
+    honest.
 
     Grey pixels (text, outlines, antialiasing) dither on paper and black only:
     against the full palette a mid grey sits nearer the dark blue ink than
     black, which turns thin type and bird names blue and ragged."""
-    rgb = img.convert("RGB")
-    colour = rgb.quantize(palette=_ink_palette(SPECTRA6), dither=Image.Dither.FLOYDSTEINBERG)
+    rgb = tune_for_inks(img.convert("RGB"))
+    colour = _atkinson(rgb, SPECTRA6)
     r, g, b = rgb.split()
     hi = ImageChops.lighter(ImageChops.lighter(r, g), b)
     lo = ImageChops.darker(ImageChops.darker(r, g), b)
     grey = ImageChops.subtract(hi, lo).point(lambda p: 255 if p < NEUTRAL_CHROMA else 0)
     if not grey.getbbox():
         return colour
-    mono = rgb.quantize(palette=_ink_palette(SPECTRA6[:2]), dither=Image.Dither.FLOYDSTEINBERG)
+    mono = _atkinson(rgb, SPECTRA6[:2])
     # Both images index paper as 0 and black as 1, so they composite directly.
     return Image.composite(mono, colour, grey)
 
