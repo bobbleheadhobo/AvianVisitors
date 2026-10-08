@@ -68,7 +68,7 @@ else
       ;;
   esac
   CAPTURE_DEVICE=${REC_CARD:-default}
-	ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -f alsa -i "${CAPTURE_DEVICE}" -acodec libmp3lame \
+	ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -thread_queue_size 2048 -f alsa -i "${CAPTURE_DEVICE}" -acodec libmp3lame \
     -b:a 320k -ac ${CHANNELS} -content_type 'audio/mpeg' \
     ${FREQSHIFT_OPT} \
     -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream -re
