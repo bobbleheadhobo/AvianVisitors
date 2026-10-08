@@ -14129,8 +14129,9 @@
       // The list lives in the postcard's collapsed "Recordings" section.
       var section = row.closest('details');
       if (section && !section.open) section.open = true;
-      var toggle = row.querySelector('.rec-row-toggle');
-      if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+      // Expand without playing: this runs from a link, not a tap, so the
+      // browser would block the audio anyway.
+      setRecordingExpanded(row, true);
       // Scroll once the section and the row have laid out (and again after
       // the postcard's own entrance settles).
       requestAnimationFrame(function () { row.scrollIntoView({ block: 'center' }); });
@@ -14759,7 +14760,19 @@
     if (ev.target.closest('.rec-spectro-scrub, .rec-loop-handle')) return;
     var toggle = ev.target.closest('.rec-row-toggle');
     var row = toggle && toggle.closest('.rec-row');
-    if (row) setRecordingExpanded(row, !row.classList.contains('expanded'));
+    if (!row) return;
+    // Opening a row plays it: one tap expands, draws the spectrogram and
+    // starts the audio. play() must run inside this tap for mobile browsers
+    // to allow it, so it starts alongside the spectrogram, not after it.
+    if (row.classList.contains('expanded')) {
+      setRecordingExpanded(row, false);
+      return;
+    }
+    // One recording open at a time, now that opening one plays it.
+    [].forEach.call(modalRecordings.querySelectorAll('.rec-row.expanded'), function (other) {
+      setRecordingExpanded(other, false);
+    });
+    playModalRecording(row);
   });
 
   // The spectrogram is the scrub surface. Horizontal pointer motion seeks;
@@ -15378,6 +15391,9 @@
   }
   function closePostcard() {
     if (!postcardModal || postcardModal.getAttribute('aria-hidden') === 'true') return;
+    // Silence the recording as the postcard starts closing, not after the
+    // close animation hides it.
+    stopModalAudio();
     var drawerSheet = postcardDrawerSheet();
     var drawerDrivenClose = postcardModal.classList.contains('is-drawer-closing') ||
       (drawerSheet && drawerSheet.classList.contains('is-drawer-closing'));
