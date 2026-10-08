@@ -30,10 +30,27 @@ if [ "$LOGGING_LEVEL" == "info" ] || [ "$LOGGING_LEVEL" == "debug" ];then
   set -x
 fi
 
-FREQSHIFT_OPT=''
+# One rubberband filter for both the RTSP and ALSA paths. A missing or
+# malformed bound would break the whole filtergraph, so skip the shift then.
+FREQSHIFT_FILTER=''
 if [ "$ACTIVATE_FREQSHIFT_IN_LIVESTREAM" == "true" ]; then
-  FREQSHIFT_OPT='-af rubberband=pitch='${FREQSHIFT_LO}'/'${FREQSHIFT_HI}
+  if [[ "${FREQSHIFT_LO:-}" =~ ^[0-9]+([.][0-9]+)?$ && "${FREQSHIFT_HI:-}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    FREQSHIFT_FILTER="rubberband=pitch=${FREQSHIFT_LO}/${FREQSHIFT_HI}"
+  else
+    echo "Frequency shift skipped: FREQSHIFT_LO and FREQSHIFT_HI must be numbers" >&2
+  fi
 fi
+
+# Join the non-empty filters into a single -af argument, since a second -af
+# would replace the first. Leaves AF_OPTS empty when there is nothing to add.
+set_af_opts() {
+  local filters=() filter IFS=,
+  for filter in "$@"; do
+    [ -n "$filter" ] && filters+=("$filter")
+  done
+  AF_OPTS=()
+  [ "${#filters[@]}" -gt 0 ] && AF_OPTS=(-af "${filters[*]}")
+}
 
 if [[ -n "${RTSP_STREAM:-}" ]];then
   # Explode the RSPT steam setting into an array so we can count the number we have
@@ -53,10 +70,11 @@ if [[ -n "${RTSP_STREAM:-}" ]];then
     SELECTED_RSTP_STREAM=${RSTP_STREAMS_EXPLODED_ARRAY[0]}
   fi
 
+  set_af_opts "${FREQSHIFT_FILTER}"
   ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -i ${SELECTED_RSTP_STREAM} -acodec libmp3lame \
     -b:a 320k -ac ${CHANNELS} -content_type 'audio/mpeg' \
-    ${FREQSHIFT_OPT} \
-    -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream -re
+    "${AF_OPTS[@]}" \
+    -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream
 else
   case "${REC_CARD:-}" in
     hw:*|plughw:*)
@@ -69,14 +87,12 @@ else
   esac
   CAPTURE_DEVICE=${REC_CARD:-default}
   # ALSA packet timestamps jitter (more so through dsnoop), and the mp3 muxer
-  # logs "non monotonically increasing dts" many times a second. Rebuild them
-  # from the sample count. One -af chain, since a second -af would replace it.
-  ALSA_FILTER='asetpts=N/SR/TB'
-  if [ "$ACTIVATE_FREQSHIFT_IN_LIVESTREAM" == "true" ]; then
-    ALSA_FILTER="${ALSA_FILTER},rubberband=pitch=${FREQSHIFT_LO}/${FREQSHIFT_HI}"
-  fi
-	ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -thread_queue_size 2048 -f alsa -i "${CAPTURE_DEVICE}" -acodec libmp3lame \
+  # logs "non monotonically increasing dts" many times a second. aresample
+  # smooths the jitter into a monotonic clock but still fills real dropouts
+  # (overruns during analysis spikes) with silence instead of splicing them.
+  set_af_opts 'aresample=async=1' "${FREQSHIFT_FILTER}"
+  ffmpeg -nostdin -loglevel $LOGGING_LEVEL -ac ${CHANNELS} -thread_queue_size 2048 -f alsa -i "${CAPTURE_DEVICE}" -acodec libmp3lame \
     -b:a 320k -ac ${CHANNELS} -content_type 'audio/mpeg' \
-    -af "${ALSA_FILTER}" \
-    -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream -re
+    "${AF_OPTS[@]}" \
+    -f mp3 icecast://source:${ICE_PWD}@localhost:8000/stream
 fi
