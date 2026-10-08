@@ -65,6 +65,7 @@ opening = 0.7071       # opening height as a panel fraction; raise toward 0.98 f
 # collage_frac = 0.95
 # gap_frac = 0.04
 # shoot_label_min_px = 13
+# paper_warmth = 0.12  # dot this share of the open background yellow, so it reads cream, not white
 
 # --- Refresh cadence --------------------------------------------------------
 # The panel refreshes only when the species set or a count bracket changes,

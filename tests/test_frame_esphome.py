@@ -88,6 +88,18 @@ class FrameGeometryTests(unittest.TestCase):
         greys = {out.getpixel((x, y)) for x in range(64) for y in range(32)}
         self.assertLessEqual(greys, {self.display.SPECTRA6[0], self.display.SPECTRA6[1]})
 
+    def test_paper_warmth_dots_only_open_paper(self):
+        img = Image.new("RGB", (64, 64), (255, 255, 255))
+        ImageDraw.Draw(img).rectangle((0, 0, 7, 63), fill=(0, 0, 0))
+        plain = self.display.dither_spectra6(img).convert("RGB")
+        self.assertNotIn(self.display.SPECTRA6[3], set(plain.getdata()))
+        warm = self.display.dither_spectra6(img, 0.12).convert("RGB")
+        yellow = self.display.SPECTRA6[3]
+        near = [warm.getpixel((x, y)) for x in range(8, 11) for y in range(64)]
+        self.assertNotIn(yellow, near)  # a clear margin around ink
+        open_paper = [warm.getpixel((x, y)) for x in range(16, 64) for y in range(64)]
+        self.assertAlmostEqual(open_paper.count(yellow) / len(open_paper), 0.125, places=2)
+
 
 class FrameEsphomeExportTests(unittest.TestCase):
     @classmethod

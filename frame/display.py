@@ -70,6 +70,7 @@ DEFAULTS = {
     "gap_frac": 0.1,        # title-to-collage gap as a fraction of the opening height
     "rotate": 90,           # 90 or 270 if the frame hangs the other way up
     "saturation": 0.6,
+    "paper_warmth": 0.0,    # share of open background dotted yellow (ESPHome/preview), 0 to 1
     "panel": "",            # "el133uf1" forces the 13.3" driver if auto() fails
     "output": "inky",       # "inky" pushes to the panel; "esphome" writes files for an ESP32
     "export_dir": "~/BirdSongs/Extracted/frame",  # where "esphome" output is served from
@@ -387,7 +388,37 @@ def _atkinson(rgb, inks):
     return img
 
 
-def dither_spectra6(img):
+# 8x8 Bayer matrix: thresholds 0-63 spread so any count of them is evenly spaced.
+_BAYER8 = ((0, 32, 8, 40, 2, 34, 10, 42), (48, 16, 56, 24, 50, 18, 58, 26),
+           (12, 44, 4, 36, 14, 46, 6, 38), (60, 28, 52, 20, 62, 30, 54, 22),
+           (3, 35, 11, 43, 1, 33, 9, 41), (51, 19, 59, 27, 49, 17, 57, 25),
+           (15, 47, 7, 39, 13, 45, 5, 37), (63, 31, 55, 23, 61, 29, 53, 21))
+_YELLOW = 3  # SPECTRA6 index
+
+
+def warm_paper(dithered, warmth):
+    """Dot a `warmth` share of the open paper yellow, in an even ordered
+    pattern, so the background reads cream instead of the panel's flat white.
+    Pixels within 3 px of any ink stay plain, keeping edges and type clean."""
+    level = round(min(1.0, max(0.0, float(warmth))) * 64)
+    if not level:
+        return dithered
+    w, h = dithered.size
+    data = dithered.tobytes()
+    near_ink = Image.frombytes("L", (w, h), bytes(0 if v == 0 else 255 for v in data))
+    near_ink = near_ink.filter(ImageFilter.MaxFilter(7)).tobytes()
+    out = bytearray(data)
+    for y in range(h):
+        row, base = _BAYER8[y % 8], y * w
+        for x in range(w):
+            if row[x % 8] < level and not near_ink[base + x]:
+                out[base + x] = _YELLOW
+    img = Image.frombytes("P", (w, h), bytes(out))
+    img.putpalette(dithered.getpalette())
+    return img
+
+
+def dither_spectra6(img, warmth=0.0):
     """Tune, then Atkinson-dither onto the approximate real inks; returns a P
     image whose indexes 0-5 are SPECTRA6 order. Dithering against what the
     panel actually shows, not pure RGB, keeps the paper tone and muted colours
@@ -402,15 +433,15 @@ def dither_spectra6(img):
     hi = ImageChops.lighter(ImageChops.lighter(r, g), b)
     lo = ImageChops.darker(ImageChops.darker(r, g), b)
     grey = ImageChops.subtract(hi, lo).point(lambda p: 255 if p < NEUTRAL_CHROMA else 0)
-    if not grey.getbbox():
-        return colour
-    mono = _atkinson(rgb, SPECTRA6[:2])
-    # Both images index paper as 0 and black as 1, so they composite directly.
-    return Image.composite(mono, colour, grey)
+    if grey.getbbox():
+        mono = _atkinson(rgb, SPECTRA6[:2])
+        # Both images index paper as 0 and black as 1, so they composite directly.
+        colour = Image.composite(mono, colour, grey)
+    return warm_paper(colour, warmth)
 
 
-def quantize_spectra6(img):
-    return dither_spectra6(img).convert("RGB")
+def quantize_spectra6(img, warmth=0.0):
+    return dither_spectra6(img, warmth).convert("RGB")
 
 
 def _draw_mat_box(img, geo):
@@ -451,7 +482,7 @@ EXPORT_VARIANTS = {"plain": ("frame.png", "preview.png", "sig"),
                    "names": ("frame-names.png", "preview-names.png", "sig_names")}
 
 
-def export_esphome(images, export_dir, species_sig=None):
+def export_esphome(images, export_dir, species_sig=None, warmth=0.0):
     """Write the frame for an ESP32 running ESPHome to fetch.
 
     `images` maps "plain" (names off) and "names" (names on) to a laid-out
@@ -475,7 +506,7 @@ def export_esphome(images, export_dir, species_sig=None):
         img = images.get(variant)
         if img is None:
             continue
-        dithered = dither_spectra6(img)
+        dithered = dither_spectra6(img, warmth)
         frame_png = _pure_png(dithered)
         _write_atomic(os.path.join(export_dir, png_name), frame_png)
         _write_atomic(os.path.join(export_dir, preview_name), _png(dithered))
@@ -606,7 +637,7 @@ def _export_both(cfg, geo, species, sig):
         images["names"] = render(cfg, geo, species, bird_names=True)
     except Exception as e:
         print(f"names render failed, keeping the last one: {e}", file=sys.stderr)
-    meta = export_esphome(images, cfg["export_dir"], sig)
+    meta = export_esphome(images, cfg["export_dir"], sig, cfg["paper_warmth"])
     print(f"exported to {cfg['export_dir']}: sig {meta.get('sig')} names {meta.get('sig_names')}")
 
 
@@ -659,7 +690,7 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
         print(f"could not get image: {e}", file=sys.stderr)  # keep last panel image
         return
     if preview:
-        out = quantize_spectra6(img)
+        out = quantize_spectra6(img, cfg["paper_warmth"])
         if mat_box:
             _draw_mat_box(out, geo)
         out.save(preview)

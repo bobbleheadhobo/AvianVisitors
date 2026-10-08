@@ -16,4 +16,5 @@ title_frac = 0.065
 collage_frac = 0.95
 gap_frac = 0.04
 shoot_label_min_px = 13
+paper_warmth = 0.12     # cream background: 12% of open paper dotted yellow
 timeout = 180
