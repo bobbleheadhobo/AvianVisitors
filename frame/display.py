@@ -37,8 +37,13 @@ SQRT2 = 1.41421
 
 # Approximate Spectra-6 inks, used for --preview and as the dither target for
 # the ESPHome export. On an Inky panel the library maps to the real palette.
-SPECTRA6 = [(236, 234, 223), (26, 26, 28), (165, 60, 56),
-            (198, 176, 74), (49, 71, 130), (58, 110, 72)]
+# Red and yellow were fitted to a photo of the 7.3" panel showing a known
+# frame.png (lighting and white balance solved out, paper held fixed): the
+# yellow ink is far brighter and purer than the earlier mustard estimate, so
+# tans dithered for that estimate came out lemon. Black, blue and green were
+# too sparse in that photo to refit.
+SPECTRA6 = [(236, 234, 223), (26, 26, 28), (202, 40, 60),
+            (255, 215, 0), (49, 71, 130), (58, 110, 72)]
 # The same six inks as pure colours, in SPECTRA6 order. ESPHome's Spectra-E6
 # driver snaps each pixel to the nearest of these, so an image that already
 # uses only them reaches the panel exactly as dithered here.
