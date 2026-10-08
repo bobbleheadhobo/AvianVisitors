@@ -3338,11 +3338,12 @@
 
   // Editorial detection timeline. One evenly-spaced column per species,
   // ordered oldest -> newest by last detection (x = time). Each species
-  // owns a cell, so the black squares never overlap and a square fills
-  // its column width - neighbours touch at the shared gridline. The
-  // square's height up the column encodes detection count; a small
-  // rotated label (common + scientific name) sits at the column's
-  // bottom, and each column carries its own timestamp on the x-axis.
+  // gets a bar rising from zero to its detection count, with the count
+  // printed on top and a small rotated label (common + scientific name)
+  // above that. Each column carries its own last-heard timestamp on the
+  // x-axis. These used to be fixed-size squares floating at their count,
+  // which on a phone covered a third of the scale and made every quiet
+  // species look the same.
   function drawHistograms(animate) {
     var tl = document.getElementById('statsTimeline');
     if (!tl) return;
@@ -3381,15 +3382,17 @@
     // Desktop: columns split the available width evenly.
     var colW = isMobile ? MIN_COL : (containerW / C);
     var plotW = isMobile ? Math.max(containerW, C * colW) : containerW;
-    // Square fills its column so adjacent squares touch at the shared
-    // gridline; capped so a few species don't render as giant blocks.
-    var sq = Math.max(6, Math.min(colW, isMobile ? 60 : 48));
-    var LABEL_GAP = 6;       // px between a square's top and its label
+    // Bars leave a gap to the gridlines so neighbours read as separate
+    // columns; capped so a few species don't render as slabs.
+    var barW = Math.max(4, Math.min(colW * 0.72, isMobile ? 40 : 36));
+    var MIN_BAR = 3;         // px, so a species heard once still shows a bar
+    var COUNT_H = 16;        // px reserved for the count above each bar
+    var LABEL_GAP = 4;       // px between the count and the rotated label
     // Phones read the rotated labels at 11px, so the squares stop lower to
     // leave the tallest column's names room under the top edge.
-    var SPAN = isMobile ? 0.5 : 0.55;   // squares occupy the bottom this fraction of
-    // the plot by count (y = quantity); the
-    // rotated label floats just above each square.
+    var SPAN = isMobile ? 0.5 : 0.55;   // the tallest bar reaches this fraction of
+    // the plot (y = quantity); its count and
+    // rotated label sit just above each bar.
 
     // Y-axis quantity ticks: 0..maxN, with maxN pinned on the top tick.
     var ticks = [];
@@ -3436,11 +3439,12 @@
     species.forEach(function (s, i) {
       var centerPct = (i + 0.5) / C * 100;
       var n = +s.n || 0;
-      var bottomPct = (n / maxN) * SPAN * 100;   // square height = quantity
+      var barTop = 'max(' + MIN_BAR + 'px, ' + ((n / maxN) * SPAN * 100).toFixed(2) + '%)';   // bar height = quantity
       cols += ''
         + '<div class="stats-tl-col" data-sci="' + s.sci + '" style="left:' + centerPct.toFixed(3) + '%;width:' + colW.toFixed(2) + 'px">'
-        + '<div class="stats-tl-square" style="bottom:' + bottomPct.toFixed(1) + '%;width:' + sq.toFixed(1) + 'px;height:' + sq.toFixed(1) + 'px"></div>'
-        + '<div class="stats-tl-label" style="bottom:calc(' + bottomPct.toFixed(1) + '% + ' + (sq + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
+        + '<div class="stats-tl-square" style="bottom:0;width:' + barW.toFixed(1) + 'px;height:' + barTop + '"></div>'
+        + '<span class="stats-tl-count" style="bottom:calc(' + barTop + ' + 3px)">' + n.toLocaleString() + '</span>'
+        + '<div class="stats-tl-label" style="bottom:calc(' + barTop + ' + ' + (COUNT_H + LABEL_GAP) + 'px)"><span class="com">' + (s.com || s.sci) + '</span><span class="sci">' + s.sci + '</span></div>'
         + '</div>';
       // The last column always gets a stamp; drop the stride stamp just
       // before it only when the two labels would actually overlap.

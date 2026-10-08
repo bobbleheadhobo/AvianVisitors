@@ -1548,10 +1548,10 @@
   }
 
   /* Editorial detection timeline. One evenly-spaced column per species,
-     ordered by last-detection time (x = time). Black square fills its
-     column so neighbours touch at the gridline; its height up the column
-     encodes count. Small rotated label + per-column timestamp at the
-     bottom. Fits the viewport - never scrolls. */
+     ordered by last-detection time (x = time). An ink bar rises from the
+     axis to the species' detection count, with the count printed on top
+     and a small rotated label above it; each column has its timestamp at
+     the bottom. Fits the viewport on desktop; scrolls sideways on phones. */
   .stats-timeline {
     position: relative;
     flex: 1 1 auto; min-height: 0;
@@ -1594,6 +1594,7 @@
   .stats-tl-square {
     position: absolute; left: 50%;
     transform: translateX(-50%);
+    transform-origin: 50% 100%;
     background: var(--ink);
     /* Paper-coloured side borders. box-sizing: border-box keeps the box
        column-filling, so the fill just insets 1px each side. Where two
@@ -1611,8 +1612,18 @@
      as selected. */
   .stats-tl-col.sync-hi .stats-tl-square {
     background: var(--accent);
-    transform: translateX(-50%) scale(1.18);
+    transform: translateX(-50%) scaleX(1.18);
   }
+  /* Detection count printed just above its bar. */
+  .stats-tl-count {
+    position: absolute; left: 50%;
+    transform: translateX(-50%);
+    font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transition: color 130ms ease;
+  }
+  .stats-tl-col.sync-hi .stats-tl-count { color: var(--accent); }
   .stats-tl-col.sync-hi .stats-tl-label {
     transform: rotate(-90deg) translateY(55%) scale(1.1);
   }
