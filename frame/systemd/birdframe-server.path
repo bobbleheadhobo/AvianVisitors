@@ -1,0 +1,12 @@
+[Unit]
+Description=Re-render the ESPHome bird frame when its website settings change
+
+[Path]
+# avian/api/frame.php writes settings.json on save and refresh on "refresh
+# now", each by renaming a temp file into this folder; a change to the folder
+# starts a render, which re-reads both.
+PathChanged=/var/lib/avian-visitors/frame
+Unit=birdframe-server.service
+
+[Install]
+WantedBy=paths.target

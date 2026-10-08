@@ -71,6 +71,9 @@ DEFAULTS = {
     "rotate": 90,           # 90 or 270 if the frame hangs the other way up
     "saturation": 0.6,
     "paper_warmth": 0.0,    # share of open background dotted yellow (ESPHome/preview), 0 to 1
+    "ink_saturation": 1.35,  # colour boost before dithering (ESPHome/preview)
+    "ink_contrast": 1.12,    # contrast boost before dithering (ESPHome/preview)
+    "web_dir": "/var/lib/avian-visitors/frame",  # settings saved from the website
     "panel": "",            # "el133uf1" forces the 13.3" driver if auto() fails
     "output": "inky",       # "inky" pushes to the panel; "esphome" writes files for an ESP32
     "export_dir": "~/BirdSongs/Extracted/frame",  # where "esphome" output is served from
@@ -337,12 +340,12 @@ def _ink_palette(inks):
 NEUTRAL_CHROMA = 28  # max-min channel spread below which a pixel is grey
 
 
-def tune_for_inks(img):
+def tune_for_inks(img, saturation=1.35, contrast=1.12):
     """Push the picture toward what six inks can show before dithering: more
     saturation and contrast so most pixels land near a single ink and need
     less mixing, and a light sharpen to keep feather detail through the grain."""
-    img = ImageEnhance.Color(img).enhance(1.35)
-    img = ImageEnhance.Contrast(img).enhance(1.12)
+    img = ImageEnhance.Color(img).enhance(saturation)
+    img = ImageEnhance.Contrast(img).enhance(contrast)
     return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=70, threshold=2))
 
 
@@ -418,7 +421,7 @@ def warm_paper(dithered, warmth):
     return img
 
 
-def dither_spectra6(img, warmth=0.0):
+def dither_spectra6(img, warmth=0.0, saturation=1.35, contrast=1.12):
     """Tune, then Atkinson-dither onto the approximate real inks; returns a P
     image whose indexes 0-5 are SPECTRA6 order. Dithering against what the
     panel actually shows, not pure RGB, keeps the paper tone and muted colours
@@ -427,7 +430,7 @@ def dither_spectra6(img, warmth=0.0):
     Grey pixels (text, outlines, antialiasing) dither on paper and black only:
     against the full palette a mid grey sits nearer the dark blue ink than
     black, which turns thin type and bird names blue and ragged."""
-    rgb = tune_for_inks(img.convert("RGB"))
+    rgb = tune_for_inks(img.convert("RGB"), saturation, contrast)
     colour = _atkinson(rgb, SPECTRA6)
     r, g, b = rgb.split()
     hi = ImageChops.lighter(ImageChops.lighter(r, g), b)
@@ -440,8 +443,14 @@ def dither_spectra6(img, warmth=0.0):
     return warm_paper(colour, warmth)
 
 
-def quantize_spectra6(img, warmth=0.0):
-    return dither_spectra6(img, warmth).convert("RGB")
+def quantize_spectra6(img, **look):
+    return dither_spectra6(img, **look).convert("RGB")
+
+
+def ink_look(cfg):
+    """dither_spectra6() keyword arguments from a config."""
+    return {"warmth": cfg["paper_warmth"], "saturation": cfg["ink_saturation"],
+            "contrast": cfg["ink_contrast"]}
 
 
 def _draw_mat_box(img, geo):
@@ -482,7 +491,7 @@ EXPORT_VARIANTS = {"plain": ("frame.png", "preview.png", "sig"),
                    "names": ("frame-names.png", "preview-names.png", "sig_names")}
 
 
-def export_esphome(images, export_dir, species_sig=None, warmth=0.0):
+def export_esphome(images, export_dir, species_sig=None, look=None):
     """Write the frame for an ESP32 running ESPHome to fetch.
 
     `images` maps "plain" (names off) and "names" (names on) to a laid-out
@@ -506,7 +515,7 @@ def export_esphome(images, export_dir, species_sig=None, warmth=0.0):
         img = images.get(variant)
         if img is None:
             continue
-        dithered = dither_spectra6(img, warmth)
+        dithered = dither_spectra6(img, **(look or {}))
         frame_png = _pure_png(dithered)
         _write_atomic(os.path.join(export_dir, png_name), frame_png)
         _write_atomic(os.path.join(export_dir, preview_name), _png(dithered))
@@ -548,12 +557,12 @@ def load_state(path):
         return {"signature": None, "last_refresh": 0}
 
 
-def save_state(path, sig, when):
+def save_state(path, sig, when, web=None):
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"signature": sig, "last_refresh": when}, f)
+        json.dump({"signature": sig, "last_refresh": when, "web": web}, f)
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)  # atomic: a power cut can't leave a half-written file
@@ -637,7 +646,7 @@ def _export_both(cfg, geo, species, sig):
         images["names"] = render(cfg, geo, species, bird_names=True)
     except Exception as e:
         print(f"names render failed, keeping the last one: {e}", file=sys.stderr)
-    meta = export_esphome(images, cfg["export_dir"], sig, cfg["paper_warmth"])
+    meta = export_esphome(images, cfg["export_dir"], sig, ink_look(cfg))
     print(f"exported to {cfg['export_dir']}: sig {meta.get('sig')} names {meta.get('sig_names')}")
 
 
@@ -668,6 +677,10 @@ def _gate(cfg, state, now, preview, force, use_signature):
 def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
     now = time.time()
     state = load_state(cfg["state"])
+    web = cfg.get("_web_sig")
+    if web is not None and web != state.get("web") and not preview:
+        print("website settings changed or a refresh was asked for")
+        force = True
     go, sig, species = _gate(cfg, state, now, preview, force, use_signature)
     if not go:
         return
@@ -682,7 +695,7 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
         except Exception as e:
             print(f"could not render: {e}", file=sys.stderr)  # the ESP32 keeps the last export
             return
-        save_state(cfg["state"], sig if sig is not None else state.get("signature"), now)
+        save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
         return
     try:
         img = render(cfg, geo, species)
@@ -690,7 +703,7 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
         print(f"could not get image: {e}", file=sys.stderr)  # keep last panel image
         return
     if preview:
-        out = quantize_spectra6(img, cfg["paper_warmth"])
+        out = quantize_spectra6(img, **ink_look(cfg))
         if mat_box:
             _draw_mat_box(out, geo)
         out.save(preview)
@@ -701,7 +714,7 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
     except Exception as e:
         print(f"panel push failed: {e}", file=sys.stderr)
         return
-    save_state(cfg["state"], sig if sig is not None else state.get("signature"), now)
+    save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
     print("panel updated")
 
 
@@ -711,6 +724,43 @@ def load_config(path):
         with open(os.path.expanduser(path), "rb") as f:
             cfg.update(tomllib.load(f))
     return cfg
+
+
+WEB_SCHEMA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_settings.json")
+
+
+def web_settings(web_dir, schema_path=WEB_SCHEMA):
+    """Settings saved from the website (avian/api/frame.php), checked against
+    web_settings.json, plus a signature over them and the last refresh
+    request. Returns ({}, None) when the site has saved nothing."""
+    web_dir = os.path.expanduser(web_dir or "")
+    try:
+        with open(os.path.join(web_dir, "settings.json")) as f:
+            saved = json.load(f)
+    except (OSError, ValueError):
+        saved = None
+    try:
+        with open(os.path.join(web_dir, "refresh")) as f:
+            refresh = f.read(64).strip()
+    except OSError:
+        refresh = ""
+    if not isinstance(saved, dict) and not refresh:
+        return {}, None
+    with open(schema_path) as f:
+        schema = json.load(f)["settings"]
+    out = {}
+    for key, value in (saved if isinstance(saved, dict) else {}).items():
+        spec = schema.get(key)
+        if spec is None or isinstance(value, bool):
+            continue
+        if spec["type"] == "string":
+            if isinstance(value, str):
+                out[key] = "".join(ch for ch in value if ch.isprintable())[:spec["maxlen"]]
+        elif isinstance(value, (int, float)):
+            value = min(spec["max"], max(spec["min"], value))
+            out[key] = int(value) if spec["type"] == "int" else float(value)
+    sig = hashlib.sha256(json.dumps([out, refresh], sort_keys=True).encode()).hexdigest()[:16]
+    return out, sig
 
 
 def main():
@@ -733,6 +783,11 @@ def main():
             cfg[key] = val
     if args.rotate is not None:
         cfg["rotate"] = args.rotate
+    try:
+        saved, cfg["_web_sig"] = web_settings(cfg["web_dir"])
+        cfg.update(saved)
+    except Exception as e:
+        print(f"website settings ignored: {e}", file=sys.stderr)
     # One render at a time. A manual --force colliding with the timer's run
     # pushes two refreshes into the panel mid-cycle; on the 13.3" (two
     # half-panel controllers) that shows a split image and can wedge one

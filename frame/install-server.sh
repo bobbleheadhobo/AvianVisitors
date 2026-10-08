@@ -82,8 +82,13 @@ echo "4/4  Installing systemd service + timer..."
 sed "s|/home/monalisa/AvianVisitors/frame|$FRAME|g; s|/home/monalisa|$HOME|g; s|User=monalisa|User=$USER|" \
   systemd/birdframe-server.service | sudo tee /etc/systemd/system/birdframe-server.service >/dev/null
 sudo cp systemd/birdframe-server.timer /etc/systemd/system/birdframe-server.timer
+# Settings > Frame on the website saves here (avian/api/frame.php, run as the
+# web server); the renderer only reads. The path unit re-renders on a save.
+WEB_USER=$(ps -o user= -C php-fpm -C php-fpm8.2 -C php-fpm8.3 2>/dev/null | grep -v '^root$' | head -1)
+sudo install -d -o "${WEB_USER:-caddy}" -g "$(id -gn)" -m 2750 /var/lib/avian-visitors/frame
+sudo cp systemd/birdframe-server.path /etc/systemd/system/birdframe-server.path
 sudo systemctl daemon-reload
-sudo systemctl enable --now birdframe-server.timer
+sudo systemctl enable --now birdframe-server.timer birdframe-server.path
 
 # Render once now so the ESP32 has something to fetch on first boot.
 .venv/bin/python display.py --config "$CONFIG" --force || true

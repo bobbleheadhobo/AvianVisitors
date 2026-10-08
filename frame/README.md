@@ -54,6 +54,14 @@ Check the look at `http://<server>/frame/preview.png` (names off) and
 [`config.example.toml`](config.example.toml); after editing the config, force
 a re-render with `frame/.venv/bin/python frame/display.py --config ~/.birdframe/config.toml --force`.
 
+The title, background warmth, colour and contrast boost, and quiet hours can
+also be changed from the website under **Settings > Frame**, which shows the
+last render and has a "refresh now" button. Values saved there go to
+`/var/lib/avian-visitors/frame/settings.json`, override the same keys in
+`config.toml`, and re-render the frame within seconds
+(`birdframe-server.path`). The keys and their defaults are in
+[`web_settings.json`](web_settings.json).
+
 ### 2. ESP32
 
 Needs [ESPHome](https://esphome.io/guides/installing_esphome/) 2026.6 or newer on your computer.

@@ -66,6 +66,9 @@ opening = 0.7071       # opening height as a panel fraction; raise toward 0.98 f
 # gap_frac = 0.04
 # shoot_label_min_px = 13
 # paper_warmth = 0.12  # dot this share of the open background yellow, so it reads cream, not white
+# Settings > Frame on the website saves paper_warmth, ink_saturation,
+# ink_contrast, shoot_title, shoot_subtitle and quiet hours to
+# /var/lib/avian-visitors/frame/settings.json; a value saved there wins.
 
 # --- Refresh cadence --------------------------------------------------------
 # The panel refreshes only when the species set or a count bracket changes,

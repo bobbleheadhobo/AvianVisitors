@@ -1,0 +1,12 @@
+{
+  "_comment": "Frame settings the website can change. Read by display.py and avian/api/frame.php; each value saved from the site overrides the same key in config.toml.",
+  "settings": {
+    "paper_warmth":   {"type": "float", "min": 0,    "max": 0.25, "default": 0},
+    "ink_saturation": {"type": "float", "min": 1,    "max": 1.8,  "default": 1.35},
+    "ink_contrast":   {"type": "float", "min": 1,    "max": 1.4,  "default": 1.12},
+    "shoot_title":    {"type": "string", "maxlen": 40, "default": "Avian Visitors"},
+    "shoot_subtitle": {"type": "string", "maxlen": 40, "default": "Heard Today"},
+    "quiet_start":    {"type": "int",   "min": 0,    "max": 23,   "default": 0},
+    "quiet_end":      {"type": "int",   "min": 0,    "max": 23,   "default": 0}
+  }
+}

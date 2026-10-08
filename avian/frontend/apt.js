@@ -8538,7 +8538,7 @@
     });
     var resetAll = scope.querySelector('[data-reset-detection]');
     if (resetAll) resetAll.addEventListener('click', function () {
-      scope.querySelectorAll('input[type="range"][data-default]').forEach(function (sl) {
+      (resetAll.closest('section') || scope).querySelectorAll('input[type="range"][data-default]').forEach(function (sl) {
         sl.value = sl.dataset.default;
         showSlider(sl);
         stageSetting(sl.dataset.key, +sl.value);
@@ -8593,15 +8593,17 @@
     // Notification targets and body live in their own files; the rest is
     // birdnet.conf. Write the files first, then the config.
     var notifyPart = {};
+    var framePart = {};
     var confPart = {};
     Object.keys(submitted).forEach(function (key) {
-      (isNotifyKey(key) ? notifyPart : confPart)[key] = submitted[key];
+      (isNotifyKey(key) ? notifyPart : isFrameKey(key) ? framePart : confPart)[key] = submitted[key];
     });
     var saved = false;
     settingsSaveBusy = true;
     setSaveState('saving...');
     syncSaveBar();
     return saveNotifyPart(notifyPart)
+      .then(function () { return saveFramePart(framePart); })
       .then(function () {
         if (!Object.keys(confPart).length) return { ok: true, j: { ok: true } };
         return adminFetch('./avian/api/config.php', {
@@ -12709,6 +12711,135 @@
   // The $variables the notifier fills in a title (NOTIFY_TITLE_VARS in
   // avian/api/config.php); any other $ is refused, as birdnet.conf is shell.
   var NOTIFY_TITLE_VAR = /\$(?:comname|sciname|confidencepct|confidence|date|time|week|reason)(?![A-Za-z0-9_])/g;
+
+  // ---- Frame ----
+  // The e-paper frame's look (avian/api/frame.php). Its keys stage in the
+  // same save bar as the rest, prefixed "frame." so saveSettings can route
+  // them; a save re-renders the frame on the station within seconds.
+  function isFrameKey(key) { return key.indexOf('frame.') === 0; }
+  function saveFramePart(part) {
+    var values = {};
+    Object.keys(part).forEach(function (key) { values[key.slice(6)] = part[key]; });
+    if (!Object.keys(values).length) return Promise.resolve();
+    return framePost({ action: 'save', values: values }).then(function () {
+      if (frameUi) frameUi.rendering();
+    });
+  }
+  function framePost(body) {
+    return adminFetch('./avian/api/frame.php', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  var frameUi = null;
+  function frameAgo(updated) {
+    if (!updated) return 'not rendered yet';
+    var mins = Math.round((Date.now() / 1000 - updated) / 60);
+    if (mins < 1) return 'rendered just now';
+    if (mins < 60) return 'rendered ' + mins + ' min ago';
+    var hrs = Math.round(mins / 60);
+    return 'rendered ' + hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
+  }
+  function frameSection(frame) {
+    if (!frame || !frame.ok || !frame.frame) return '';
+    var v = frame.values, d = frame.defaults, lim = frame.limits;
+    function slider(key, label, hint, step, digits) {
+      return settingsSlider('frame.' + key, label, hint, v[key], lim[key].min, lim[key].max, step, digits, d[key]);
+    }
+    var f = frame.frame;
+    return ''
+      + '<section class="settings-frame">'
+      + '<div class="frame-preview-row">'
+      + '  <a href="./frame/preview-names.png" target="_blank" rel="noopener" class="frame-preview"'
+      + '    style="aspect-ratio:' + (f.width || 480) + '/' + (f.height || 800) + '">'
+      + '    <img data-frame-img src="./frame/preview-names.png?v=' + adminAttr(f.sig || f.updated) + '" alt="the frame as last rendered">'
+      + '  </a>'
+      + '  <div class="frame-preview-side">'
+      + '    <span class="label">Frame</span>'
+      + '    <span class="hint" data-frame-status>' + adminEsc(frameAgo(f.updated)) + '</span>'
+      + '    <span class="hint">an approximation of the six inks</span>'
+      + (frame.ready ? '' : '<span class="hint warn">' + adminEsc(frame.hint || '') + '</span>')
+      + '    <button type="button" class="chip" data-frame-refresh' + (frame.ready ? '' : ' disabled') + '>refresh now</button>'
+      + '  </div>'
+      + '</div>'
+      + settingsText('frame.shoot_title', 'Frame title', v.shoot_title, lim.shoot_title.maxlen)
+      + settingsText('frame.shoot_subtitle', 'Frame subtitle', v.shoot_subtitle, lim.shoot_subtitle.maxlen)
+      + slider('paper_warmth', 'Background warmth', 'share of the white dotted yellow: 0 is white, 0.12 cream', 0.01, 2)
+      + slider('ink_saturation', 'Colour boost', 'saturation before dithering: higher is bolder, less speckled', 0.05, 2)
+      + slider('ink_contrast', 'Contrast boost', 'contrast before dithering', 0.02, 2)
+      + slider('quiet_start', 'Quiet from', 'hour (0-23) the frame stops refreshing; same as until = never quiet', 1, 0)
+      + slider('quiet_end', 'Quiet until', 'hour (0-23) refreshing resumes', 1, 0)
+      + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-frame>reset frame to defaults</button></div>'
+      + '</section>';
+  }
+  function wireFrameSettings(scope, frame) {
+    frameUi = null;
+    var section = scope.querySelector('.settings-frame');
+    if (!section) return;
+    var img = section.querySelector('[data-frame-img]');
+    var status = section.querySelector('[data-frame-status]');
+    var refresh = section.querySelector('[data-frame-refresh]');
+    var last = frame.frame.updated || 0;
+    var pollT = null;
+    // A render takes about a minute (it screenshots the collage first), so
+    // watch the public frame.json until it moves, then swap in the preview.
+    function poll(deadline) {
+      clearTimeout(pollT);
+      if (!section.isConnected) return;
+      if (Date.now() > deadline) {
+        status.textContent = 'still rendering; check back in a few minutes';
+        return;
+      }
+      fetch('./frame/frame.json', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (meta) {
+          if (!section.isConnected) return;
+          if (meta && meta.updated > last) {
+            last = meta.updated;
+            img.src = './frame/preview-names.png?v=' + encodeURIComponent(meta.sig_names || meta.sig || meta.updated);
+            status.textContent = frameAgo(meta.updated);
+            if (refresh) refresh.disabled = false;
+            return;
+          }
+          pollT = setTimeout(function () { poll(deadline); }, 5000);
+        });
+    }
+    frameUi = {
+      rendering: function () {
+        status.textContent = 'rendering, about a minute...';
+        if (refresh) refresh.disabled = true;
+        poll(Date.now() + 5 * 60 * 1000);
+      },
+    };
+    if (refresh) refresh.addEventListener('click', function () {
+      refresh.disabled = true;
+      framePost({ action: 'refresh' }).then(function () {
+        frameUi.rendering();
+      }).catch(function (error) {
+        if (adminAuthCancelled(error)) { refresh.disabled = false; return; }
+        status.textContent = 'refresh failed: ' + error.message;
+        refresh.disabled = false;
+      });
+    });
+    var reset = section.querySelector('[data-reset-frame]');
+    if (reset) reset.addEventListener('click', function () {
+      section.querySelectorAll('input[type="range"][data-default]').forEach(function (sl) {
+        sl.value = sl.dataset.default;
+        sl.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      section.querySelectorAll('input.settings-text').forEach(function (inp) {
+        inp.value = frame.defaults[inp.dataset.key.slice(6)];
+        stageSetting(inp.dataset.key, inp.value.trim());
+      });
+    });
+  }
+
   function notificationsSection(notify, v) {
     if (!notify || !notify.ok) return '';
     var saved = notify.targets || [];
@@ -12920,6 +13051,10 @@
         if (adminAuthCancelled(error)) throw error;
         return null;
       }),
+      adminJson('./avian/api/frame.php').catch(function (error) {
+        if (adminAuthCancelled(error)) throw error;
+        return null;
+      }),
     ])
       .then(function (parts) {
         var cfg = parts[0];
@@ -12928,6 +13063,7 @@
         var archive = parts[3] || { ok: false, failure_kind: 'network' };
         var listen = parts[4];
         var notify = parts[5];
+        var frame = parts[6];
         var v = cfg.values || {};
         var sec = cfg.secrets || {};
         var security = cfg.security || {};
@@ -12969,7 +13105,9 @@
           + settingsSecret('GEMINI_API_KEY', 'Gemini API key', 'for drawing birds on demand', sec.GEMINI_API_KEY)
           + settingsSecret('EBIRD_API_KEY', 'eBird API key', 'for regional species filters', sec.EBIRD_API_KEY)
           + notificationsSection(notify, v)
-          + '</section><section class="settings-retention">'
+          + '</section>'
+          + frameSection(frame)
+          + '<section class="settings-retention">'
           + lanAuthRow(security)
           + remoteListenRow(listen)
           + birdweatherRow(birdweather)
@@ -13019,6 +13157,7 @@
         wireLanAuthControl(adminBody, security);
         wireRemoteListenControl(adminBody);
         wireNotifications(adminBody);
+        wireFrameSettings(adminBody, frame);
         wirePasswordChange(adminBody);
         wireSettingsAccessDismissal(adminBody);
         wireBirdweatherControl(adminBody, birdweather);

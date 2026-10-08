@@ -88,6 +88,18 @@ class FrameGeometryTests(unittest.TestCase):
         greys = {out.getpixel((x, y)) for x in range(64) for y in range(32)}
         self.assertLessEqual(greys, {self.display.SPECTRA6[0], self.display.SPECTRA6[1]})
 
+    def test_web_settings_are_checked_against_the_schema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self.display.web_settings(tmp), ({}, None))
+            with open(os.path.join(tmp, "settings.json"), "w") as f:
+                json.dump({"paper_warmth": 5, "quiet_start": 22.0, "shoot_title": "Back\x07yard",
+                           "ink_contrast": True, "web_dir": "/etc", "base_url": "http://evil"}, f)
+            saved, sig = self.display.web_settings(tmp)
+            self.assertEqual(saved, {"paper_warmth": 0.25, "quiet_start": 22, "shoot_title": "Backyard"})
+            with open(os.path.join(tmp, "refresh"), "w") as f:
+                f.write("123.4\n")
+            self.assertNotEqual(self.display.web_settings(tmp)[1], sig)  # a refresh request moves the signature
+
     def test_paper_warmth_dots_only_open_paper(self):
         img = Image.new("RGB", (64, 64), (255, 255, 255))
         ImageDraw.Draw(img).rectangle((0, 0, 7, 63), fill=(0, 0, 0))
