@@ -48,6 +48,9 @@ python3 -m venv .venv
 
 echo "2/4  Installing Chromium for the collage screenshot..."
 sudo .venv/bin/playwright install-deps chromium
+# Lets the station resolve the frame as birdframe.local (mDNS) for the
+# online status in Settings > Frame.
+sudo apt-get install -y libnss-mdns >/dev/null
 .venv/bin/playwright install chromium
 
 echo "3/4  Writing config and the export folder..."
