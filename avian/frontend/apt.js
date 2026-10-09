@@ -3299,7 +3299,7 @@
   // a bare "window" with the span it actually covers. Thresholds match
   // the winPick buttons (1H / 12H / 24H / 7D / ALL).
   function windowLabel(h, windowData) {
-    if (windowData && windowData.midnight_clamped) return 'since midnight';
+    if (windowData && windowData.midnight_clamped) return 'today';   // the window starts at midnight (Reset at midnight)
     if (h <= 1) return 'this hour';
     if (h <= 12) return 'past 12h';
     if (h <= 24) return 'past 24h';

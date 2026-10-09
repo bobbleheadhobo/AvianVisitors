@@ -754,7 +754,7 @@ assert.match(functionSource('renderAtlas'), /DATA\.recent && DATA\.recent\.windo
 const windowLabelContext = {};
 vm.createContext(windowLabelContext);
 vm.runInContext(functionSource('windowLabel'), windowLabelContext);
-assert.equal(windowLabelContext.windowLabel(24, { midnight_clamped: true }), 'since midnight',
+assert.equal(windowLabelContext.windowLabel(24, { midnight_clamped: true }), 'today',
   'a clamped window is labeled from station midnight');
 assert.equal(windowLabelContext.windowLabel(24, { midnight_clamped: false }), 'past 24h',
   'an unclamped 24 hour window keeps its rolling label');
