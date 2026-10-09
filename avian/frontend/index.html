@@ -15,7 +15,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r244">
+  <link rel="stylesheet" href="./styles.css?v=r245">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -165,23 +165,23 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
         </div>
         <aside class="stats-side">
           <div class="grp">
-            <h3>By Period</h3>
+            <h2>By Period</h2>
             <small id="statsByPeriodCap">detections, grouped by recency</small>
             <ol id="statsByPeriod"></ol>
           </div>
           <div class="grp">
-            <h3>Top Species</h3>
+            <h2>Top Species</h2>
             <small id="statsTopSpecCap">most-heard, current window</small>
             <ol id="statsTopSpec"></ol>
           </div>
           <div class="grp">
-            <h3>First Detections</h3>
+            <h2>First Detections</h2>
             <small id="statsFirstSeenCap">newest additions to the life list</small>
             <ol id="statsFirstSeen"></ol>
           </div>
         </aside>
         <div class="grp stats-rhythm">
-          <h3 id="statsRhythmTitle">Today's Rhythm</h3>
+          <h2 id="statsRhythmTitle">Today's Rhythm</h2>
           <small id="statsRhythmCap">detections through the day, over last week's average</small>
           <!-- SVG line chart, rendered by renderRhythm(). -->
           <div class="rh-plot" id="statsRhythm"></div>
@@ -238,7 +238,7 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
     <section class="postcard-visual" aria-label="Bird illustration">
       <div class="postcard-bird-frame">
         <div class="postcard-artwork" id="modalArtwork" data-art-state="loading">
-          <img id="modalImg" src="" alt="" loading="eager">
+          <img id="modalImg" alt="" loading="eager">
         </div>
         <div class="atlas-sort postcard-pose-toggle" id="modalPoseToggle" role="tablist" aria-label="Pose">
           <i class="seg-pill" aria-hidden="true"></i>
@@ -399,6 +399,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r281"></script>
+<script src="./apt.js?v=r282"></script>
 </body>
 </html>

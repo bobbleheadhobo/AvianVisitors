@@ -7,7 +7,7 @@ colors:
   paper-shade: "#e8e6df"
   ink: "#1a1612"
   ink-umber: "#4a3f31"
-  ink-faded: "#908576"
+  ink-faded: "#706556"
   hairline: "rgba(26,22,18,0.14)"
   danger: "#9b3f37"
   card-stock: "#f7f6f2"
@@ -19,7 +19,7 @@ colors:
   charcoal-pill: "#3a3e48"
   moon-ink: "#ece8e1"
   moon-ink-2: "#b7afa2"
-  moon-ink-soft: "#837c70"
+  moon-ink-soft: "#9a9285"
   moon-accent: "#d8d2c6"
   danger-dark: "#dc8b81"
   ok: "#4f7a55"
@@ -161,7 +161,7 @@ A near-monochrome warm palette: paper, ink and one umber. Color belongs to the b
 - **Notebook Paper** (`paper`): Page background, raised control thumbs, menu button and sheet. Near-white with the faintest warm cast.
 - **Recessed Paper** (`paper-recess`): The sunken tracks behind segmented pickers and the bottom view slider, and hover wash in the menu.
 - **Shaded Paper** (`paper-shade`): Placeholder fills while illustrations load.
-- **Faded Ink** (`ink-faded`): Inactive picker labels. At about 3.6:1 on paper it is below 4.5:1, so it's for secondary information only, never the only carrier of something the user needs.
+- **Faded Ink** (`ink-faded`): Inactive picker labels, hints, and captions. About 5:1 on Paper Recess and 5.5:1 on paper, so it meets WCAG AA wherever text sits (darkened from #908576 in the 2026-10-08 audit). Moonlit dark mode's `moon-ink-soft` is likewise about 5:1 on its recess.
 - **Quiet Ink** (`--stats-quiet`, defined on the Stats view): `color-mix(in srgb, var(--ink-soft) 70%, var(--ink-2))`, about 4.7:1 on paper and higher on charcoal. Used for secondary text that still has to be read: captions, ticks, scientific names, counts. It's the pattern to extend to other views.
 - **Hairline** (`hairline`): Dividers and chart gridlines.
 - **Card Stock** (`card-stock`), **Card Ink** (`card-ink`), **Card Muted** (`card-muted`): The postcard's own slightly warmer paper and inks, used only inside the postcard sheet.

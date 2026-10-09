@@ -1,0 +1,89 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.694Z",
+        "reason": "Audit 2026-10-08: #modalImg is the postcard image, hidden until a bird is opened and filled by apt.js before display"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.697Z",
+        "reason": "Audit 2026-10-08: 0.06em is DESIGN.md's caption/overline tracking on short mono labels, not running body text"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.700Z",
+        "reason": "Audit 2026-10-08: stamp paper texture under a 0.9 wash is the intended faint grain; opacity-0 rasters are the perched/flight pose crossfade"
+      },
+      {
+        "rule": "organic-clip-path",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.703Z",
+        "reason": "Audit 2026-10-08: polygon clip is the postage-stamp perforated edge, upstream brand artwork"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.706Z",
+        "reason": "Audit 2026-10-08: hairline repeating gradients are the stamps' engraving texture, upstream brand artwork"
+      },
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.709Z",
+        "reason": "Audit 2026-10-08: body and main.stage clip the collage canvas on purpose; popovers and tooltips live outside it"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.712Z",
+        "reason": "Audit 2026-10-08: postcard sheet sections and the menu's recessed input are upstream's paper-card structure, verified on phone and desktop"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:09.714Z",
+        "reason": "Audit 2026-10-08: postcard bird frame and sections checked on a phone screenshot; content is inset, detector reads the details/summary box"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "avian/frontend/index.html"
+        ],
+        "createdAt": "2026-10-09T05:00:22.127Z",
+        "reason": "Audit 2026-10-08: only .seg-pill width (abs-positioned slider, tap-only) and .static-head padding (changes only at the phone/desktop breakpoint). Re-check if a new layout transition is added"
+      }
+    ]
+  }
+}

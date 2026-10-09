@@ -5,7 +5,7 @@
     --paper-3:  #e8e6df;   /* placeholder fill */
     --ink:      #1a1612;
     --ink-2:    #4a3f31;
-    --ink-soft: #908576;
+    --ink-soft: #706556;   /* muted text, 5:1 on paper-2 (WCAG AA) */
     --accent:   #4a3f31;   /* warm dark grey - matches ink-2, no longer red */
     --accent-2: #1a1612;   /* near-black ink - same hue as the title text */
     --danger:   #9b3f37;   /* restrained destructive action */
@@ -39,7 +39,7 @@
     --paper-3:  #2c2f36;   /* placeholder fill */
     --ink:      #ece8e1;   /* warm off-white text / marks */
     --ink-2:    #b7afa2;   /* secondary text */
-    --ink-soft: #837c70;   /* muted text */
+    --ink-soft: #9a9285;   /* muted text, 5:1 on paper-2 (WCAG AA) */
     --accent:   #d8d2c6;   /* light warm - pills read light-on-dark */
     --accent-2: #ece8e1;
     --danger:   #dc8b81;
@@ -1330,15 +1330,15 @@
   @keyframes stats-fade-in { from { opacity: 0; } to { opacity: 1; } }
   .stats-tl-col.entering, .stats-tl-gridline.entering,
   .stats-tl-xtick.entering, .stats-tl-yaxis.entering,
-  .stats-side h3.entering, .stats-side small.entering, .stats-side li.entering,
-  .stats-rhythm h3.entering, .stats-rhythm small.entering, .rh-plot.entering {
+  .stats-side h2.entering, .stats-side small.entering, .stats-side li.entering,
+  .stats-rhythm h2.entering, .stats-rhythm small.entering, .rh-plot.entering {
     animation: stats-fade-in 340ms ease backwards;
   }
   @media (prefers-reduced-motion: reduce) {
     .bird-card.entering, .stats-tl-col.entering, .stats-tl-gridline.entering,
     .stats-tl-xtick.entering, .stats-tl-yaxis.entering,
-    .stats-side h3.entering, .stats-side small.entering, .stats-side li.entering,
-    .stats-rhythm h3.entering, .stats-rhythm small.entering, .rh-plot.entering { animation: none; }
+    .stats-side h2.entering, .stats-side small.entering, .stats-side li.entering,
+    .stats-rhythm h2.entering, .stats-rhythm small.entering, .rh-plot.entering { animation: none; }
   }
   .gtile {
     position: absolute;
@@ -1571,10 +1571,11 @@
   .stats-timeline {
     position: relative;
     flex: 1 1 auto; min-height: 0;
-    padding: 0 0 28px 32px;   /* left = y-axis (quantity), bottom = timestamps */
+    /* left = y-axis (quantity, sized to its longest count), bottom = timestamps */
+    padding: 0 0 28px calc(var(--tl-yw, 28px) + 4px);
   }
   .stats-tl-yaxis {
-    position: absolute; left: 0; top: 0; bottom: 28px; width: 28px;
+    position: absolute; left: 0; top: 0; bottom: 28px; width: var(--tl-yw, 28px);
     border-right: 1px solid var(--hairline);
   }
   .stats-tl-ytick {
@@ -1644,7 +1645,7 @@
      gutter); the arrow says time runs left to right. */
   .stats-tl-xtitle {
     flex: 0 0 auto;
-    padding: 4px 0 0 32px;
+    padding: 4px 0 0 calc(var(--tl-yw, 28px) + 4px);
     font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
     letter-spacing: .04em;
   }
@@ -1729,7 +1730,7 @@
     align-self: stretch; max-height: 100%;
     padding: 46px 0 6px;
   }
-  .stats-side h3, .stats-rhythm h3 {
+  .stats-side h2, .stats-rhythm h2 {
     font: 700 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink);
     letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 1px;
     border-left: 2px solid var(--accent); padding-left: 10px;
@@ -4159,11 +4160,13 @@ body.postcard-open { overflow: hidden; }
      charcoal spectrogram ground. */
   .bird-card .spectro-wrap::after {
     content: '';
-    position: absolute; top: 0; bottom: 0; left: 0;
-    width: var(--prog, 0%);
+    position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
     background: linear-gradient(to right, rgba(26,22,18,0.30), rgba(26,22,18,0.05));
     pointer-events: none;
-    transition: width 60ms linear;
+    /* Grows by scaling, not by width, so playback never re-lays out the card. */
+    transform: scaleX(var(--prog-x, 0));
+    transform-origin: 0 50%;
+    transition: transform 60ms linear;
   }
   :root[data-theme="dark"] .bird-card .spectro-wrap::after {
     background: linear-gradient(to right, rgba(236,232,225,0.26), rgba(236,232,225,0.05));
@@ -4357,7 +4360,7 @@ body.av-local #dd-items  { display: block; }
   .rh-plot { height: 120px; }
   /* Phones are the primary reader: nothing in Stats renders below 11px,
      and the ledger rows read at a comfortable 15px. */
-  .stats-side h3, .stats-rhythm h3 { font-size: 11px; }
+  .stats-side h2, .stats-rhythm h2 { font-size: 11px; }
   .stats-side .grp small, .stats-rhythm small { font-size: 11px; }
   .stats-side li { grid-template-columns: 54px 1fr auto; font-size: 15px; padding: 4px 0; }
   .stats-side li .yr { font-size: 11px; }

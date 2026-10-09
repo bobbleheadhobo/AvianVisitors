@@ -3093,14 +3093,14 @@
     // their rows populate top-to-bottom over the same window as the graph.
     var side = document.querySelector('.stats-side');
     if (side) {
-      [].slice.call(side.querySelectorAll('h3, small')).forEach(function (el) { items.push({ el: el, d: 40 }); });
+      [].slice.call(side.querySelectorAll('h2, small')).forEach(function (el) { items.push({ el: el, d: 40 }); });
       var rows = [].slice.call(side.querySelectorAll('li'));
       rows.forEach(function (el, i) { items.push({ el: el, d: 80 + (i / Math.max(1, rows.length - 1)) * SPREAD }); });
     }
     // The rhythm strip trails the side panel slightly, like a footnote.
     var rhy = document.querySelector('.stats-rhythm');
     if (rhy) {
-      [].slice.call(rhy.querySelectorAll('h3, small')).forEach(function (el) { items.push({ el: el, d: 40 }); });
+      [].slice.call(rhy.querySelectorAll('h2, small')).forEach(function (el) { items.push({ el: el, d: 40 }); });
       var rhp = rhy.querySelector('.rh-plot');
       if (rhp) items.push({ el: rhp, d: 140 });
     }
@@ -3461,6 +3461,10 @@
     var note = trimmed
       ? '<div class="stats-tl-cap">' + C + ' most-heard of ' + all.length + '</div>'
       : '';
+    // The y-axis grows with its longest count (11px mono digits are about
+    // 6.7px each), so four-digit days are not clipped at the left edge.
+    var yAxisW = Math.max(28, Math.ceil(String(maxN).length * 6.7) + 10);
+    if (tl.parentNode) tl.parentNode.style.setProperty('--tl-yw', yAxisW + 'px');
     tl.innerHTML =
       '<div class="stats-tl-yaxis">' + yaxis + '</div>'
       + '<div class="stats-tl-plot"' + (isMobile ? ' style="width:' + Math.round(plotW) + 'px"' : '') + '>'
@@ -5238,7 +5242,7 @@
   function clearAtlasCardProgress(card) {
     if (!card) return;
     var sw = card.querySelector('.spectro-wrap');
-    if (sw) sw.style.setProperty('--prog', '0%');
+    if (sw) { sw.style.setProperty('--prog', '0%'); sw.style.setProperty('--prog-x', '0'); }
     card.removeAttribute('data-playing');
   }
   function stopAtlasCardAudio() {
@@ -5308,7 +5312,10 @@
     audio.addEventListener('timeupdate', function () {
       if (atlasCardAudioButton !== btn || atlasCardAudio !== audio) return;
       var pct = audio.duration ? (audio.currentTime / audio.duration * 100) : 0;
-      if (spectroWrap) spectroWrap.style.setProperty('--prog', pct.toFixed(1) + '%');
+      if (spectroWrap) {
+        spectroWrap.style.setProperty('--prog', pct.toFixed(1) + '%');
+        spectroWrap.style.setProperty('--prog-x', (pct / 100).toFixed(4));
+      }
     });
     audio.addEventListener('ended', function () {
       if (atlasCardAudioButton === btn && atlasCardAudio === audio) stopAtlasCardAudio();
