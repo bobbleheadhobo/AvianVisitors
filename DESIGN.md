@@ -276,6 +276,9 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 - **Links:** settings / system / logs / tools in a two-up grid, then a full-width "classic birdnet-pi" link (new tab).
 - **Unlock row:** the password field, then a "keep me signed in on this device" checkbox in the 10px mono hint style. On a remembered device the footer button reads "sign out this device" instead of "lock admin controls".
 
+### Settings Groups
+- Settings are grouped under the same mono `admin-section-head` headings as System and Tools: this device (browser-only preferences), station, detection, notifications, frame (only with a frame), access, connected services, recordings & storage.
+
 ### Settings Save Bar
 - Station settings are staged, never autosaved. A bar pinned to the bottom of the settings scroll, 44px, paper with a hairline above, appears only while something is staged: bold mono "N unsaved changes", an underlined "discard" and an ink-filled "save". With nothing staged it sits static at the end of the page. Leaving with staged changes asks first.
 - **Sliders** move only when dragged from the thumb (±22px grab zone); taps on the track do nothing and vertical swipes scroll. Off its default, a slider shows an underlined mono "default 0.70" link beside its value; "reset detection to defaults" sits under the group.

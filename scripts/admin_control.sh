@@ -791,6 +791,60 @@ case "$action" in
     fi
     exec /bin/journalctl -u "$2" --no-pager -n "$3" -o short-iso
     ;;
+  detection-delete)
+    # Removes one detection (by its recording's file name) from birds.db,
+    # with its mp3, spectrogram and any shifted copy. Runs as the BirdNET-Pi
+    # user, who owns the database and the recordings.
+    [ "$#" -eq 2 ] || fail "detection-delete requires a file name"
+    detection_file=$2
+    [ "${#detection_file}" -le 255 ] \
+      && [[ "$detection_file" != */* && "$detection_file" != .* ]] \
+      && [[ "$detection_file" != *[[:cntrl:]]* ]] \
+      && [[ "$detection_file" =~ -birdnet-.*\.(mp3|wav|flac|ogg|m4a|aac|opus)$ ]] \
+      || fail "detection file name is not allowed"
+    extracted_dir=$(conf_value "$conf_path" EXTRACTED) || fail "recordings path is not configured"
+    [[ "$extracted_dir" =~ ^/[A-Za-z0-9._/-]+$ && "$extracted_dir" != *'..'* ]] \
+      || fail "recordings path is not safe"
+    detections_db=$repo_dir/scripts/birds.db
+    [ -f "$detections_db" ] && [ ! -L "$detections_db" ] || fail "detections database is missing"
+    cd /
+    exec runuser -u "$birdnet_user" -- /usr/bin/python3 -I -c '
+import json, os, re, sqlite3, sys
+name, extracted, db_path = sys.argv[1:4]
+def done(body, code=0):
+    print(json.dumps(body)); sys.exit(code)
+try:
+    db = sqlite3.connect(db_path, timeout=15)
+    row = db.execute("SELECT Date, Com_Name, Sci_Name FROM detections WHERE File_Name = ? LIMIT 1", (name,)).fetchone()
+    if row is None:
+        done({"ok": False, "error": "no detection has that file name"}, 1)
+    date, com, sci = row
+    with db:
+        deleted = db.execute("DELETE FROM detections WHERE File_Name = ?", (name,)).rowcount
+    db.close()
+except sqlite3.Error as error:
+    done({"ok": False, "error": "database error: %s" % error}, 1)
+files = 0
+root = os.path.realpath(extracted) + os.sep
+folder = com.replace("\x27", "").replace(" ", "_")
+if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date)) and "/" not in folder and folder not in ("", ".", ".."):
+    for base in (os.path.join(extracted, "By_Date", date, folder),
+                 os.path.join(extracted, "By_Date", "shifted", date, folder)):
+        for leaf in (name, name + ".png"):
+            path = os.path.join(base, leaf)
+            if os.path.realpath(path).startswith(root) and os.path.isfile(path) and not os.path.islink(path):
+                try:
+                    os.remove(path); files += 1
+                except OSError:
+                    pass
+        # The species folder goes too once its last recording has.
+        try:
+            os.rmdir(base)
+        except OSError:
+            pass
+done({"ok": True, "deleted": deleted, "files": files, "sci": sci, "com": com})
+' "$detection_file" "$extracted_dir" "$detections_db"
+    ;;
   config-set)
     [ "$#" -eq 3 ] || fail "config-set requires a key and value"
     lock_auth_state

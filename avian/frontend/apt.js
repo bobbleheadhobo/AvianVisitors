@@ -903,6 +903,35 @@
     syncAtlasStyle();
   }
 
+  // Where the postcard offers "delete this detection": only on a recording
+  // opened from an alert link (the default), or on any recording while admin
+  // controls are unlocked. A browser preference, like the Atlas ones above.
+  var DELETE_EVERYWHERE_KEY = 'bird:deleteEverywhere:v1';
+  var sessionDeleteEverywhere = null;
+  function deleteEverywhere() {
+    if (sessionDeleteEverywhere !== null) return sessionDeleteEverywhere;
+    return readLS(DELETE_EVERYWHERE_KEY, 'off') === 'on';
+  }
+  function syncDeleteEverywhere() {
+    var on = deleteEverywhere();
+    document.querySelectorAll('[data-delete-everywhere]').forEach(function (sw) {
+      sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    var list = document.getElementById('modalRecordings');
+    if (!list) return;
+    [].forEach.call(list.querySelectorAll('.rec-row'), function (row) {
+      if (row.dataset.alert) return;
+      var control = row.querySelector('.rec-review');
+      if (!on) { if (control && !control.hasAttribute('data-busy')) control.remove(); }
+      else if (row.classList.contains('expanded')) addDeleteControl(row);
+    });
+  }
+  function applyDeleteEverywhere(on) {
+    sessionDeleteEverywhere = !!on;
+    writeLS(DELETE_EVERYWHERE_KEY, on ? 'on' : 'off');
+    syncDeleteEverywhere();
+  }
+
   // Remember the last confirmed illustration pose independently for each
   // species. Keep a validated in-memory copy so the preference still works
   // for this visit when storage is unavailable (private mode / quota errors).
@@ -1034,6 +1063,10 @@
     if (ev.key === ATLAS_STYLE_KEY || ev.key === null) {
       sessionAtlasStyle = null;
       syncAtlasStyle();
+    }
+    if (ev.key === DELETE_EVERYWHERE_KEY || ev.key === null) {
+      sessionDeleteEverywhere = null;
+      syncDeleteEverywhere();
     }
   });
   var winBtns = [].slice.call(winPick.querySelectorAll('button'));
@@ -7771,6 +7804,15 @@
       + '    aria-checked="' + (on ? 'true' : 'false') + '" data-atlas-classic></button>'
       + '</div>';
   }
+  function deleteEverywhereRow() {
+    var on = deleteEverywhere();
+    return ''
+      + '<div class="menu-row">'
+      + '  <div><span class="label">Delete from any recording</span><span class="hint">off: only recordings opened from an alert</span></div>'
+      + '  <button type="button" class="switch" role="switch" aria-label="Delete from any recording"'
+      + '    aria-checked="' + (on ? 'true' : 'false') + '" data-delete-everywhere></button>'
+      + '</div>';
+  }
   function lanAuthRow(security) {
     security = security || {};
     var on = !!security.lan_admin_auth;
@@ -8593,7 +8635,7 @@
   }
   function wireSettingsControls(scope) {
     scope = scope || document;
-    scope.querySelectorAll('.switch:not([data-labels-switch]):not([data-atlas-always-all]):not([data-atlas-classic]):not([data-lan-auth]):not([data-birdweather-toggle]):not([data-birdweather-audio]):not([data-archive-toggle])').forEach(function (sw) {
+    scope.querySelectorAll('.switch:not([data-labels-switch]):not([data-atlas-always-all]):not([data-atlas-classic]):not([data-delete-everywhere]):not([data-lan-auth]):not([data-birdweather-toggle]):not([data-birdweather-audio]):not([data-archive-toggle])').forEach(function (sw) {
       settingsBaseline[sw.dataset.key] = sw.getAttribute('aria-checked') === 'true';
       sw.addEventListener('click', function () {
         var on = sw.getAttribute('aria-checked') !== 'true';
@@ -12887,6 +12929,10 @@
     var hrs = Math.round(mins / 60);
     return 'rendered ' + hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
   }
+  // Settings fall into named groups so a setting is quick to find.
+  function settingsHead(title) {
+    return '<h2 class="admin-section-head">' + adminEsc(title) + '</h2>';
+  }
   function frameSection(frame) {
     if (!frame || !frame.ok || !frame.frame) return '';
     var v = frame.values, d = frame.defaults, lim = frame.limits;
@@ -12894,7 +12940,7 @@
       return settingsSlider('frame.' + key, label, hint, v[key], lim[key].min, lim[key].max, step, digits, d[key]);
     }
     var f = frame.frame;
-    return ''
+    return settingsHead('frame')
       + '<section class="settings-frame">'
       + '<div class="frame-preview-row">'
       + '  <a href="./frame/preview-names.png" target="_blank" rel="noopener" class="frame-preview"'
@@ -13012,7 +13058,8 @@
   function notificationsSection(notify, v) {
     if (!notify || !notify.ok) return '';
     var saved = notify.targets || [];
-    return '</section><section class="settings-notify">'
+    return settingsHead('notifications')
+      + '<section class="settings-notify">'
       + '<div class="menu-row notify-targets">'
       + '  <div><span class="label">Notifications</span>'
       + '  <span class="hint">where alerts go. one URL per line; for discord, paste the channel\'s webhook URL</span>'
@@ -13044,7 +13091,8 @@
       + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY', 'First of each species each day', 'one alert per bird per day', v.APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY)
       + settingsToggle('APPRISE_NOTIFY_NEW_SPECIES', 'New to the station', 'a bird never heard here before', v.APPRISE_NOTIFY_NEW_SPECIES)
       + settingsToggle('APPRISE_NOTIFY_EACH_DETECTION', 'Every detection', 'can be dozens an hour', v.APPRISE_NOTIFY_EACH_DETECTION)
-      + settingsToggle('APPRISE_WEEKLY_REPORT', 'Weekly report', 'a summary each week', v.APPRISE_WEEKLY_REPORT);
+      + settingsToggle('APPRISE_WEEKLY_REPORT', 'Weekly report', 'a summary each week', v.APPRISE_WEEKLY_REPORT)
+      + '</section>';
   }
   function wireNotifications(root) {
     notifyUi = null;
@@ -13345,31 +13393,44 @@
         }
         adminBody.innerHTML =
           '<div class="admin-settings">'
+          + settingsHead('this device')
           + '<section>'
           + themeRow()
           + labelsRow()
           + atlasAlwaysAllRow()
           + atlasClassicRow()
+          + deleteEverywhereRow()
+          + '</section>'
+          + settingsHead('station')
+          + '<section>'
           + settingsText('SITE_NAME', 'Station name', v.SITE_NAME || 'BirdNET-Pi', 60)
-          + '</section><section>'
+          + stationRow(v)
+          + '</section>'
+          + settingsHead('detection')
+          + '<section>'
           + settingsSlider('CONFIDENCE', 'Confidence threshold', 'min score to log a detection', v.CONFIDENCE, 0.1, 0.95, 0.05, 2, 0.7)
           + settingsSlider('SF_THRESH', 'Range filter', 'min likelihood a species is here this week', v.SF_THRESH, 0.001, 0.5, 0.001, 3, 0.03)
           + settingsSlider('SENSITIVITY', 'Sensitivity', 'sigmoid slope on the classifier output', v.SENSITIVITY, 0.5, 1.5, 0.05, 2, 1.25)
           + settingsSlider('OVERLAP', 'Chunk overlap', 'seconds re-analyzed per pass', v.OVERLAP, 0, 2.5, 0.1, 1, 0.0)
           + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-detection>reset detection to defaults</button></div>'
           + settingsToggle('RESET_AT_MIDNIGHT', 'Reset at midnight', 'keep time windows inside the current day', !!v.RESET_AT_MIDNIGHT)
-          + '</section><section>'
-          + stationRow(v)
-          + settingsSecret('GEMINI_API_KEY', 'Gemini API key', 'for drawing birds on demand', sec.GEMINI_API_KEY)
-          + settingsSecret('EBIRD_API_KEY', 'eBird API key', 'for regional species filters', sec.EBIRD_API_KEY)
-          + notificationsSection(notify, v)
           + '</section>'
+          + notificationsSection(notify, v)
           + frameSection(frame)
+          + settingsHead('access')
           + '<section class="settings-retention">'
           + lanAuthRow(security)
           + remoteListenRow(listen)
           + devicesRow(devices)
+          + '</section>'
+          + settingsHead('connected services')
+          + '<section class="settings-retention">'
           + birdweatherRow(birdweather)
+          + settingsSecret('GEMINI_API_KEY', 'Gemini API key', 'for drawing birds on demand', sec.GEMINI_API_KEY)
+          + settingsSecret('EBIRD_API_KEY', 'eBird API key', 'for regional species filters', sec.EBIRD_API_KEY)
+          + '</section>'
+          + settingsHead('recordings & storage')
+          + '<section class="settings-retention">'
           + archiveSettingsRow(archive)
           + settingsToggle('preserve', 'Preserve all recordings', "don't auto-delete", preserve)
           + settingsSegmented('FULL_DISK', 'When disk fills', '', v.FULL_DISK, [
@@ -13464,6 +13525,10 @@
         var atlasClassicSwitch = adminBody.querySelector('[data-atlas-classic]');
         if (atlasClassicSwitch) atlasClassicSwitch.addEventListener('click', function () {
           applyAtlasStyle(atlasClassicSwitch.getAttribute('aria-checked') !== 'true');
+        });
+        var deleteEverywhereSwitch = adminBody.querySelector('[data-delete-everywhere]');
+        if (deleteEverywhereSwitch) deleteEverywhereSwitch.addEventListener('click', function () {
+          applyDeleteEverywhere(deleteEverywhereSwitch.getAttribute('aria-checked') !== 'true');
         });
       })
       .catch(function (err) {
@@ -14364,12 +14429,119 @@
       if (section && !section.open) section.open = true;
       // Expand without playing: this runs from a link, not a tap, so the
       // browser would block the audio anyway.
+      row.dataset.alert = '1';
       setRecordingExpanded(row, true);
+      addDeleteControl(row);
       // Scroll once the section and the row have laid out (and again after
       // the postcard's own entrance settles).
       requestAnimationFrame(function () { row.scrollIntoView({ block: 'center' }); });
       setTimeout(function () { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 450);
     })();
+  }
+
+  // A recording opened from an alert link can be deleted, for the times the
+  // analyzer names a bird that was never here. Unless "Delete from any
+  // recording" is on, only that one row gets the control.
+  function addDeleteControl(row) {
+    if (!row || row.querySelector('.rec-review') || row.dataset.edu) return;
+    var sci = ((document.getElementById('modalSci') || {}).textContent || '').trim();
+    var com = (document.getElementById('modalCommon') || {}).textContent || sci;
+    var box = document.createElement('div');
+    box.className = 'rec-review';
+    box.innerHTML = '<button type="button" class="rec-review-open">not this bird? delete this detection</button>'
+      + '<div class="rec-review-confirm" hidden>'
+      + '<label class="rec-review-exclude"><input type="checkbox"> <span></span></label>'
+      + '<div class="rec-review-actions">'
+      + '<button type="button" class="rec-review-delete">delete</button>'
+      + '<button type="button" class="rec-review-cancel">cancel</button>'
+      + '</div>'
+      + '</div>'
+      + '<p class="rec-review-status" role="status"></p>';
+    box.querySelector('.rec-review-exclude span').textContent = 'also stop detecting ' + com.toLowerCase();
+    row.appendChild(box);
+    var openBtn = box.querySelector('.rec-review-open');
+    var confirmBox = box.querySelector('.rec-review-confirm');
+    var exclude = box.querySelector('.rec-review-exclude input');
+    var status = box.querySelector('.rec-review-status');
+    var busy = false;
+    function say(text) { status.textContent = text || ''; }
+    openBtn.addEventListener('click', function () {
+      if (adminAccessState !== 'unlocked') {
+        say('unlock admin controls in the menu first, then try again.');
+        return;
+      }
+      say('');
+      openBtn.hidden = true;
+      confirmBox.hidden = false;
+    });
+    box.querySelector('.rec-review-cancel').addEventListener('click', function () {
+      if (busy) return;
+      confirmBox.hidden = true;
+      openBtn.hidden = false;
+      exclude.checked = false;
+      say('');
+    });
+    box.querySelector('.rec-review-delete').addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      box.setAttribute('data-busy', 'true');
+      say('deleting...');
+      var file = (row.dataset.file || '').split('/').pop();
+      adminFetch('./avian/api/detection-delete.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify({ file: file }),
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+          return j;
+        });
+      }).then(function (j) {
+        var excludeSci = exclude.checked ? (j.sci || sci) : '';
+        return (excludeSci ? speciesPost({ action: 'add', list: 'exclude', sci: excludeSci }).then(function () {
+          return true;
+        }, function (error) {
+          say('deleted, but could not exclude it: ' + error.message);
+          return null;
+        }) : Promise.resolve(false)).then(function (excluded) {
+          return { result: j, excluded: excluded };
+        });
+      }).then(function (outcome) {
+        if (modalRow() === row) pauseModalAudio();
+        Object.keys(SPECIES_CACHE).forEach(function (key) {
+          if (key.split('|').slice(1).join('|') === (outcome.result.sci || sci)) delete SPECIES_CACHE[key];
+        });
+        var list = row.parentNode;
+        var note = document.createElement('li');
+        note.className = 'rec-empty rec-review-done';
+        note.textContent = outcome.excluded === null
+          ? status.textContent
+          : 'detection deleted.' + (outcome.excluded ? ' ' + com.toLowerCase() + ' won\'t be detected again.' : '');
+        row.replaceWith(note);
+        var countEl = document.getElementById('modalRecCount');
+        var left = list ? list.querySelectorAll('.rec-row').length : 0;
+        if (countEl) countEl.textContent = left + (left === 1 ? ' recording' : ' recordings');
+        var total = document.getElementById('modalAllTime');
+        if (total && /^\d/.test(total.textContent)) {
+          var n = parseInt(total.textContent.replace(/\D/g, ''), 10) - 1;
+          if (n >= 0) total.textContent = n.toLocaleString();
+        }
+        // The link has done its job; a reload should not reopen a deleted row.
+        if (window.history && history.replaceState) {
+          history.replaceState(null, '', location.pathname + location.search.replace(/[?&]filename=[^&]*/, '').replace(/^&/, '?')
+            + (sci ? '#sci=' + encodeURIComponent(sci) : ''));
+        }
+        refreshAll(false);
+      }).catch(function (error) {
+        busy = false;
+        box.removeAttribute('data-busy');
+        if (adminAuthCancelled(error)) {
+          say('unlock admin controls in the menu first, then try again.');
+          return;
+        }
+        say('could not delete: ' + error.message);
+      });
+    });
   }
 
   // "Listen here" links in notifications are /?filename=<recording>. BirdNET-Pi
@@ -14832,6 +15004,7 @@
     if (expanded) {
       ensureSpectroImage(row);
       syncLoopRegion(row);
+      if (deleteEverywhere() && adminAccessState === 'unlocked') addDeleteControl(row);
     } else if (modalRow() === row) {
       pauseModalAudio();
     }

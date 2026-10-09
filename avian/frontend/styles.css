@@ -2525,6 +2525,36 @@ body.postcard-open { overflow: hidden; }
   color: var(--card-muted);
   font: 10px/1.3 ui-monospace, Menlo, monospace;
 }
+/* Delete control on a recording opened from an alert link. Text only. */
+.postcard-recordings .rec-review { display: none; padding: 0 0 12px; }
+.postcard-recordings .rec-row.expanded .rec-review { display: block; }
+.postcard-recordings .rec-review button {
+  min-height: 32px; padding: 0;
+  border: 0; background: transparent; color: var(--card-muted);
+  font: 600 10px/1.2 ui-monospace, Menlo, monospace;
+  letter-spacing: .04em;
+  text-decoration: underline; text-underline-offset: 3px;
+  cursor: pointer;
+}
+.postcard-recordings .rec-review .rec-review-delete { color: #a23b2a; }
+:root[data-theme="dark"] .postcard-recordings .rec-review .rec-review-delete { color: #e58a74; }
+.postcard-recordings .rec-review-exclude {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 32px;
+  color: var(--card-ink);
+  font: 10px/1.3 ui-monospace, Menlo, monospace;
+  cursor: pointer;
+}
+.postcard-recordings .rec-review-exclude input { width: 16px; height: 16px; margin: 0; accent-color: var(--card-ink); }
+.postcard-recordings .rec-review-actions { display: flex; gap: 22px; }
+.postcard-recordings .rec-review[data-busy="true"] button { opacity: .5; cursor: progress; }
+.postcard-recordings .rec-review-status:empty { display: none; }
+.postcard-recordings .rec-review-status {
+  margin: 4px 0 0;
+  color: var(--card-muted);
+  font: 10px/1.3 ui-monospace, Menlo, monospace;
+}
+.postcard-recordings .rec-review button:focus-visible { outline: 1px solid var(--card-ink); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) {
   .postcard-recordings .rec-row-toggle:hover { transform: scale(.994); }
 }
@@ -4522,9 +4552,17 @@ body.av-local #dd-items  { display: block; }
 .admin-settings section > .menu-row + .menu-row {
   border-top: 1px solid var(--hairline); box-shadow: none;
 }
-.admin-settings .settings-retention > .archive-settings-control + .menu-row {
+.admin-settings .settings-retention > .archive-settings-control + .menu-row,
+.admin-settings .settings-retention > .birdweather-control + .menu-row {
   border-top: 1px solid var(--hairline); box-shadow: none;
 }
+/* Each group sits under its own heading, so its first block needs no rule
+   above it. */
+.admin-settings .settings-retention > .birdweather-control:first-child,
+.admin-settings .settings-retention > .archive-settings-control:first-child {
+  margin-top: 0; padding-top: 0; border-top: 0;
+}
+.admin-settings > .admin-section-head:first-child { margin-top: 0; }
 
 /* ============ Station location ============ */
 .station-pick { display: inline-flex; align-items: center; gap: 8px; }

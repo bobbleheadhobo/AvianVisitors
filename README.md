@@ -84,11 +84,20 @@ An unlocked admin session normally locks after 30 minutes idle. Tick **keep me s
 Open **menu** (top right). Away from home you unlock it with the admin password first.
 
 - **Live audio** - listen to the window mic, with a line saying who else is listening. Away from home see [Listening away from home](#listening-away-from-home).
-- **Settings** - changes are held until you press **Save** in the bar at the bottom (Discard puts everything back; leaving with unsaved changes asks first). Sliders move only when you drag the thumb, and each shows a `default` link when it is off its default. **Notifications** sets where alerts go (Apprise URLs, e.g. a Discord webhook) and when: first of each species each day, a new species for the station, every detection, the weekly report. Use **send test** to check a target.
+- **Settings** - grouped under headings: this device, station, detection, notifications, frame, access, connected services, recordings & storage. Changes are held until you press **Save** in the bar at the bottom (Discard puts everything back; leaving with unsaved changes asks first). Sliders move only when you drag the thumb, and each shows a `default` link when it is off its default. **Notifications** sets where alerts go (Apprise URLs, e.g. a Discord webhook) and when: first of each species each day, a new species for the station, every detection, the weekly report. Use **send test** to check a target.
 - **System** - health at a glance: a green outline is passing, amber is getting close, red is failing. It flags a mic-less station (`no microphone`) and a recorder writing silence (`silent`), lists every service with what it does and a restart button, and shows the time since the last detection.
 - **Logs** - service journals, plus **live listening**: every remote listening session.
 - **Tools** - pull the latest code, reinstall services, download detections / recordings, take a **full backup** or **restore** one, edit the **species lists** (never log / only log / always allow), and **reboot** or **shut down** the station. Backup and restore ask for the admin password even on the home network: a backup holds the station's API keys and webhooks, and a restore replaces its config.
 - **classic birdnet-pi** - the original BirdNET-Pi pages in a new tab.
+
+### Deleting a wrong detection
+
+When the analyzer names a bird that was never there, open the alert's **See this bird** (or **Listen here**) link. The postcard opens on that recording, and under its spectrogram is **not this bird? delete this detection**. Confirm with **delete**; tick **also stop detecting** first to add the species to the never-log list (undo it in **Tools → species lists**).
+
+- It removes the detection from the database with its recording, spectrogram and any frequency-shifted copy. A bird with no detections left drops out of the collage, Atlas and Stats. A copy already uploaded to BirdWeather stays there.
+- It needs admin controls unlocked; away from home, unlock the menu first.
+- By default only a recording opened from an alert offers it. **Settings → this device → Delete from any recording** offers it on every recording you open while unlocked, on that phone or computer.
+- The web server cannot write the database itself; the delete runs through `avian-admin-control detection-delete`, which checks the file name and acts as the BirdNET-Pi user.
 
 ### Classic BirdNET-Pi pages
 

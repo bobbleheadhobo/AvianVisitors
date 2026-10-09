@@ -811,7 +811,7 @@ $legacy_handles
   # existing checkout during an update, including their source text.
   @unknownAvianApi {
     path /avian/api/*
-    not path /avian/api/archive.php /avian/api/birdnet-api.php /avian/api/birdnet-status.php /avian/api/birdweather.php /avian/api/config.php /avian/api/classic.php /avian/api/cutout.php /avian/api/educator-audio-check.php /avian/api/educator-audio.php /avian/api/educators.php /avian/api/export.php /avian/api/frame.php /avian/api/generate.php /avian/api/live-listen.php /avian/api/maintenance.php /avian/api/manifest.php /avian/api/menu.php /avian/api/notifications.php /avian/api/recording.php /avian/api/species-lists.php /avian/api/spectrogram.php /avian/api/station.php /avian/api/wiki.php
+    not path /avian/api/archive.php /avian/api/birdnet-api.php /avian/api/birdnet-status.php /avian/api/birdweather.php /avian/api/config.php /avian/api/classic.php /avian/api/cutout.php /avian/api/detection-delete.php /avian/api/educator-audio-check.php /avian/api/educator-audio.php /avian/api/educators.php /avian/api/export.php /avian/api/frame.php /avian/api/generate.php /avian/api/live-listen.php /avian/api/maintenance.php /avian/api/manifest.php /avian/api/menu.php /avian/api/notifications.php /avian/api/recording.php /avian/api/species-lists.php /avian/api/spectrogram.php /avian/api/station.php /avian/api/wiki.php
   }
   handle @unknownAvianApi {
     respond 404
