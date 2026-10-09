@@ -6062,7 +6062,7 @@
   var pendingAdminSection = null;
   var adminAuthMeta = {
     required: false, lan_policy: false, password_configured: false,
-    recovery: false, direct_local: false, remote_listen: false,
+    recovery: false, direct_local: false, remote_listen: false, remembered: false,
   };
   function normalizeAdminAuthMeta(value) {
     value = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -6073,6 +6073,8 @@
       recovery: value.recovery === true,
       direct_local: value.direct_local === true,
       remote_listen: value.remote_listen === true,
+      // A remembered device keeps its session; no 30 minute idle lock.
+      remembered: value.remembered === true,
     };
   }
   var ADMIN_IDLE_MS = 30 * 60 * 1000;
@@ -6663,7 +6665,8 @@
   function scheduleAdminIdleLock() {
     if (adminIdleTimer) clearTimeout(adminIdleTimer);
     adminIdleTimer = null;
-    if (adminAccessState !== 'unlocked' || !adminAuthMeta.required) return;
+    if (adminAccessState !== 'unlocked' || !adminAuthMeta.required
+      || adminAuthMeta.remembered) return;
     adminLastActivityAt = sharedAdminActivity();
     var remaining = ADMIN_IDLE_MS - (Date.now() - adminLastActivityAt);
     if (remaining <= 0) {
@@ -6789,9 +6792,13 @@
     p = '';
     // The password is sent once. The API returns a password-bound HttpOnly
     // session for later Settings, System, Logs, Tools, and Educators requests.
+    // "Keep me signed in" also asks for a long-lived device cookie.
+    var unlockHeaders = { 'Authorization': hdr, 'X-Avian-Credential': '1' };
+    var rememberBox = document.getElementById('lockRemember');
+    if (rememberBox && rememberBox.checked) unlockHeaders['X-Avian-Remember'] = '1';
     fetch('./avian/api/menu.php', {
       method: 'POST',
-      headers: { 'Authorization': hdr, 'X-Avian-Credential': '1' },
+      headers: unlockHeaders,
       credentials: 'same-origin',
     }).then(function (r) {
       if (r.status === 200) {
@@ -7315,6 +7322,9 @@
     if (adminLock) {
       adminLock.hidden = !adminAuthMeta.required;
       adminLock.disabled = false;
+      // Locking also forgets a remembered device, so say so.
+      adminLock.textContent = adminAuthMeta.remembered
+        ? 'sign out this device' : 'lock admin controls';
       adminLock.onclick = function () {
         adminLock.disabled = true;
         lockAdminSession().then(function () {

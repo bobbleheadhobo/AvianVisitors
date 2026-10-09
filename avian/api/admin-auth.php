@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/admin-state.php';
 require_once __DIR__ . '/educator-state.php';
+require_once __DIR__ . '/admin-devices.php';
 
 const AVIAN_ADMIN_SESSION_NAME = 'avian_admin';
 const AVIAN_ADMIN_SESSION_KEY = 'password_fingerprint';
@@ -291,6 +292,7 @@ function avian_destroy_admin_session(array $server, bool $expireCookie = true): 
 }
 
 function avian_logout_admin_session(array $server): void {
+    avian_device_forget($server);
     if (session_status() !== PHP_SESSION_ACTIVE) {
         avian_start_admin_session($server, true);
     }
@@ -514,6 +516,11 @@ function avian_consume_educator_audio_grant(array $server, string $token): ?stri
 /** @return array{locked:bool,remaining:int} */
 function avian_idle_lock_admin_session(array $server): array {
     $state = avian_admin_state();
+    // A remembered device does not idle-lock. It ends only when it is locked
+    // or when the device itself expires.
+    if (avian_device_remembered($server, $state)) {
+        return ['locked' => false, 'remaining' => AVIAN_ADMIN_SESSION_IDLE_SECONDS];
+    }
     if (!avian_admin_session_valid($server, $state, false, true, false, false)) {
         return ['locked' => true, 'remaining' => 0];
     }
@@ -796,18 +803,21 @@ function avian_require_admin_proof(): void {
         // Browsers may keep sending cached Basic credentials after login.
         // Reuse an already-valid session so parallel API requests do not race
         // through repeated session-ID rotations.
-        if (avian_admin_session_valid($server, $state)) {
-            avian_admin_request_proved(true);
-            return;
-        }
-        if (!avian_create_admin_session($server, $state)) {
+        if (!avian_admin_session_valid($server, $state)
+            && !avian_create_admin_session($server, $state)) {
             avian_api_fail(503, 'authentication session unavailable');
+        }
+        // "Keep me signed in" on the unlock form. Only a request that has
+        // just proved the password can remember a device.
+        if (hash_equals('1', (string)($server['HTTP_X_AVIAN_REMEMBER'] ?? ''))) {
+            avian_device_issue($server, $state);
         }
         avian_admin_request_proved(true);
         return;
     }
 
-    if (avian_admin_session_valid($server, $state)) {
+    if (avian_admin_session_valid($server, $state)
+        || avian_device_restore_session($server, $state)) {
         avian_admin_request_proved(true);
         return;
     }

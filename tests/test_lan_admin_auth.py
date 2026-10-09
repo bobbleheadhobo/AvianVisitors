@@ -381,6 +381,20 @@ class LanAdminAuthStaticTests(unittest.TestCase):
         self.assertRegex(result.stdout, r"admin auth tests passed [(][0-9]+ checks[)]")
 
     @unittest.skipUnless(shutil.which("php"), "PHP CLI is unavailable")
+    def test_php_remembered_device_suite(self):
+        result = subprocess.run(
+            ["php", "tests/test_admin_devices.php"],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertRegex(result.stdout, r"admin device tests passed [(][0-9]+ checks[)]")
+
+    @unittest.skipUnless(shutil.which("php"), "PHP CLI is unavailable")
     def test_menu_returns_stable_native_rows(self):
         with tempfile.TemporaryDirectory(prefix="avian-menu-") as temporary:
             state = pathlib.Path(temporary) / "admin-auth.state"

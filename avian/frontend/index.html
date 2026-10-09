@@ -15,7 +15,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r241">
+  <link rel="stylesheet" href="./styles.css?v=r242">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -66,6 +66,7 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
       <input id="lockPass" type="password" placeholder="admin password" autocomplete="current-password" aria-describedby="lockHint lockTransport">
       <button type="submit" aria-label="Unlock admin controls">→</button>
     </form>
+    <label class="lock-remember"><input type="checkbox" id="lockRemember" form="unlockForm"> keep me signed in on this device</label>
     <p class="lock-hint" id="lockHint" role="status" aria-live="polite" aria-atomic="true"></p>
     <p class="lock-transport" id="lockTransport" hidden>Plain HTTP does not protect this password from other devices on the network.</p>
   </div>
@@ -398,6 +399,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r278"></script>
+<script src="./apt.js?v=r279"></script>
 </body>
 </html>

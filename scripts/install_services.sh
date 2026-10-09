@@ -121,6 +121,15 @@ EOF
   [ -d "$listen_dir" ] && [ ! -L "$listen_dir" ] \
     && [ "$(stat -c '%u:%g:%a' -- "$listen_dir")" = "0:$caddy_gid:770" ] \
     || { echo "Unsafe live listening directory" >&2; return 1; }
+  # Remembered admin devices ("keep me signed in"), one hashed token per file
+  # (admin-devices.php, running as caddy).
+  devices_dir=$auth_state_dir/devices
+  if [ ! -e "$devices_dir" ] && [ ! -L "$devices_dir" ]; then
+    install -d -o root -g caddy -m 0770 "$devices_dir"
+  fi
+  [ -d "$devices_dir" ] && [ ! -L "$devices_dir" ] \
+    && [ "$(stat -c '%u:%g:%a' -- "$devices_dir")" = "0:$caddy_gid:770" ] \
+    || { echo "Unsafe remembered devices directory" >&2; return 1; }
   # Initialize the verifier and atomically provision the derived rate state
   # before the first managed Caddy render. Runtime readers fail closed while
   # either state is absent, so a clean install must not defer this step.

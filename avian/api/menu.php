@@ -36,7 +36,8 @@ if ($menuAction === 'activity') {
     if (empty($activityState['valid']) || empty($activityState['configured'])) {
         avian_admin_password_missing_fail();
     }
-    if (!avian_admin_session_valid($_SERVER, $activityState, true)) {
+    if (!avian_admin_session_valid($_SERVER, $activityState, true)
+        && !avian_device_restore_session($_SERVER, $activityState)) {
         avian_api_fail(401, 'unauthorized');
     }
     echo json_encode(['ok' => true]);
@@ -184,6 +185,7 @@ echo json_encode([
         'direct_local' => avian_is_direct_local_request($_SERVER),
         'lan_policy' => avian_lan_admin_auth_required(),
         'remote_listen' => listen_remote_enabled(),
+        'remembered' => $passwordRequired && avian_device_remembered($_SERVER, $adminState),
         'password_configured' => !empty($adminState['valid'])
             && !empty($adminState['configured']),
         'recovery' => empty($adminState['valid']),
