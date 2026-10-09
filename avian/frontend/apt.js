@@ -3344,6 +3344,27 @@
   // x-axis. These used to be fixed-size squares floating at their count,
   // which on a phone covered a third of the scale and made every quiet
   // species look the same.
+  var STATS_SCALES = ['log', 'sqrt', 'linear'];
+  var STATS_SCALE_LABELS = { log: 'log scale', sqrt: '\u221a scale', linear: 'linear scale' };
+  var STATS_SCALE_NAMES = { log: 'log', sqrt: 'square root', linear: 'linear' };
+  function statsChartScale() {
+    var v = readLS('stats:scale', 'log');
+    return STATS_SCALES.indexOf(v) >= 0 ? v : 'log';
+  }
+  (function wireStatsScaleButton() {
+    var btn = document.getElementById('statsTimelineScale');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var next = STATS_SCALES[(STATS_SCALES.indexOf(statsChartScale()) + 1) % STATS_SCALES.length];
+      writeLS('stats:scale', next);
+      // Keep the reader's place in a sideways-scrolled chart.
+      var tl = document.getElementById('statsTimeline');
+      var left = tl ? tl.scrollLeft : 0;
+      drawHistograms(false);
+      if (tl) tl.scrollLeft = left;
+    });
+  })();
+
   function drawHistograms(animate) {
     var tl = document.getElementById('statsTimeline');
     if (!tl) return;
@@ -3399,13 +3420,20 @@
     // Bar height follows the square root of the count. One busy species
     // (a thousand finch calls) would otherwise flatten everyone else into
     // slivers; the exact count is printed on every bar anyway.
-    var Y_SCALE = 'log';   // 'sqrt' or 'log'
+    // Tapping the scale note under the chart cycles log -> sqrt -> linear,
+    // remembered per device; log is the default.
+    var yScale = statsChartScale();
     function yFrac(n) {
       n = Math.max(0, n);
-      return Y_SCALE === 'log' ? Math.log1p(n) / Math.log1p(maxN) : Math.sqrt(n) / Math.sqrt(maxN);
+      if (yScale === 'sqrt') return Math.sqrt(n) / Math.sqrt(maxN);
+      if (yScale === 'linear') return n / maxN;
+      return Math.log1p(n) / Math.log1p(maxN);
     }
-    var xTitleScale = document.getElementById('statsTimelineScale');
-    if (xTitleScale) xTitleScale.textContent = Y_SCALE === 'log' ? 'log scale' : '\u221a scale';
+    var scaleBtn = document.getElementById('statsTimelineScale');
+    if (scaleBtn) {
+      scaleBtn.textContent = STATS_SCALE_LABELS[yScale];
+      scaleBtn.setAttribute('aria-label', 'bar scale: ' + STATS_SCALE_NAMES[yScale] + '. tap to change');
+    }
 
     // Y-axis ticks at round counts, placed on the same square-root scale,
     // dropping any that would crowd its neighbour. maxN is pinned on top.

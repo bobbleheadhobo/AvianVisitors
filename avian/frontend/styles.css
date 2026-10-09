@@ -1651,6 +1651,18 @@
     letter-spacing: .04em;
   }
   .stats-tl-xtitle[hidden] { display: none; }
+  /* The scale note doubles as its switch: tap to cycle log, sqrt, linear.
+     A dotted underline marks it tappable without a fill behind the text;
+     the padding grows the touch area to about 32px tall. */
+  .stats-tl-scale {
+    margin: -10px -6px -10px 0; padding: 10px 6px;
+    background: none; border: 0; cursor: pointer;
+    font: inherit; letter-spacing: inherit; color: inherit;
+    text-decoration: underline dotted; text-underline-offset: 3px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stats-tl-scale:hover { color: var(--ink); }
+  .stats-tl-scale:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; border-radius: 3px; }
   .stats-tl-col.sync-hi .stats-tl-label {
     transform: rotate(-90deg) translateY(55%) scale(1.1);
   }
