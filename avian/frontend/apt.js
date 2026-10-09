@@ -1197,6 +1197,7 @@
     };
   }
   var GRID_STRIDE = 4; // viewport px per occupancy cell; smaller = slower
+  var PHONE_BUDGET_BOOST = 1.45; // phones: 45% more bird area than tuning() gives
   var COLLAGE_PAD = 3; // breathing room (grid cells) around each bird;
   // eased on narrow screens where birds are smaller.
   // The lettering is thin ink and already carries LABEL_GAP of its own, so it
@@ -2795,7 +2796,17 @@
     // pack densities for 6 vs 48 birds.
     var T = tuning(items.length);
     var vpArea = W * H;
-    var budget = vpArea * T.packingBudgetFrac;
+    // Phones get a bigger share of their (small) collage box: at the desktop
+    // budget the cluster used only ~3/4 of the width and left wide margins.
+    // The scale-to-fit loop below still shrinks it if it would spill over.
+    // The e-ink frame (shoot.py, which always passes ?labels=) is also 480px
+    // wide but keeps the layout its capacity was tuned on.
+    var phoneLayout = W <= 700 && !labelParam;
+    // Tapers on busy days, where packing (not the budget) is the limit and a
+    // bigger start would only cost the fit loop shrink steps it needs.
+    var phoneBoost = !phoneLayout ? 1 : items.length <= 24 ? PHONE_BUDGET_BOOST
+      : items.length <= 40 ? 1 + (PHONE_BUDGET_BOOST - 1) / 2 : 1;
+    var budget = vpArea * T.packingBudgetFrac * phoneBoost;
     var minArea = vpArea * T.minTileAreaFrac;
 
     // Step 1: build tiles + assign each a count-weighted SCORE (not a
@@ -2860,8 +2871,9 @@
     // narrow/portrait screens a vertical ellipse with slightly tighter padding.
     var narrow = W <= 700;
     var xBias = narrow ? 1 : T.ellipseAspectBias;
-    var yBias = narrow ? 1.7 : 1;   // gentler than the desktop bias so the
-    // portrait cluster stays a bit wider / less tall
+    // Gentle on phones, so the portrait cluster spreads across the width
+    // instead of stacking into a tall column; the frame keeps its 1.7.
+    var yBias = phoneLayout ? 1.35 : narrow ? 1.7 : 1;
     var pad = narrow ? Math.max(1, COLLAGE_PAD - 1) : COLLAGE_PAD;
     assignLabels(tiles);
     var placed = maskPack(tiles, W, H, xBias, yBias, pad);
