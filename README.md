@@ -70,6 +70,15 @@ sudo /usr/local/sbin/avian-admin-control password-reset
 
 The command prompts privately for a new password. Return to **Settings** after it finishes.
 
+#### Staying signed in
+
+An unlocked admin session normally locks after 30 minutes idle. Tick **keep me signed in on this device** under the password to skip that on a phone or computer you trust; the menu's lock button then reads **sign out this device**.
+
+- The device keeps a random HttpOnly cookie, Secure on any public hostname. The station stores only its hash, one file per device in `/var/lib/avian-visitors/devices`.
+- **Settings → Stay signed in for** sets how long a device may go unused before it signs out: 1 day, 7 days, 30 days, 90 days (default), 6 months, or 1 year. Use keeps it alive, but never past a year from the password sign-in.
+- **Settings → Signed-in devices → sign out every device** ends every remembered device and every open admin session at once. The device that pressed it stays in for that visit only.
+- Changing the admin password, or switching **Require password on local network**, also signs every device out. Backup, restore, and password changes still ask for the password on a remembered device.
+
 ### Admin pages
 
 Open **menu** (top right). Away from home you unlock it with the admin password first.

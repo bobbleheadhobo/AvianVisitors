@@ -154,7 +154,7 @@ The interface stays out of the way. Chrome is small, pale and pushed to the edge
 A near-monochrome warm palette: paper, ink and one umber. Color belongs to the birds.
 
 ### Primary
-- **Field Ink** (`ink`): Titles, species names, active control labels, and the stats timeline squares. It's the only "strong" mark on the page.
+- **Field Ink** (`ink`): Titles, species names, active control labels, and the stats timeline bars. It's the only "strong" mark on the page.
 - **Umber Ink** (`ink-umber`): The accent: the overline ("your birds"), heading rule marks, cross-highlighted names, and the "on" state of toggles. It used to be red; it's now deliberately the same family as the ink.
 
 ### Neutral
@@ -207,6 +207,8 @@ Fixed chrome sits on the edges. The time-window picker is centered at the top, t
 
 Stats pairs a wide chart (timeline or by-hour heatmap) with a narrow side column of tight, content-sized groups (22px apart). The Atlas is a centered grid of stamps, max 1280px wide, with its sort control pinned to the top right.
 
+The collage sizes each bird by how often it was heard in the current window: tile area follows the count to the power 0.45, so the loudest bird is biggest without dwarfing the rest, and every bird keeps a legible minimum. Under 700px the cluster gets 45% more area than on desktop (tapering past 24 species) and a wider oval, so it fills a phone's width; it still shrinks to fit. The e-ink frame (which loads with `?labels=`) keeps the original exponent 0.65 and budget its capacity was tuned on.
+
 The main breakpoint is **700px** (phone layout). Secondary adjustments happen at 1050, 900, 860, 560, 520, 420, 384 and 350px. Pointer-specific hover effects are gated behind `(hover: hover) and (pointer: fine)`.
 
 ## Elevation & Depth
@@ -225,7 +227,7 @@ Depth is physical paper, not material layers. Thin borders are replaced by compo
 
 ## Shapes
 
-Controls are fully round pills (999px): pickers, menu button, return link, view slider, toggles. Sheets that open from a pill keep a soft 14px corner. List rows and small buttons use 4–8px. Paper objects that imitate print are nearly square: the postcard is 3px, and stamps have perforated edges from a mask rather than rounded corners. Timeline marks are hard-edged squares separated by 1px paper-colored seams.
+Controls are fully round pills (999px): pickers, menu button, return link, view slider, toggles. Sheets that open from a pill keep a soft 14px corner. List rows and small buttons use 4–8px. Paper objects that imitate print are nearly square: the postcard is 3px, and stamps have perforated edges from a mask rather than rounded corners. Timeline bars are hard-edged, square-cornered ink bars.
 
 ## Components
 
@@ -249,7 +251,9 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 - **Cross-highlight:** Hovering a timeline square or row highlights its partner; the name turns umber and takes a hairline underline. Rows are never shaded.
 
 ### Detection Timeline (signature)
-- Each species is a column. A black ink square's vertical position encodes its count, and the species and scientific names are set rotated beneath. Columns are separated by hairline gridlines, and squares are seamed by 1px paper borders so clusters read as crisp blocks. There's no fill area and no color.
+- Each species is a column ordered by when it was last heard ("last heard →" under the axis). A black ink bar rises from the baseline to its count, with the count in mono above it and the common and scientific names rotated above that. Columns are separated by hairline gridlines. There's no fill area and no color.
+- **Scale:** Bar heights default to a log scale, so one very loud species doesn't flatten the rest. Tapping the dotted-underlined note opposite "last heard" cycles log → √ → linear, remembered per device; the y-axis ticks sit at round counts on the chosen scale and the axis widens to fit its longest number.
+- **Texture:** The bars are windows onto one still sheet of ink grain. Scroll-driven CSS (`animation-timeline`) keeps the grain fixed while the chart or page scrolls, so the bars slide over it.
 
 ### Atlas Stamp
 - Each species is a perforated stamp with its own print skin and display face (from `stamps.css` and the stamp batches). The stamps are artwork; the UI only lays them out in the grid and leaves them alone.
@@ -259,6 +263,7 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 - **Layout:** Two columns (illustration .82fr · details 1.18fr) on desktop, fixed to the viewport.
 - **Phones (≤860px):** A card floating 10px in from the top and bottom, rounded on all four corners, that scrolls as one page. The picture takes about 40% of the screen height (220–380px); the title card, About and Recordings stack beneath at their natural height, and whichever section is open shows all of its content (no inner scroll boxes). The sheet uses block flow, not grid, so it grows with its content. The home/gesture-bar safe area pads the inside of the card, never the outer gap. The pull handle and swipe-to-close stay at the top, and About/Recordings remain an either/or pair.
 - **Backdrop:** The page blurs (7px) through a soft radial mask, rather than going dark.
+- **Recordings:** Tapping a recording opens its spectrogram and starts playing in the same tap; tapping another stops the first. Closing the postcard stops playback. A notification link that opens a postcard on a recording expands it without autoplay.
 
 ### Return Pill
 - A top-left pill on admin overlays: chevron + lowercase mono label ("collage", "educators").
@@ -269,6 +274,7 @@ Controls are fully round pills (999px): pickers, menu button, return link, view 
 ### Menu Sheet Contents
 - **Live audio card:** pulse dot, "Live audio" with a mono hint ("raw microphone stream", "· remote" away from home) and an 11px mono line saying who is listening ("no one listening", "just you listening", "you and 1 other listening · away from home"); bold ink when someone else is on. Remote listening stops itself after 30 minutes: the button becomes "keep listening".
 - **Links:** settings / system / logs / tools in a two-up grid, then a full-width "classic birdnet-pi" link (new tab).
+- **Unlock row:** the password field, then a "keep me signed in on this device" checkbox in the 10px mono hint style. On a remembered device the footer button reads "sign out this device" instead of "lock admin controls".
 
 ### Settings Save Bar
 - Station settings are staged, never autosaved. A bar pinned to the bottom of the settings scroll, 44px, paper with a hairline above, appears only while something is staged: bold mono "N unsaved changes", an underlined "discard" and an ink-filled "save". With nothing staged it sits static at the end of the page. Leaving with staged changes asks first.
