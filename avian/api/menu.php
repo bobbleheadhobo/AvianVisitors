@@ -54,6 +54,51 @@ if ($menuAction === 'idle-lock') {
     exit;
 }
 
+// Settings > Signed-in devices: how long "keep me signed in" lasts, and
+// sign out every device.
+if ($menuAction === 'devices') {
+    $deviceState = avian_admin_state();
+    if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
+        avian_require_json_action();
+        avian_require_admin();
+        $deviceLength = $_SERVER['CONTENT_LENGTH'] ?? null;
+        if ($deviceLength !== null && (!ctype_digit((string)$deviceLength) || (int)$deviceLength > 256)) {
+            avian_api_fail(413, 'request is too large');
+        }
+        $deviceBody = json_decode((string)file_get_contents('php://input', false, null, 0, 257), true);
+        if (!is_array($deviceBody)) avian_api_fail(400, 'invalid request');
+        $deviceOp = $deviceBody['op'] ?? null;
+        if ($deviceOp === 'days') {
+            $deviceDays = $deviceBody['days'] ?? null;
+            if (!is_int($deviceDays) || !avian_device_set_days($deviceDays)) {
+                avian_api_fail(400, 'could not save that length');
+            }
+        } elseif ($deviceOp === 'revoke-all') {
+            if (!avian_device_revoke_all()) avian_api_fail(503, 'could not sign out devices');
+            // Everyone else is out. Keep the person who pressed the button in
+            // for this visit with a fresh session; their device is forgotten.
+            avian_device_expire_cookie($_SERVER);
+            if (!empty($deviceState['valid']) && !empty($deviceState['configured'])) {
+                avian_create_admin_session($_SERVER, $deviceState);
+            }
+        } else {
+            avian_api_fail(400, 'invalid request');
+        }
+    } else {
+        avian_require_admin();
+    }
+    $devicePolicy = avian_device_policy(true);
+    echo json_encode([
+        'ok' => true,
+        'available' => $devicePolicy['ok'],
+        'days' => $devicePolicy['days'],
+        'choices' => AVIAN_DEVICE_DAY_CHOICES,
+        'count' => avian_device_count($deviceState),
+        'remembered' => avian_device_remembered($_SERVER, $deviceState),
+    ]);
+    exit;
+}
+
 if ($menuAction === 'download-grant') {
     avian_require_json_action();
     avian_require_admin();

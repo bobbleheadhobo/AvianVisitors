@@ -224,7 +224,9 @@ function avian_admin_session_fingerprint(array $state, string $sessionId): strin
     $verifier = is_string($state['verifier'] ?? null) ? $state['verifier'] : 'invalid';
     return hash_hmac(
         'sha256',
-        'avian-admin-session-v4:' . $policy . ':' . (string)($state['epoch'] ?? 'invalid') . ':' . $sessionId,
+        // The device generation ends every session on "sign out every device".
+        'avian-admin-session-v5:' . $policy . ':' . (string)($state['epoch'] ?? 'invalid')
+            . ':' . avian_device_generation_tag() . ':' . $sessionId,
         $verifier
     );
 }

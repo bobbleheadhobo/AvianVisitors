@@ -1236,6 +1236,15 @@
   .slider-default:hover, .settings-reset:hover { color: var(--ink); }
   .slider-default:focus-visible, .settings-reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .settings-reset-row { display: flex; justify-content: flex-end; margin: 2px 0 6px; }
+  /* Settings > Signed-in devices. Six lengths need the full row width, so
+     the picker sits under its label and its options share the width. */
+  .menu-row.devices-length-row { grid-template-columns: 1fr; gap: 8px; }
+  .devices-length-row .seg { display: flex; }
+  .devices-length-row .seg button { flex: 1 1 0; padding: 6px 0; letter-spacing: 0.08em; }
+  .settings-reset.settings-danger { flex: 0 0 auto; color: var(--danger); white-space: nowrap; }
+  .settings-reset.settings-danger:hover { color: var(--danger); text-decoration-thickness: 2px; }
+  .settings-reset.settings-danger:disabled { opacity: 0.5; cursor: default; }
+  [data-devices-status].err { color: var(--bad); }
 
   /* Settings > Frame: the last render beside its status and "refresh now". */
   .frame-preview-row {

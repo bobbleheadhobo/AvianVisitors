@@ -9,16 +9,21 @@
 // password again, still need the password itself. A new password (or policy)
 // invalidates every remembered device, and locking the drawer forgets the
 // device it was locked on.
+//
+// Settings picks how long a device stays signed in, and "sign out every
+// device" bumps a generation that every remembered device and every admin
+// session is bound to. Both live in policy.json beside the device files.
 
 declare(strict_types=1);
 
 const AVIAN_DEVICE_COOKIE = 'avian_device';
 const AVIAN_DEVICE_DEFAULT_DIR = '/var/lib/avian-visitors/devices';
-const AVIAN_DEVICE_IDLE_SECONDS = 90 * 86400;      // forgotten after 90 days unused
-const AVIAN_DEVICE_ABSOLUTE_SECONDS = 365 * 86400; // and a year after sign-in regardless
-const AVIAN_DEVICE_EXTEND_EVERY = 86400;           // slide the expiry at most daily
+const AVIAN_DEVICE_DAY_CHOICES = [1, 7, 30, 90, 180, 365]; // "stay signed in for", unused days
+const AVIAN_DEVICE_DEFAULT_DAYS = 90;
+const AVIAN_DEVICE_ABSOLUTE_SECONDS = 365 * 86400; // and never past a year from sign-in
 const AVIAN_DEVICE_MAX = 20;
 const AVIAN_DEVICE_MAX_BYTES = 1024;
+const AVIAN_DEVICE_POLICY_FILE = 'policy.json';
 
 function avian_device_dir(): string {
     $override = getenv('AV_DEVICE_DIR');
@@ -40,14 +45,102 @@ function avian_device_dir_is_valid(string $dir): bool {
         && (($stat['mode'] ?? 0) & 0777) === 0770;
 }
 
+/**
+ * How long devices stay signed in, and the sign-out-everywhere generation.
+ * A missing file is the defaults (a fresh station). An unreadable or invalid
+ * one turns remembering off and binds sessions to a fixed "unreadable" tag,
+ * so password sign-in keeps working.
+ *
+ * @return array{ok:bool,days:int,generation:int}
+ */
+function avian_device_policy(bool $reload = false): array {
+    static $cache = null;
+    if ($cache !== null && !$reload) return $cache;
+    $dir = avian_device_dir();
+    $path = $dir . '/' . AVIAN_DEVICE_POLICY_FILE;
+    clearstatcache(true, $path);
+    if (!avian_device_dir_is_valid($dir)) {
+        return $cache = ['ok' => false, 'days' => AVIAN_DEVICE_DEFAULT_DAYS, 'generation' => 0];
+    }
+    $stat = @lstat($path);
+    if ($stat === false) {
+        return $cache = ['ok' => true, 'days' => AVIAN_DEVICE_DEFAULT_DAYS, 'generation' => 0];
+    }
+    $raw = (($stat['mode'] ?? 0) & 0170000) === 0100000 && (int)($stat['size'] ?? 0) <= AVIAN_DEVICE_MAX_BYTES
+        ? @file_get_contents($path, false, null, 0, AVIAN_DEVICE_MAX_BYTES)
+        : false;
+    $policy = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($policy)
+        || ($policy['v'] ?? null) !== 1
+        || !in_array($policy['days'] ?? null, AVIAN_DEVICE_DAY_CHOICES, true)
+        || !is_int($policy['generation'] ?? null)
+        || $policy['generation'] < 0) {
+        return $cache = ['ok' => false, 'days' => AVIAN_DEVICE_DEFAULT_DAYS, 'generation' => -1];
+    }
+    return $cache = ['ok' => true, 'days' => $policy['days'], 'generation' => $policy['generation']];
+}
+
+/** Bound into every admin session fingerprint (admin-auth.php). */
+function avian_device_generation_tag(): string {
+    $policy = avian_device_policy();
+    return $policy['generation'] < 0 ? 'unreadable' : (string)$policy['generation'];
+}
+
+function avian_device_idle_seconds(): int {
+    return avian_device_policy()['days'] * 86400;
+}
+
+/** Slide a device's expiry this often; a quarter of the window, at most daily. */
+function avian_device_extend_every(): int {
+    return min(86400, intdiv(avian_device_idle_seconds(), 4));
+}
+
+function avian_device_write_policy(int $days, int $generation): bool {
+    if (!in_array($days, AVIAN_DEVICE_DAY_CHOICES, true) || $generation < 0) return false;
+    $dir = avian_device_dir();
+    if (!avian_device_dir_is_valid($dir)
+        || !avian_device_write($dir, AVIAN_DEVICE_POLICY_FILE, [
+            'v' => 1, 'days' => $days, 'generation' => $generation,
+        ])) return false;
+    avian_device_policy(true);
+    return true;
+}
+
+/** Settings: how many unused days a remembered device lasts. */
+function avian_device_set_days(int $days): bool {
+    $policy = avian_device_policy(true);
+    if (!$policy['ok']) return false;
+    return avian_device_write_policy($days, $policy['generation']);
+}
+
+/**
+ * Sign out every device: every remembered device and every open admin
+ * session, this browser's included. The caller re-issues a session for the
+ * person who pressed the button.
+ */
+function avian_device_revoke_all(): bool {
+    $policy = avian_device_policy(true);
+    // An unreadable policy restarts the count; the "unreadable" session tag
+    // still differs from the new generation, so sessions end either way.
+    $next = $policy['generation'] < 0 ? 1 : $policy['generation'] + 1;
+    if (!avian_device_write_policy($policy['days'], $next)) return false;
+    $dir = avian_device_dir();
+    foreach (@scandir($dir) ?: [] as $name) {
+        if (preg_match('/\A[a-f0-9]{32}\z/D', $name) === 1) @unlink($dir . '/' . $name);
+    }
+    return true;
+}
+
 function avian_device_binding(array $state, string $selector): string {
-    // Same inputs as the session fingerprint: a new password, epoch, or LAN
-    // policy changes the binding and every stored device stops matching.
+    // Same inputs as the session fingerprint: a new password, epoch, LAN
+    // policy, or sign-out-everywhere changes the binding and every stored
+    // device stops matching.
     $policy = !empty($state['required']) ? '1' : '0';
     $verifier = is_string($state['verifier'] ?? null) ? $state['verifier'] : 'invalid';
     return hash_hmac(
         'sha256',
-        'avian-admin-device-v1:' . $policy . ':' . (string)($state['epoch'] ?? 'invalid') . ':' . $selector,
+        'avian-admin-device-v2:' . $policy . ':' . (string)($state['epoch'] ?? 'invalid')
+            . ':' . avian_device_generation_tag() . ':' . $selector,
         $verifier
     );
 }
@@ -126,7 +219,9 @@ function avian_device_record_live(array $record, string $selector, array $state,
     return hash_equals($record['bind'], avian_device_binding($state, $selector))
         && $record['created'] <= $now
         && ($now - $record['created']) <= AVIAN_DEVICE_ABSOLUTE_SECONDS
-        && $record['expires'] > $now;
+        && $record['expires'] > $now
+        // A shorter "stay signed in" setting applies to existing devices too.
+        && ($now - $record['seen']) < avian_device_idle_seconds();
 }
 
 /** Drop expired, unreadable, and stale-password devices, then keep the newest few. */
@@ -162,7 +257,7 @@ function avian_device_label(array $server): string {
 function avian_device_issue(array $server, array $state): bool {
     if (empty($state['valid']) || empty($state['configured'])) return false;
     $dir = avian_device_dir();
-    if (!avian_device_dir_is_valid($dir)) return false;
+    if (!avian_device_dir_is_valid($dir) || !avian_device_policy()['ok']) return false;
     // Signing in again replaces this browser's old entry rather than adding one.
     $old = avian_device_cookie_parts();
     if ($old !== null) @unlink($dir . '/' . $old[0]);
@@ -174,7 +269,7 @@ function avian_device_issue(array $server, array $state): bool {
         return false;
     }
     $now = time();
-    $expires = $now + AVIAN_DEVICE_IDLE_SECONDS;
+    $expires = $now + avian_device_idle_seconds();
     if (!avian_device_write($dir, $selector, [
         'v' => 1,
         'hash' => hash('sha256', $validator),
@@ -196,7 +291,7 @@ function avian_device_issue(array $server, array $state): bool {
  * @return array{selector:string,record:array<string,mixed>}|null
  */
 function avian_device_current(array $server, array $state): ?array {
-    if (empty($state['valid']) || empty($state['configured'])) return null;
+    if (empty($state['valid']) || empty($state['configured']) || !avian_device_policy()['ok']) return null;
     $parts = avian_device_cookie_parts();
     if ($parts === null) return null;
     [$selector, $validator] = $parts;
@@ -229,10 +324,10 @@ function avian_device_restore_session(array $server, array $state): bool {
 
     $now = time();
     $record = $device['record'];
-    if ($now - $record['seen'] >= AVIAN_DEVICE_EXTEND_EVERY) {
+    if ($now - $record['seen'] >= avian_device_extend_every()) {
         $record['seen'] = $now;
         $record['expires'] = min(
-            $now + AVIAN_DEVICE_IDLE_SECONDS,
+            $now + avian_device_idle_seconds(),
             $record['created'] + AVIAN_DEVICE_ABSOLUTE_SECONDS
         );
         if (avian_device_write(avian_device_dir(), $device['selector'], $record)) {
@@ -253,4 +348,16 @@ function avian_device_forget(array $server): void {
         if ($record !== null && hash_equals($record['hash'], hash('sha256', $parts[1]))) @unlink($path);
     }
     if (array_key_exists(AVIAN_DEVICE_COOKIE, $_COOKIE)) avian_device_expire_cookie($server);
+}
+
+/** How many devices are remembered right now. */
+function avian_device_count(array $state): int {
+    $dir = avian_device_dir();
+    if (!avian_device_dir_is_valid($dir) || !avian_device_policy()['ok']) return 0;
+    avian_device_prune($dir, $state, AVIAN_DEVICE_MAX);
+    $count = 0;
+    foreach (@scandir($dir) ?: [] as $name) {
+        if (preg_match('/\A[a-f0-9]{32}\z/D', $name) === 1) $count++;
+    }
+    return $count;
 }

@@ -103,7 +103,7 @@ file_put_contents($dir . '/' . $selector, json_encode($record));
 $_COOKIE = [AVIAN_DEVICE_COOKIE => $cookie];
 check(avian_device_restore_session($https, $state), 'a device near expiry still restores');
 $record = json_decode((string)file_get_contents($dir . '/' . $selector), true);
-check($record['expires'] >= time() + AVIAN_DEVICE_IDLE_SECONDS - 5, 'use extends the device by 90 days');
+check($record['expires'] >= time() + 90 * 86400 - 5, 'use extends the device by 90 days');
 $record['created'] = time() - AVIAN_DEVICE_ABSOLUTE_SECONDS + 100;
 $record['seen'] = time() - 2 * 86400;
 file_put_contents($dir . '/' . $selector, json_encode($record));
@@ -166,6 +166,80 @@ for ($i = 0; $i < AVIAN_DEVICE_MAX + 5; $i++) {
 }
 check(count(device_files($dir)) === AVIAN_DEVICE_MAX, 'the device store is capped');
 check(avian_device_remembered($https, $state), 'the newest device survives the cap');
+
+// "Stay signed in for": defaults to 90 days, only the offered choices save,
+// new devices use it, and a shorter setting ends idle devices right away.
+foreach (device_files($dir) as $name) unlink($dir . '/' . $name);
+check(avian_device_policy(true) === ['ok' => true, 'days' => 90, 'generation' => 0], 'a fresh station defaults to 90 days');
+check(!avian_device_set_days(45), 'a length outside the choices is refused');
+check(avian_device_set_days(7), 'a length from the choices saves');
+check(avian_device_policy(true)['days'] === 7, 'the saved length reads back');
+$_COOKIE = [];
+avian_device_issue($https, $state);
+[$selector] = explode('.', (string)$_COOKIE[AVIAN_DEVICE_COOKIE]);
+$record = json_decode((string)file_get_contents($dir . '/' . $selector), true);
+check(abs($record['expires'] - (time() + 7 * 86400)) <= 5, 'a new device lasts the chosen length');
+avian_device_set_days(365);
+$record['expires'] = time() - 1;
+file_put_contents($dir . '/' . $selector, json_encode($record));
+check(!avian_device_remembered($https, $state), 'a longer setting does not revive a device past its own expiry');
+avian_device_issue($https, $state);
+[$selector] = explode('.', (string)$_COOKIE[AVIAN_DEVICE_COOKIE]);
+$record = json_decode((string)file_get_contents($dir . '/' . $selector), true);
+$record['seen'] = time() - 3 * 86400;
+file_put_contents($dir . '/' . $selector, json_encode($record));
+check(avian_device_remembered($https, $state), 'used 3 days ago is fine at one year');
+avian_device_set_days(1);
+check(!avian_device_remembered($https, $state), 'shortening to 1 day ends a device idle for 3 days');
+avian_device_set_days(90);
+
+// Sign out every device: remembered devices and open sessions both end.
+foreach (device_files($dir) as $name) if ($name !== AVIAN_DEVICE_POLICY_FILE) unlink($dir . '/' . $name);
+$_COOKIE = [];
+avian_device_issue($https, $state);
+$phone = (string)$_COOKIE[AVIAN_DEVICE_COOKIE];
+$_COOKIE = [];
+avian_device_issue($https, $state);
+$laptop = (string)$_COOKIE[AVIAN_DEVICE_COOKIE];
+$_COOKIE = [];
+check(avian_create_admin_session($https, $state), 'an open admin session exists before sign-out-everywhere');
+$openSession = session_id();
+$_COOKIE = [AVIAN_ADMIN_SESSION_NAME => $openSession];
+check(avian_admin_session_valid($https, $state), 'that session is valid');
+$generation = avian_device_policy(true)['generation'];
+check(avian_device_revoke_all(), 'sign out every device succeeds');
+check(avian_device_policy(true)['generation'] === $generation + 1, 'it bumps the generation');
+check(avian_device_policy()['days'] === 90, 'it keeps the chosen length');
+check(device_files($dir) === [AVIAN_DEVICE_POLICY_FILE], 'it deletes every remembered device');
+$_COOKIE = [AVIAN_ADMIN_SESSION_NAME => $openSession];
+check(!avian_admin_session_valid($https, $state), 'it ends sessions that were already open');
+foreach ([$phone, $laptop] as $old) {
+    $_COOKIE = [AVIAN_DEVICE_COOKIE => $old];
+    check(!avian_device_remembered($https, $state), 'an old device cookie no longer works');
+}
+// Even a device file restored from a backup made before the sign-out is dead.
+$_COOKIE = [];
+avian_device_issue($https, $state);
+[$selector] = explode('.', (string)$_COOKIE[AVIAN_DEVICE_COOKIE]);
+$backup = (string)file_get_contents($dir . '/' . $selector);
+avian_device_revoke_all();
+file_put_contents($dir . '/' . $selector, $backup);
+check(!avian_device_remembered($https, $state), 'a pre-revoke device file restored later does not work');
+$_COOKIE = [];
+check(avian_create_admin_session($https, $state), 'signing in with the password works after sign-out-everywhere');
+$_COOKIE = [AVIAN_ADMIN_SESSION_NAME => session_id()];
+check(avian_admin_session_valid($https, $state), 'and that new session is valid');
+
+// A damaged policy file turns remembering off but never blocks password sign-in.
+file_put_contents($dir . '/' . AVIAN_DEVICE_POLICY_FILE, '{"v":1,"days":"forever"}');
+avian_device_policy(true);
+$_COOKIE = [];
+check(!avian_device_issue($https, $state), 'a damaged policy remembers nothing');
+check(avian_create_admin_session($https, $state), 'a damaged policy still allows password sign-in');
+$_COOKIE = [AVIAN_ADMIN_SESSION_NAME => session_id()];
+check(avian_admin_session_valid($https, $state), 'and keeps that session valid');
+check(avian_device_revoke_all() && avian_device_policy(true)['ok'], 'sign out every device repairs a damaged policy');
+check(!avian_admin_session_valid($https, $state), 'and still ends the sessions opened while damaged');
 
 // The feature fails closed when its directory is missing or unsafe.
 $_COOKIE = [];

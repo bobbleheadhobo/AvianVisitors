@@ -8589,7 +8589,7 @@
         stageSetting(sl.dataset.key, +sl.value);
       });
     });
-    scope.querySelectorAll('.seg:not([data-theme-seg]):not([data-birdweather-privacy])').forEach(function (seg) {
+    scope.querySelectorAll('.seg:not([data-theme-seg]):not([data-birdweather-privacy]):not([data-devices-seg])').forEach(function (seg) {
       var cur = seg.querySelector('button[aria-current="true"]');
       if (cur) settingsBaseline[seg.dataset.key] = cur.dataset.v;
       seg.querySelectorAll('button').forEach(function (b) {
@@ -13081,6 +13081,90 @@
     });
   }
 
+  // Signed-in devices: how long "keep me signed in" lasts, and a button that
+  // signs out every remembered device and every open admin session. Both
+  // save immediately, outside the config save bar.
+  var DEVICE_DAY_LABELS = { 1: '1d', 7: '7d', 30: '30d', 90: '90d', 180: '6mo', 365: '1yr' };
+  function devicesCountText(devices) {
+    var n = devices.count || 0;
+    return n === 0 ? 'no devices remembered right now'
+      : n + ' device' + (n === 1 ? '' : 's') + ' remembered right now'
+        + (devices.remembered ? ', this one included' : '');
+  }
+  function devicesRow(devices) {
+    if (!devices || !devices.ok || !devices.available) return '';
+    var btns = (devices.choices || []).map(function (d) {
+      return '<button type="button" data-v="' + d + '" aria-current="' + (d === devices.days ? 'true' : 'false') + '"'
+        + ' aria-label="' + d + ' day' + (d === 1 ? '' : 's') + '">' + (DEVICE_DAY_LABELS[d] || d + 'd') + '</button>';
+    }).join('');
+    return ''
+      + '<div class="menu-row devices-length-row">'
+      + '  <div><span class="label">Stay signed in for</span>'
+      + '  <span class="hint">when "keep me signed in" is ticked. a device unused this long signs out</span></div>'
+      + '  <div class="seg" data-devices-seg role="group" aria-label="Stay signed in for"><i class="seg-pill" aria-hidden="true"></i>' + btns + '</div>'
+      + '</div>'
+      + '<div class="menu-row">'
+      + '  <div><span class="label">Signed-in devices</span>'
+      + '  <span class="hint" data-devices-status role="status">' + devicesCountText(devices) + '</span></div>'
+      + '  <button type="button" class="settings-reset settings-danger" data-devices-revoke>sign out every device</button>'
+      + '</div>';
+  }
+  function wireDevicesControl(root) {
+    var seg = root.querySelector('[data-devices-seg]');
+    var revoke = root.querySelector('[data-devices-revoke]');
+    var note = root.querySelector('[data-devices-status]');
+    if (!seg || !revoke) return;
+    function say(text, err) {
+      if (!note) return;
+      note.textContent = text;
+      note.classList.toggle('err', !!err);
+    }
+    function post(body) {
+      return adminFetch('./avian/api/menu.php?action=devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify(body),
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (result) {
+          if (!response.ok || !result.ok) throw new Error(result.error || ('HTTP ' + response.status));
+          return result;
+        });
+      });
+    }
+    seg.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-v]');
+      if (!b || seg.getAttribute('aria-busy') === 'true') return;
+      var prev = seg.querySelector('button[aria-current="true"]');
+      if (b === prev) return;
+      var days = parseInt(b.dataset.v, 10);
+      seg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-current', x === b ? 'true' : 'false'); });
+      seg.setAttribute('aria-busy', 'true');
+      say('saving...');
+      post({ op: 'days', days: days }).then(function (result) {
+        say('saved. ' + devicesCountText(result));
+      }).catch(function (error) {
+        if (adminAuthCancelled(error)) return;
+        seg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-current', x === prev ? 'true' : 'false'); });
+        syncPill(seg);
+        say('could not save (' + error.message + ')', true);
+      }).then(function () { seg.removeAttribute('aria-busy'); });
+    });
+    revoke.addEventListener('click', function () {
+      if (!confirm('Sign out every device? Every remembered device and every open admin session, on every phone and computer, will need the password again. You stay signed in here until you close this visit.')) return;
+      revoke.disabled = true;
+      say('signing out every device...');
+      post({ op: 'revoke-all' }).then(function (result) {
+        adminAuthMeta.remembered = false;
+        if (adminLock) adminLock.textContent = 'lock admin controls';
+        scheduleAdminIdleLock();
+        say('done. every device needs the password again. ' + devicesCountText(result));
+      }).catch(function (error) {
+        if (adminAuthCancelled(error)) return;
+        say('could not sign out devices (' + error.message + ')', true);
+      }).then(function () { revoke.disabled = false; });
+    });
+  }
+
   function renderAdminSettings() {
     if (settingsInfoCleanup) settingsInfoCleanup();
     if (settingsAccessCleanup) settingsAccessCleanup();
@@ -13127,6 +13211,10 @@
         if (adminAuthCancelled(error)) throw error;
         return null;
       }),
+      adminJson('./avian/api/menu.php?action=devices').catch(function (error) {
+        if (adminAuthCancelled(error)) throw error;
+        return null;
+      }),
     ])
       .then(function (parts) {
         var cfg = parts[0];
@@ -13136,6 +13224,7 @@
         var listen = parts[4];
         var notify = parts[5];
         var frame = parts[6];
+        var devices = parts[7];
         var v = cfg.values || {};
         var sec = cfg.secrets || {};
         var security = cfg.security || {};
@@ -13182,6 +13271,7 @@
           + '<section class="settings-retention">'
           + lanAuthRow(security)
           + remoteListenRow(listen)
+          + devicesRow(devices)
           + birdweatherRow(birdweather)
           + archiveSettingsRow(archive)
           + settingsToggle('preserve', 'Preserve all recordings', "don't auto-delete", preserve)
@@ -13228,6 +13318,7 @@
         });
         wireLanAuthControl(adminBody, security);
         wireRemoteListenControl(adminBody);
+        wireDevicesControl(adminBody);
         wireNotifications(adminBody);
         wireFrameSettings(adminBody, frame);
         wirePasswordChange(adminBody);
