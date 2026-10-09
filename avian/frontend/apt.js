@@ -1182,10 +1182,11 @@
         n <= 12 ? 0.40 :
           n <= 24 ? 0.34 :
             0.28,
-      // Count -> area exponent. ~0.65 keeps the visual hierarchy
-      // legible (n=400 reads ~5× bigger than n=30) without the
-      // loudest bird drowning everything else.
-      countExp: 0.65,
+      // Count -> area exponent. 0.45 keeps the order readable (n=400
+      // still reads ~3x the area of n=30) while one very loud bird
+      // no longer dwarfs the rest. The e-ink frame (?labels=) keeps
+      // the 0.65 its capacity was tuned on.
+      countExp: labelParam ? 0.65 : 0.45,
       // Floor: every species in the dataset must be visible, even
       // n=1. Tracks species count so a tiny rare bird stays
       // recognisable on a crowded plate.
