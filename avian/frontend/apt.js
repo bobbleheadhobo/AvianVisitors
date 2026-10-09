@@ -3396,17 +3396,27 @@
     // the plot (y = quantity); its count and
     // rotated label sit just above each bar.
 
-    // Y-axis quantity ticks: 0..maxN, with maxN pinned on the top tick.
-    var ticks = [];
-    if (maxN <= 8) {
-      for (var v = 0; v <= maxN; v++) ticks.push(v);
-    } else {
-      var divs = 4;
-      for (var di = 0; di <= divs; di++) ticks.push(Math.round(maxN * di / divs));
-      ticks[ticks.length - 1] = maxN;
+    // Bar height follows the square root of the count. One busy species
+    // (a thousand finch calls) would otherwise flatten everyone else into
+    // slivers; the exact count is printed on every bar anyway.
+    var Y_SCALE = 'log';   // 'sqrt' or 'log'
+    function yFrac(n) {
+      n = Math.max(0, n);
+      return Y_SCALE === 'log' ? Math.log1p(n) / Math.log1p(maxN) : Math.sqrt(n) / Math.sqrt(maxN);
     }
+    var xTitleScale = document.getElementById('statsTimelineScale');
+    if (xTitleScale) xTitleScale.textContent = Y_SCALE === 'log' ? 'log scale' : '\u221a scale';
+
+    // Y-axis ticks at round counts, placed on the same square-root scale,
+    // dropping any that would crowd its neighbour. maxN is pinned on top.
+    var ticks = [0];
+    [1, 2, 5, 10, 20, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000].forEach(function (v) {
+      if (v < maxN && yFrac(v) - yFrac(ticks[ticks.length - 1]) >= 0.14
+        && 1 - yFrac(v) >= 0.14) ticks.push(v);
+    });
+    ticks.push(maxN);
     var yaxis = ticks.map(function (v) {
-      return '<span class="stats-tl-ytick" style="bottom:' + ((v / maxN) * SPAN * 100).toFixed(1) + '%">' + v + '</span>';
+      return '<span class="stats-tl-ytick" style="bottom:' + (yFrac(v) * SPAN * 100).toFixed(1) + '%">' + v.toLocaleString() + '</span>';
     }).join('');
 
     // One timestamp under each column - format follows the window length.
@@ -3441,7 +3451,7 @@
     species.forEach(function (s, i) {
       var centerPct = (i + 0.5) / C * 100;
       var n = +s.n || 0;
-      var barTop = 'max(' + MIN_BAR + 'px, ' + ((n / maxN) * SPAN * 100).toFixed(2) + '%)';   // bar height = quantity
+      var barTop = 'max(' + MIN_BAR + 'px, ' + (yFrac(n) * SPAN * 100).toFixed(2) + '%)';   // bar height = sqrt(quantity)
       cols += ''
         + '<div class="stats-tl-col" data-sci="' + s.sci + '" style="left:' + centerPct.toFixed(3) + '%;width:' + colW.toFixed(2) + 'px">'
         + '<div class="stats-tl-square" style="bottom:0;width:' + barW.toFixed(1) + 'px;height:' + barTop
@@ -3463,7 +3473,7 @@
       : '';
     // The y-axis grows with its longest count (11px mono digits are about
     // 6.7px each), so four-digit days are not clipped at the left edge.
-    var yAxisW = Math.max(28, Math.ceil(String(maxN).length * 6.7) + 10);
+    var yAxisW = Math.max(28, Math.ceil(maxN.toLocaleString().length * 6.7) + 10);
     if (tl.parentNode) tl.parentNode.style.setProperty('--tl-yw', yAxisW + 'px');
     tl.innerHTML =
       '<div class="stats-tl-yaxis">' + yaxis + '</div>'

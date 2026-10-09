@@ -1645,6 +1645,7 @@
      gutter); the arrow says time runs left to right. */
   .stats-tl-xtitle {
     flex: 0 0 auto;
+    display: flex; justify-content: space-between; gap: 12px;
     padding: 4px 0 0 calc(var(--tl-yw, 28px) + 4px);
     font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--stats-quiet);
     letter-spacing: .04em;
