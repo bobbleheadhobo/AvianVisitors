@@ -3163,25 +3163,64 @@
     collage.style.cursor = hit ? 'pointer' : 'default';
     var tip = document.getElementById('collageTip');
     if (tip) {
-      // With labels on, every bird already wears its name - the pill
-      // would just say it twice.
-      if (hit && !labelsOn()) {
+      if (hit) {
         var s = hit.data;
         var n = +s.n || 0;
         var noun = (n === 1) ? 'call' : 'calls';
         var period = educatorScopeId()
           ? 'in ' + educatorScopeLabel(effectiveEducatorScope)
           : windowLabel(currentHours, DATA.recent);
-        tip.innerHTML = '<span class="ct-name">' + escHtml(s.com || s.sci) + '</span>'
-          + '<span class="ct-w"> - </span>'
+        // With names on, the bird already wears its name: just the count.
+        tip.innerHTML = (labelsOn() ? '' : '<span class="ct-name">' + escHtml(s.com || s.sci) + '</span>'
+          + '<span class="ct-w"> - </span>')
           + '<span class="ct-n">' + fmtN(n) + '</span>'
           + '<span class="ct-w"> ' + noun + ' ' + escHtml(period) + '</span>';
+        placeCollageTip(tip, hit);
         tip.setAttribute('aria-hidden', 'false');
       } else {
         tip.setAttribute('aria-hidden', 'true');
       }
     }
   });
+  // The count goes in the clearest spot around the hovered bird: under or
+  // over it, centred or at either end, whichever covers the least of the
+  // neighbouring birds and names. Ties keep that order, so it usually sits
+  // just under the bird.
+  function collageTileBox(t) {
+    var lb = t.labelBox;
+    return {
+      L: t.x + (lb ? Math.min(0, lb.dx0) : 0),
+      R: t.x + Math.max(t.fullW, lb ? lb.dx1 : 0),
+      T: t.y + (lb ? Math.min(0, lb.dy0) : 0),
+      B: t.y + Math.max(t.fullH, lb ? lb.dy1 : 0),
+    };
+  }
+  function placeCollageTip(tip, t) {
+    var W = collage.clientWidth, H = collage.clientHeight;
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var me = collageTileBox(t);
+    var others = collagePlaced.filter(function (o) { return o !== t; }).map(collageTileBox);
+    var cx = (me.L + me.R) / 2;
+    var xs = [cx, me.L + tw / 2, me.R - tw / 2];
+    var ys = [me.B + 4, me.T - th - 4];
+    var best = null;
+    ys.forEach(function (y) {
+      xs.forEach(function (x) {
+        x = Math.min(Math.max(x, tw / 2 + 4), W - tw / 2 - 4);
+        if (y < 4 || y + th > H - 4) return;
+        var box = { L: x - tw / 2, R: x + tw / 2, T: y, B: y + th };
+        var cover = others.reduce(function (sum, o) {
+          var w = Math.min(box.R, o.R) - Math.max(box.L, o.L);
+          var h = Math.min(box.B, o.B) - Math.max(box.T, o.T);
+          return sum + (w > 0 && h > 0 ? w * h : 0);
+        }, 0);
+        if (!best || cover < best.cover) best = { x: x, y: y, cover: cover };
+      });
+    });
+    if (!best) best = { x: Math.min(Math.max(cx, tw / 2 + 4), W - tw / 2 - 4), y: Math.max(4, Math.min(me.B + 4, H - th - 4)) };
+    tip.style.left = best.x + 'px';
+    tip.style.top = best.y + 'px';
+  }
   collage.addEventListener('mouseleave', function () {
     if (collageHovered && collageHovered.el) collageHovered.el.classList.remove('is-hover');
     collageHovered = null;
