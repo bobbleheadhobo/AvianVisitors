@@ -114,14 +114,11 @@ class TestAppriseNotifications(unittest.TestCase):
         mock_load_settings.return_value = settings_dict
         sendAppriseNotifications(**self.get_default_params())
 
-        self.assertEqual(mock_notify.call_count, 2)
+        # Both reasons apply to the same detection: one alert naming both.
+        self.assertEqual(mock_notify.call_count, 1)
         self.assertEqual(
             mock_notify.call_args_list[0][0][0],
-            "A Great Crested Flycatcher (Myiarchus crinitus) was just detected with a confidence of 91 (first time today)"
-        )
-        self.assertEqual(
-            mock_notify.call_args_list[1][0][0],
-            "A Great Crested Flycatcher (Myiarchus crinitus) was just detected with a confidence of 91 (only seen 1 times in last 7d)"
+            "A Great Crested Flycatcher (Myiarchus crinitus) was just detected with a confidence of 91 (first time today, only seen 1 times in last 7d)"
         )
 
         # Add each species notification.
@@ -130,7 +127,20 @@ class TestAppriseNotifications(unittest.TestCase):
         mock_load_settings.return_value = settings_dict
         sendAppriseNotifications(**self.get_default_params())
 
-        self.assertEqual(mock_notify.call_count, 3)
+        self.assertEqual(mock_notify.call_count, 1)
+
+        # Each detection alone still alerts, with its own reason.
+        mock_notify.reset_mock()
+        settings_dict["APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY"] = "0"
+        settings_dict["APPRISE_NOTIFY_NEW_SPECIES"] = "0"
+        mock_load_settings.return_value = settings_dict
+        sendAppriseNotifications(**self.get_default_params())
+
+        self.assertEqual(mock_notify.call_count, 1)
+        self.assertEqual(
+            mock_notify.call_args_list[0][0][0],
+            "A Great Crested Flycatcher (Myiarchus crinitus) was just detected with a confidence of 91 (detection)"
+        )
 
     @patch('scripts.utils.helpers._load_settings')
     @patch('scripts.utils.notifications.notify')

@@ -142,40 +142,31 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
                 print("IMAGE API ERROR:", e)
         image_url = images.get(com_name, "")
 
-    photo = []
-
-    def attachment():
-        # Fetched on the first alert actually sent, then reused for the rest.
-        if not photo:
-            photo.append(local_photo(image_url) if image_url else "")
-        return photo[0]
-
-    if settings_dict.get('APPRISE_NOTIFY_EACH_DETECTION') == "1":
-        reason = "detection"
-        notify_body = render_template(body, reason)
-        notify_title = render_template(title, reason)
-        notify(notify_body, notify_title, attachment())
-        species_last_notified[com_name] = int(time.time())
-
+    # One alert per detection, however many reasons apply: the first bird of
+    # the day is usually also rare this week, and that sent two alerts.
+    reasons = []
     APPRISE_NOTIFICATION_NEW_SPECIES_DAILY_COUNT_LIMIT = 1  # Notifies the first N per day.
     if settings_dict.get('APPRISE_NOTIFY_NEW_SPECIES_EACH_DAY') == "1":
         numberDetections = get_todays_count_for(sci_name)
         if 0 < numberDetections <= APPRISE_NOTIFICATION_NEW_SPECIES_DAILY_COUNT_LIMIT:
-            reason = "first time today"
-            notify_body = render_template(body, reason)
-            notify_title = render_template(title, reason)
-            notify(notify_body, notify_title, attachment())
-            species_last_notified[com_name] = int(time.time())
+            reasons.append("first time today")
 
     if settings_dict.get('APPRISE_NOTIFY_NEW_SPECIES') == "1":
         numberDetections = get_this_weeks_count_for(sci_name)
         if 0 < numberDetections <= 5:
-            reason = f"only seen {numberDetections} times in last 7d"
-            notify_body = render_template(body, reason)
-            notify_title = render_template(title, reason)
-            notify(notify_body, notify_title, attachment())
-            species_last_notified[com_name] = int(time.time())
+            reasons.append(f"only seen {numberDetections} times in last 7d")
 
+    if not reasons and settings_dict.get('APPRISE_NOTIFY_EACH_DETECTION') == "1":
+        reasons.append("detection")
+
+    if not reasons:
+        return
+
+    reason = ", ".join(reasons)
+    notify_body = render_template(body, reason)
+    notify_title = render_template(title, reason)
+    notify(notify_body, notify_title, local_photo(image_url) if image_url else "")
+    species_last_notified[com_name] = int(time.time())
 
 def should_notify(com_name):
     settings_dict = get_settings()
