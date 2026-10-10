@@ -13413,7 +13413,7 @@
           + settingsSlider('SENSITIVITY', 'Sensitivity', 'sigmoid slope on the classifier output', v.SENSITIVITY, 0.5, 1.5, 0.05, 2, 1.25)
           + settingsSlider('OVERLAP', 'Chunk overlap', 'seconds re-analyzed per pass', v.OVERLAP, 0, 2.5, 0.1, 1, 0.0)
           + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-detection>reset detection to defaults</button></div>'
-          + settingsToggle('RESET_AT_MIDNIGHT', 'Reset at midnight', 'keep time windows inside the current day', !!v.RESET_AT_MIDNIGHT)
+          + settingsToggle('RESET_AT_MIDNIGHT', 'Reset at midnight', '1H, 12H and 24H start no earlier than midnight', !!v.RESET_AT_MIDNIGHT)
           + '</section>'
           + notificationsSection(notify, v)
           + frameSection(frame)

@@ -39,6 +39,10 @@ $short = recentWindow($db, 12, $today, true, false);
 checkMidnight($short['midnight_clamped'] === false, 'short window inside the day stays rolling');
 checkMidnight($short['window_start'] === '2026-09-02 03:30:00', 'short window keeps its rolling start');
 
+$week = recentWindow($db, 168, $today, true, false);
+checkMidnight($week['midnight_clamped'] === false, '7 day window is not cut to today');
+checkMidnight($week['window_start'] === '2026-08-26 15:30:00', '7 day window keeps its rolling start');
+
 $disabled = recentWindow($db, 24, $today, false, false);
 checkMidnight($disabled['midnight_clamped'] === false, 'disabled setting stays rolling');
 checkMidnight($disabled['window_start'] === '2026-09-01 15:30:00', 'disabled setting crosses midnight');

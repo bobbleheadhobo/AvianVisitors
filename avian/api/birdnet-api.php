@@ -107,7 +107,10 @@ function recentWindow(
     $times = $result ? ($result->fetchArray(SQLITE3_ASSOC) ?: []) : [];
     $rolling = (string)($times['rolling'] ?? '');
     $midnight = (string)($times['midnight'] ?? '');
+    // Reset at midnight trims the day-sized windows (1H/12H/24H). 7D still
+    // means the past seven days; clamping it made it a copy of 24H.
     $clamped = $enabled
+        && $hours <= 24
         && !empty($dateContext['is_today'])
         && $rolling !== ''
         && $midnight !== ''
