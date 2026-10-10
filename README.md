@@ -200,9 +200,17 @@ avian/                  # everything we add to BirdNET-Pi
 ├── scripts/            # generate -> cutout -> masks pipeline + prompt
 └── forwarding/         # optional HA / MQTT / Cloudflare configs
 frame/                  # optional e-ink wall display (Pi + Inky, or ESP32 + ESPHome)
+dev/                    # tools for working on a live station (not installed or served)
 ```
 
-Everything outside `avian/` and `frame/` is upstream BirdNET-Pi.
+Everything outside `avian/`, `frame/` and `dev/` is upstream BirdNET-Pi.
+
+On the station, `dev/` has the checks used before a change is called done:
+`dev/shot.sh` screenshots pages as a phone or desktop and flags page errors,
+`dev/sync-live.sh` installs changed root helpers and flags anything left stale,
+and `dev/fake-detection.py` adds and removes marked test detections (with a real
+alert, to test notification links). `CLAUDE.md` is the working guide for coding
+agents.
 
 ---
 

@@ -14554,7 +14554,8 @@
     var m = base.match(/^(.+?)-\d{1,3}-\d{4}-\d{2}-\d{2}-birdnet-/);
     if (!m) return;
     var key = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); };
-    var wanted = key(m[1]);
+    // dev/fake-detection.py marks its test recordings FAKE-.
+    var wanted = key(m[1].replace(/^FAKE-/, ''));
     var tries = 0;
     (function waitForSpecies() {
       var species = (DATA && DATA.lifelist && DATA.lifelist.species) || [];

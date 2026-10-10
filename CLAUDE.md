@@ -5,18 +5,64 @@ A personal fork of AvianVisitors (an overlay on BirdNET-Pi). Read `PRODUCT.md`
 work; `README.md` is the user-facing manual. Upstream is
 `Twarner491/AvianVisitors` and keeps changing, so keep diffs mergeable.
 
+## Working agreement (standing rule from the owner, 2026-10-09)
+
+When a piece of work is finished and checked (the "done" list below is all
+true), **update the docs, commit and push to `avian-visitors` without asking**.
+Don't end a turn with "want me to commit?". The owner spent about one message
+in five on commit/push/docs before this rule. Then say in one or two lines what
+went live and what they should try. Still ask first for anything destructive or
+outside the repo that isn't covered here (deleting data, changing the network,
+the HA box, or the frame hardware).
+
+"Docs" means both: `README.md` for anything the owner would notice, and this
+file for anything a future agent would otherwise rediscover the hard way
+(`DESIGN.md` for new UI patterns).
+
+## Definition of done
+
+Before calling something done (the owner found 13 problems in 60 commits
+themselves, almost all from the first four gaps here):
+
+1. **Tested the way the owner uses it.** APIs through Caddy as the web user
+   (`curl http://127.0.0.1/avian/api/...`), not by running PHP or a helper as
+   `avian`. HTTPS-only features through https://merlin.streamvine.app.
+2. **Looked at it.** For any UI change, `dev/shot.sh <path>` (phone by
+   default, `--device both` for desktop too) and read the PNG. It exits 1 on
+   any page or console error.
+3. **Made it live.** `dev/sync-live.sh` installs changed root helpers,
+   regenerates Caddy when its generator changed (and shows the diff), and
+   warns about a missing `?v=` bump, an endpoint missing from the Caddy
+   allow-list, a broken `birdnet.conf` symlink, or leftover fake detections.
+   It must print "live copy matches the checkout".
+4. **Test data gone.** `birdnet/bin/python dev/fake-detection.py clean`.
+5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the one known
+   failure noted below.
+
+When the owner reports a bug, the fix includes whatever would have caught it:
+a test, a `dev/sync-live.sh` check, or a line in this list.
+
+## Sessions
+
+- One feature or topic per session; the owner can `/clear` between them. This
+  file makes a cold start cheap. Very long sessions (25 h, 767 tool calls)
+  ended up compacted and lost detail.
+- Work handed over from another agent (the HA box, the frame) arrives pasted.
+  Anything it teaches about this station belongs in this file, not only in the
+  chat.
+- `python3 dev/workflow-metrics.py --since <date>` measures how the workflow
+  is going against the 2026-10-09 baseline in its docstring; rerun it every
+  couple of weeks.
+
 ## Workflow
 
 - Commit and push straight to `avian-visitors` (the fork's default branch). No
-  feature branches or PRs, and there is no CI on the fork. Ask before pushing
-  unless the user said to.
+  feature branches or PRs, and there is no CI on the fork.
 - git has no identity on the station: commit with
   `git -c user.name=bobbleheadhobo -c user.email=supersoup4@gmail.com commit ...`.
 - The station serves straight from this checkout (the webroot
   `~/BirdSongs/Extracted` is symlinks into it), so a saved edit is live at once.
   Don't switch branches casually.
-- Update `README.md` for anything a user would notice, and `DESIGN.md` for new
-  UI patterns.
 
 ## Checking your work
 
@@ -24,10 +70,15 @@ work; `README.md` is the user-facing manual. Upstream is
   station: `test_diagnostic_redaction.py::...stale_logs` (the user can't read
   `/etc/caddy/Caddyfile`).
 - PHP: `php -l <file>`. Bash: `bash -n <file>`.
-- There is no Node and no browser on the station. To syntax-check `apt.js`,
-  make a venv in your scratchpad, `pip install esprima`, and
-  `esprima.parseScript(open('avian/frontend/apt.js').read())`. You can't render
-  the page, so say so and ask the user to look.
+- Screenshots: `dev/shot.sh` drives the headless Chromium already in
+  `~/.cache/ms-playwright` through a playwright venv kept in
+  `~/.cache/avian-dev-venv`. Don't rebuild one in the scratchpad, and don't
+  download another browser without asking. Options: `--click <selector>`,
+  `--scroll-to <selector>`, `--theme dark`, `--full`; shots go to
+  `/tmp/avian-shots`.
+- There is no Node, so a page error from `dev/shot.sh` is the main JS check.
+  For a pure syntax check: `pip install esprima` into the dev venv and
+  `esprima.parseScript(open('avian/frontend/apt.js').read())`.
 - Never run heavy builds here (4 GB LXC; `/tmp` is RAM). The frame firmware is
   built in Home Assistant via `frame/esphome/push-to-ha.sh`.
 
@@ -45,6 +96,9 @@ work; `README.md` is the user-facing manual. Upstream is
   `scripts/install_services.sh` (the source-to-name map is there).
 - `scripts/utils/notifications.py`: Apprise alerts; message template is
   `body.txt`.
+- `dev/`: tools for agents and the owner (screenshots, sync, fake detections,
+  workflow metrics). Not installed or served anywhere. Don't put dev tools in
+  `scripts/`: that folder is symlinked into `/usr/local/bin` and the webroot.
 
 ## The hardened web server (read before adding admin features)
 
@@ -63,13 +117,12 @@ Privileged work goes through a helper with fixed, validated actions:
 - PHP calls a helper with `sudo -n /usr/local/sbin/avian-...` (see
   `run_admin_control` in `avian/api/config.php`, or `detection-delete.php`).
 
-**After editing a helper, the installed copy is stale.** Install it (`sudo
-install -o root -g root -m 0755 scripts/admin_control.sh
-/usr/local/sbin/avian-admin-control`) or use Tools → Reinstall services. The
-same applies to `update_caddyfile.sh` → `avian-caddy-refresh`: install the repo
-copy **before** running `sudo /usr/local/sbin/avian-caddy-refresh`, because a
+**After editing a helper, the installed copy is stale: run
+`dev/sync-live.sh`.** It installs every helper that differs from the repo.
+Never run `avian-caddy-refresh` by hand before installing the repo copy: a
 stale installed copy rewrites the Caddyfile from its old route list and drops
-routes. Check with `sudo diff /etc/caddy/Caddyfile.previous /etc/caddy/Caddyfile`.
+routes (it dropped `manifest.php` once). On another station the owner's route
+is Tools → Reinstall services.
 
 Endpoint pattern: `require_once admin-auth.php`, then `avian_require_admin()`
 (open on the direct LAN unless the LAN password gate is on; password-backed
@@ -109,12 +162,11 @@ says whether admin is open in this tab.
   (exclude list).
 - Recordings live at `$EXTRACTED/By_Date/<Date>/<Com_Name with spaces→_ and
   ' removed>/<File_Name>`.
-- To test alert features without waiting for a bird: insert a throwaway row
-  into `detections` (copy a real clip to a matching `By_Date` folder; an
-  out-of-range species with a bundled illustration, e.g. Mute Swan, works), then
-  call `notifications.sendAppriseNotifications(...)` with
-  `APPRISE_NOTIFY_EACH_DETECTION` forced to `'1'` in `get_settings()`'s cached
-  dict. Delete the row afterwards.
+- To test alert features without waiting for a bird:
+  `birdnet/bin/python dev/fake-detection.py add --notify` adds a FAKE- Mute
+  Swan (out of range here, bundled illustration) and sends you a real alert
+  for it. `... clean` removes every fake. Never add test rows by hand: unmarked
+  fakes once sat in the owner's data for two days.
 
 ## This station (merlin)
 
