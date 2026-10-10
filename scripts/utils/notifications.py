@@ -1,4 +1,5 @@
 import apprise
+import hashlib
 import os
 import socket
 import requests
@@ -12,6 +13,9 @@ from .helpers import get_settings
 userDir = os.path.expanduser('~')
 APPRISE_CONFIG = userDir + '/BirdNET-Pi/apprise.txt'
 APPRISE_BODY = userDir + '/BirdNET-Pi/body.txt'
+PHOTO_CACHE = userDir + '/.cache/avian/notification-photos'
+# Wikimedia asks for a descriptive User-Agent and throttles generic ones.
+PHOTO_USER_AGENT = 'AvianVisitors/1.0 (BirdNET-Pi bird alert photos; https://github.com/Twarner491/AvianVisitors)'
 
 apobj = None
 images = {}
@@ -43,6 +47,49 @@ def notify(body, title, attached=""):
             body=body,
             title=title,
         )
+
+
+def local_photo(url):
+    """The alert photo as a local file, downloaded once per URL and kept.
+
+    Given a URL, Apprise downloads the attachment itself, tries once and sends
+    the alert without it on any error. Wikimedia answers a thumbnail it has
+    not cached yet with a 429 or a slow reply, so photos went missing (12 of
+    78 Discord alerts on 2026-10-09). Returns "" when the photo can't be had.
+    """
+    if not url.startswith(('http://', 'https://')):
+        return url
+    ext = os.path.splitext(url.split('?', 1)[0])[1].lower()
+    if ext not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+        ext = '.jpg'
+    path = os.path.join(PHOTO_CACHE, hashlib.sha1(url.encode()).hexdigest()[:16] + ext)
+    if os.path.isfile(path) and os.path.getsize(path) > 0:
+        return path
+
+    for attempt in range(2):
+        try:
+            resp = requests.get(url, headers={'User-Agent': PHOTO_USER_AGENT}, timeout=10)
+        except requests.RequestException as e:
+            print("PHOTO DOWNLOAD ERROR:", e)
+            continue
+        if resp.status_code == 200 and resp.headers.get('Content-Type', '').startswith('image/'):
+            os.makedirs(PHOTO_CACHE, exist_ok=True)
+            tmp = path + '.part'
+            with open(tmp, 'wb') as f:
+                f.write(resp.content)
+            os.replace(tmp, path)
+            return path
+        print("PHOTO DOWNLOAD ERROR: HTTP", resp.status_code, url)
+        if resp.status_code != 429 and resp.status_code < 500:
+            break
+        if attempt == 0:
+            # Wikimedia renders the thumbnail meanwhile; it says how long to wait.
+            try:
+                wait = int(resp.headers.get('Retry-After', 5))
+            except ValueError:
+                wait = 5
+            time.sleep(min(max(wait, 1), 15))
+    return ""
 
 
 def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path, date, time_of_day, week, latitude, longitude, cutoff, sens, overlap):
@@ -95,11 +142,19 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
                 print("IMAGE API ERROR:", e)
         image_url = images.get(com_name, "")
 
+    photo = []
+
+    def attachment():
+        # Fetched on the first alert actually sent, then reused for the rest.
+        if not photo:
+            photo.append(local_photo(image_url) if image_url else "")
+        return photo[0]
+
     if settings_dict.get('APPRISE_NOTIFY_EACH_DETECTION') == "1":
         reason = "detection"
         notify_body = render_template(body, reason)
         notify_title = render_template(title, reason)
-        notify(notify_body, notify_title, image_url)
+        notify(notify_body, notify_title, attachment())
         species_last_notified[com_name] = int(time.time())
 
     APPRISE_NOTIFICATION_NEW_SPECIES_DAILY_COUNT_LIMIT = 1  # Notifies the first N per day.
@@ -109,7 +164,7 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
             reason = "first time today"
             notify_body = render_template(body, reason)
             notify_title = render_template(title, reason)
-            notify(notify_body, notify_title, image_url)
+            notify(notify_body, notify_title, attachment())
             species_last_notified[com_name] = int(time.time())
 
     if settings_dict.get('APPRISE_NOTIFY_NEW_SPECIES') == "1":
@@ -118,7 +173,7 @@ def sendAppriseNotifications(sci_name, com_name, confidence, confidencepct, path
             reason = f"only seen {numberDetections} times in last 7d"
             notify_body = render_template(body, reason)
             notify_title = render_template(title, reason)
-            notify(notify_body, notify_title, image_url)
+            notify(notify_body, notify_title, attachment())
             species_last_notified[com_name] = int(time.time())
 
 

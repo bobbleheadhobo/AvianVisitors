@@ -167,6 +167,14 @@ says whether admin is open in this tab.
   (exclude list).
 - Recordings live at `$EXTRACTED/By_Date/<Date>/<Com_Name with spaces→_ and
   ' removed>/<File_Name>`.
+- Alerts are sent from inside `birdnet_analysis` (long-running), so a change
+  to `scripts/utils/` is not live until `sudo systemctl restart
+  birdnet_analysis`; `dev/sync-live.sh` doesn't do that.
+- The alert photo is downloaded by `local_photo()` and kept in
+  `~/.cache/avian/notification-photos/`, then attached as a file. Don't hand
+  Apprise the Wikimedia URL: it tries once, and Wikimedia answers an uncached
+  thumbnail with a 429, so the photo goes missing. Apprise logs any HTTP error
+  as "A Connection error occurred retrieving HTTP configuration".
 - To test alert features without waiting for a bird:
   `birdnet/bin/python dev/fake-detection.py add --notify` adds a FAKE- Mute
   Swan (out of range here, bundled illustration) and sends you a real alert
