@@ -7,21 +7,26 @@ work; `README.md` is the user-facing manual. Upstream is
 
 ## Working agreement (standing rule from the owner, 2026-10-09)
 
-When a piece of work is finished and checked (the "done" list below is all
-true), **update the docs, commit and push to `avian-visitors` without asking**.
-Don't end a turn with "want me to commit?". The owner spent about one message
-in five on commit/push/docs before this rule. Then say in one or two lines what
-went live and what they should try. Still ask first for anything destructive or
-outside the repo that isn't covered here (deleting data, changing the network,
-the HA box, or the frame hardware).
+- **Commit often, without asking.** Each finished and checked step (the
+  "done" list below is all true) gets its own commit on `avian-visitors`.
+  Don't end a turn with "want me to commit?". Before this rule the owner spent
+  about one message in five on commit/push/docs requests.
+- **Push only when the owner says so.** Commits stay local until then; say in
+  a line what is committed and not yet pushed.
+- **Before every push, update the docs for agents**, then commit that:
+  - this file, for anything a future agent would otherwise rediscover the hard
+    way (how something works, a trap you hit, a new tool or check);
+  - `README.md` for anything the owner would notice;
+  - `DESIGN.md` for new UI patterns.
 
-"Docs" means both: `README.md` for anything the owner would notice, and this
-file for anything a future agent would otherwise rediscover the hard way
-(`DESIGN.md` for new UI patterns).
+  Read the unpushed commits (`git log @{u}..`) to see what needs writing up.
+- Still ask first for anything destructive or outside the repo that isn't
+  covered here (deleting real data, changing the network, the HA box, or the
+  frame hardware).
 
 ## Definition of done
 
-Before calling something done (the owner found 13 problems in 60 commits
+Before committing a step (the owner found 13 problems in 60 commits
 themselves, almost all from the first four gaps here):
 
 1. **Tested the way the owner uses it.** APIs through Caddy as the web user
@@ -56,7 +61,7 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
 
 ## Workflow
 
-- Commit and push straight to `avian-visitors` (the fork's default branch). No
+- Work directly on `avian-visitors` (the fork's default branch). No
   feature branches or PRs, and there is no CI on the fork.
 - git has no identity on the station: commit with
   `git -c user.name=bobbleheadhobo -c user.email=supersoup4@gmail.com commit ...`.
