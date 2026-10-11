@@ -23,7 +23,7 @@ struct SunTimes {
 // day `n` counted from 2000-01-01, at latitude/longitude in degrees (east
 // positive). The NOAA "sunrise equation"; good to about a minute.
 inline SunTimes sun_times(int64_t n, double lat, double lon) {
-  const double rad = M_PI / 180.0;
+  const double rad = 3.14159265358979323846 / 180.0;
   double j = (double) n - lon / 360.0;
   double m = std::fmod(357.5291 + 0.98560028 * j, 360.0);
   double c = 1.9148 * std::sin(m * rad) + 0.02 * std::sin(2 * m * rad) + 0.0003 * std::sin(3 * m * rad);
@@ -58,8 +58,9 @@ inline int64_t next_sleep_s(int64_t now, double lat, double lon, const Schedule 
     if (!t.ok)
       return s.day_every_s;
     int64_t dawn = t.rise - s.dawn_before_s;
-    // A night sleep that ran a little short counts as dawn already.
-    if (now < dawn - 120)
+    // A night sleep that ran short (the sleep clock drifts a few percent)
+    // counts as dawn already, rather than waking again minutes later.
+    if (now < dawn - s.dawn_every_s)
       return dawn - now < s.night_max_s ? dawn - now : s.night_max_s;
     if (now < dawn)
       return s.dawn_every_s;

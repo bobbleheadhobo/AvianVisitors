@@ -107,6 +107,11 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   compiler). ESPHome lambdas themselves only compile in Home Assistant, and
   `esphome config` doesn't check them, so keep logic in headers. A new file in
   `birdframe/` needs adding to the `files` lists in `push-to-ha.sh`.
+  `~/.cache/esphome-venv/bin/esphome compile --only-generate <yaml>` (light: no
+  toolchain) writes the C++ to `.esphome/build/birdframe/src/main.cpp` beside the
+  YAML; read it to check lambdas and globals. A struct global must not use
+  `initial_value: "{}"` (ambiguous constructor); give the struct member
+  initialisers instead.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few

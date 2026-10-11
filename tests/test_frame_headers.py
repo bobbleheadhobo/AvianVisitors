@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
   }
   if (argv[1][0] == 'd') {
     // stdin: "day level" per wake; argv[2]: the level now.
-    birdframe::BatteryLog log{};
+    birdframe::BatteryLog log;  // default-constructed, as the restoring global is
     long day;
     float level;
     while (scanf("%ld %f", &day, &level) == 2)
@@ -221,6 +221,14 @@ class FrameBatteryTests(unittest.TestCase):
     def test_a_level_that_is_not_falling_has_no_estimate(self):
         _, days = self.days_left(self.wakes(20000, 6, 80, 0.0), 80)
         self.assertTrue(math.isnan(days))
+
+    def test_battery_log_global_has_no_initial_value(self):
+        # "{}" picks neither of RestoringGlobalsComponent's T and std::array<T, 0>
+        # constructors, so the build fails; BatteryLog starts empty on its own.
+        text = (ESPHOME / "birdframe-battery.yaml").read_text()
+        block = text[text.index("- id: battery_log"):]
+        block = block[:block.index("\n  - id:", 1)]
+        self.assertNotIn("initial_value", block)
 
     def test_log_keeps_the_last_eight_days(self):
         n, days = self.days_left(self.wakes(20000, 20, 90, 0.5), 80)

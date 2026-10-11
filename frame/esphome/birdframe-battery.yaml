@@ -33,6 +33,7 @@ substitutions:
   # The station's location, for sunrise and sunset.
   latitude: "35.0813"
   longitude: "-106.6212"
+  timezone: America/Denver
   # The wake schedule, in seconds.
   dawn_before: 3600s
   dawn_after: 7200s
@@ -186,7 +187,6 @@ globals:
   - id: battery_log
     type: birdframe::BatteryLog
     restore_value: yes
-    initial_value: "{}"
   # When the KEY2 window ends (Unix time; 0 until known).
   - id: awake_until_ts
     type: int
@@ -209,6 +209,12 @@ text_sensor:
     lambda: |-
       if (id(awake_until_ts) <= 0) return {};
       return ESPTime::from_epoch_utc(id(awake_until_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
+
+# The KEY2 tag shows a local time: pin the zone rather than take the one
+# of whichever machine builds the firmware.
+time:
+  - id: !extend sntp_time
+    timezone: ${timezone}
 
 logger:
 

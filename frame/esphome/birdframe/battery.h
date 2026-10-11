@@ -35,14 +35,16 @@ inline float lipo_percent(float volts) {
 
 // Daily mean battery levels, kept in flash across deep sleep. One wake's
 // reading jumps by a few points; the mean of a day's 40-odd wakes does not.
+// Starts empty through its member initialisers: the YAML global gives no
+// initial_value, as "{}" is ambiguous between ESPHome's two constructors.
 struct BatteryLog {
   static const int DAYS = 8;
-  int32_t day[DAYS];   // days since 1970 (UTC), oldest first
-  float level[DAYS];
-  int32_t n;
-  int32_t today;       // the day being averaged, and its running sum
-  float sum;
-  int32_t count;
+  int32_t day[DAYS] = {};   // days since 1970 (UTC), oldest first
+  float level[DAYS] = {};
+  int32_t n = 0;
+  int32_t today = 0;        // the day being averaged, and its running sum
+  float sum = 0;
+  int32_t count = 0;
 };
 
 // Add one wake's level. A finished day goes into the log; a day well above
