@@ -115,6 +115,12 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   as `int32_t[20]` and convert in the header (see `battery.h`). An array
   global's `initial_value` must be `"{0, 0}"`: `"{}"` and `"{0}"` also fit the
   scalar constructor and are ambiguous.
+- EE04 board (rev 1.2 schematic: files.seeedstudio.com/wiki/Epaper/EE04/
+  XIAO_ePaper_Display_Board_EE04_SCH_V1.2.pdf; `pypdf` text extraction works, there's no
+  poppler) charges with an SY6974B, an I2C switching charger (BQ25601-style, nets
+  SY_SDA/SY_SCL/SY_INT) whose registers report charging/done/USB present. Which ESP32
+  pins those reach isn't confirmed; GPIO6 is already the battery ADC enable. Seeed
+  doesn't publish its charge current.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
