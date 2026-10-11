@@ -48,4 +48,22 @@ inline void draw_low_battery(esphome::display::Display &it) {
   it.filled_rectangle(x + 4, y + 4, 4, h - 8, esphome::Color(255, 0, 0));
 }
 
+// While KEY2 holds the battery build awake: a tag along the bottom edge, so
+// it shows through the glass that the frame is listening for an update.
+inline void draw_awake(esphome::display::Display &it, esphome::display::BaseFont *font) {
+  const char *text = "Awake for updates, 5 min";
+  const int cx = it.get_width() / 2, base = it.get_height() - 14;
+  int x1, y1, w, h;
+  it.get_text_bounds(cx, base, text, font, esphome::display::TextAlign::BOTTOM_CENTER, &x1, &y1, &w, &h);
+  const int dot = 10, gap = 8, pad = 8;
+  const int left = x1 - (dot + gap) / 2 - pad, top = y1 - pad;
+  const int bw = w + dot + gap + 2 * pad, bh = h + 2 * pad;
+  it.filled_rectangle(left, top, bw, bh, esphome::Color(255, 255, 255));
+  it.rectangle(left, top, bw, bh, esphome::Color(0, 0, 0));
+  it.rectangle(left + 1, top + 1, bw - 2, bh - 2, esphome::Color(0, 0, 0));
+  it.filled_circle(left + pad + dot / 2, top + bh / 2, dot / 2, esphome::Color(255, 0, 0));
+  it.print(cx + (dot + gap) / 2, base, font, esphome::Color(0, 0, 0),
+           esphome::display::TextAlign::BOTTOM_CENTER, text);
+}
+
 }  // namespace birdframe

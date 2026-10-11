@@ -71,6 +71,12 @@ globals:
     type: bool
     restore_value: yes
     initial_value: "false"
+  # The battery build's KEY2 tag. Remembered so a reboot mid-window (an
+  # update flashed over Wi-Fi) still redraws without it.
+  - id: shown_awake_mark
+    type: bool
+    restore_value: yes
+    initial_value: "false"
   # Unix times for Home Assistant: when the panel last drew, and when the
   # station last rendered (frame.json's "updated").
   - id: last_drawn_ts
@@ -83,6 +89,9 @@ globals:
     initial_value: "0"
   # Per run.
   - id: low_battery
+    type: bool
+    initial_value: "false"
+  - id: awake_mark
     type: bool
     initial_value: "false"
   - id: pending_sig
@@ -114,6 +123,7 @@ online_image:
         - lambda: |-
             id(last_sig) = id(pending_sig);
             id(shown_low_battery) = id(low_battery);
+            id(shown_awake_mark) = id(awake_mark);
             auto now = id(sntp_time).now();
             if (now.is_valid()) id(last_drawn_ts) = now.timestamp;
             global_preferences->sync();
@@ -154,10 +164,22 @@ display:
       if (id(low_battery)) {
         birdframe::draw_low_battery(it);
       }
+      if (id(awake_mark)) {
+        birdframe::draw_awake(it, id(awake_font));
+      }
+
+# For the KEY2 tag; 1 bit per pixel, so it stays crisp on the panel.
+font:
+  - id: awake_font
+    file:
+      type: gfonts
+      family: Noto Serif
+      weight: 700
+    size: 20
 
 script:
   # Fetch frame.json; download and draw the image when it changed, when
-  # forced, or when the low-battery mark needs to appear or clear.
+  # forced, or when the low-battery mark or KEY2 tag needs to appear or clear.
   - id: check_frame
     mode: queued
     max_runs: 2
@@ -197,7 +219,8 @@ script:
                     return;
                   }
                   id(pending_sig) = sig;
-                  id(want_draw) = force || sig != id(last_sig) || id(low_battery) != id(shown_low_battery);
+                  id(want_draw) = force || sig != id(last_sig) || id(low_battery) != id(shown_low_battery) ||
+                                 id(awake_mark) != id(shown_awake_mark);
                   id(frame_status).publish_state(id(want_draw) ? "Drawing" : "Up to date");
                   ESP_LOGI("birdframe", "server %s, shown %s, draw %s", sig.c_str(),
                            id(last_sig).c_str(), id(want_draw) ? "yes" : "no");

@@ -225,7 +225,7 @@ Example automations (change the entity IDs to match yours):
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below ~3.5 V |
 | KEY0 | redraw now | wake and redraw |
 | KEY1 | toggle bird names | wake and toggle bird names |
-| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi |
+| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates* shows along the bottom of the panel (and as Frame status) until the window closes |
 | Updates | over Wi-Fi any time | press KEY2 first, or use USB |
 
 Bird names are on by default. KEY1's setting survives reboots and sleep.

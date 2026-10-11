@@ -9,7 +9,8 @@
 # Keys wake the board at any time:
 #   KEY0  redraw now
 #   KEY1  toggle bird names
-#   KEY2  stay awake 5 min, e.g. to flash an update over Wi-Fi
+#   KEY2  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
+#         the bottom of the panel shows while the window is open
 # Updating: press KEY2, then `esphome run birdframe-battery.yaml` and pick
 # the network device; or flash over USB as the first time.
 
@@ -42,6 +43,7 @@ esphome:
         - deep_sleep.prevent: ds
         - lambda: |-
             id(wake_reason) = birdframe::wake_key();
+            id(awake_mark) = id(wake_reason) == birdframe::WAKE_AWAKE;
             if (id(wake_reason) == birdframe::WAKE_NAMES) {
               id(names_on) = !id(names_on);
               ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
@@ -82,7 +84,19 @@ esphome:
               lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
             then:
               - logger.log: "KEY2: staying awake 5 minutes for updates"
+              - text_sensor.template.publish:
+                  id: frame_status
+                  state: Awake for updates
               - delay: 5min
+              # Take the tag down. If Wi-Fi is gone, the next wake does it.
+              - lambda: "id(awake_mark) = false;"
+              - if:
+                  condition: wifi.connected
+                  then:
+                    - script.execute:
+                        id: check_frame
+                        force: false
+                    - script.wait: check_frame
         - lambda: |-
             global_preferences->sync();
             birdframe::hold_key_pullups();
