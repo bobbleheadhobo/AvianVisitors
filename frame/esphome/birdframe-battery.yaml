@@ -16,13 +16,20 @@
 #   KEY0  redraw now
 #   KEY1  toggle bird names
 #   KEY2  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
-#         the bottom of the panel shows while the window is open
+#         the bottom of the panel shows while the window is open, with the
+#         time it ends (also in Home Assistant: Update window, and Update
+#         window ends, which counts down)
 # Updating: press KEY2, then `esphome run birdframe-battery.yaml` and pick
 # the network device; or flash over USB as the first time.
 
 substitutions:
   name: birdframe
   server: http://192.168.0.112
+  # Shown in Home Assistant as Firmware.
+  build: Battery
+  build_icon: mdi:battery
+  # How long KEY2 keeps the frame awake for updates, in seconds.
+  awake_window: 300s
   # The station's location, for sunrise and sunset.
   latitude: "35.0813"
   longitude: "-106.6212"
@@ -63,6 +70,7 @@ esphome:
               id(names_on) = !id(names_on);
               ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
             }
+            id(update_window).publish_state(id(wake_reason) == birdframe::WAKE_AWAKE);
         - switch.turn_on: battery_sense_enable
         - delay: 20ms
         - component.update: battery_voltage
@@ -79,6 +87,28 @@ esphome:
         - if:
             condition: wifi.connected
             then:
+              # KEY2: fix when the window ends before the tag is drawn, so
+              # the panel and Home Assistant can both say. The clock usually
+              # survives deep sleep; after a power cut SNTP sets it in a
+              # moment. Without it the tag just says "5 min".
+              - if:
+                  condition:
+                    lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
+                  then:
+                    - wait_until:
+                        condition:
+                          lambda: "return id(sntp_time).now().is_valid();"
+                        timeout: 10s
+                    - lambda: |-
+                        auto now = id(sntp_time).now();
+                        if (!now.is_valid()) return;
+                        id(awake_until_ts) = now.timestamp + atoi("${awake_window}");
+                        auto end = ESPTime::from_epoch_local(id(awake_until_ts));
+                        char text[48];
+                        snprintf(text, sizeof(text), "Awake for updates until %d:%02d %s",
+                                 end.hour % 12 == 0 ? 12 : end.hour % 12, end.minute, end.hour < 12 ? "am" : "pm");
+                        id(awake_text) = text;
+                    - component.update: update_window_ends
               - script.execute:
                   id: check_frame
                   force: !lambda "return id(wake_reason) == birdframe::WAKE_REFRESH || id(wake_reason) == birdframe::WAKE_NAMES;"
@@ -98,13 +128,21 @@ esphome:
             condition:
               lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
             then:
-              - logger.log: "KEY2: staying awake 5 minutes for updates"
+              - logger.log: "KEY2: staying awake for updates"
               - text_sensor.template.publish:
                   id: frame_status
-                  state: Awake for updates
-              - delay: 5min
+                  state: !lambda "return id(awake_text);"
+              # Until the end time shown, or the full window without a clock.
+              - delay: !lambda |-
+                  auto now = id(sntp_time).now();
+                  if (id(awake_until_ts) <= 0 || !now.is_valid()) return (uint32_t) atoi("${awake_window}") * 1000;
+                  int64_t left = (int64_t) id(awake_until_ts) - now.timestamp;
+                  return left > 0 ? (uint32_t) (left * 1000) : 0;
               # Take the tag down. If Wi-Fi is gone, the next wake does it.
               - lambda: "id(awake_mark) = false;"
+              - binary_sensor.template.publish:
+                  id: update_window
+                  state: false
               - if:
                   condition: wifi.connected
                   then:
@@ -137,6 +175,28 @@ globals:
   - id: wake_reason
     type: int
     initial_value: "0"
+  # When the KEY2 window ends (Unix time; 0 until known).
+  - id: awake_until_ts
+    type: int
+    initial_value: "0"
+
+# Home Assistant: whether KEY2's update window is open, and when it ends.
+# A timestamp shows there as "in 4 minutes", counting down.
+binary_sensor:
+  - platform: template
+    id: update_window
+    name: Update window
+    icon: mdi:cellphone-arrow-down
+
+text_sensor:
+  - platform: template
+    id: update_window_ends
+    name: Update window ends
+    device_class: timestamp
+    update_interval: never
+    lambda: |-
+      if (id(awake_until_ts) <= 0) return {};
+      return ESPTime::from_epoch_utc(id(awake_until_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
 
 logger:
 

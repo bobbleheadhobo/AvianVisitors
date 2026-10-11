@@ -49,9 +49,9 @@ inline void draw_low_battery(esphome::display::Display &it) {
 }
 
 // While KEY2 holds the battery build awake: a tag along the bottom edge, so
-// it shows through the glass that the frame is listening for an update.
-inline void draw_awake(esphome::display::Display &it, esphome::display::BaseFont *font) {
-  const char *text = "Awake for updates, 5 min";
+// it shows through the glass that the frame is listening for an update, and
+// until when.
+inline void draw_awake(esphome::display::Display &it, esphome::display::BaseFont *font, const char *text) {
   const int cx = it.get_width() / 2, base = it.get_height() - 14;
   int x1, y1, w, h;
   it.get_text_bounds(cx, base, text, font, esphome::display::TextAlign::BOTTOM_CENTER, &x1, &y1, &w, &h);

@@ -8,6 +8,9 @@ substitutions:
   # The BirdNET server. An IP is more reliable than birdnet.local from an
   # ESP32; give the server a DHCP reservation so it does not move.
   server: http://192.168.0.112
+  # Shown in Home Assistant as Firmware.
+  build: USB
+  build_icon: mdi:power-plug
 
 packages:
   common: !include birdframe/common.yaml

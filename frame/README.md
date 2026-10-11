@@ -171,10 +171,12 @@ Or use the Samba share add-on and drag the same two items into
 | Frame status | both | Up to date, Drawing, Server unreachable, Server error, No image yet, Download failed or Draw timed out |
 | Last drawn | both | when the panel last redrew |
 | Station image updated | both (diagnostic) | when the station last rendered the frame. Old Last drawn with a recent Station image updated: the frame is stuck. Both old: the station is. |
+| Firmware | both (diagnostic) | which build the frame runs: *USB* or *Battery* |
 | Wi-Fi signal, IP address, ESPHome version | both (diagnostic) | |
 | Redraw (button), Bird names (switch) | USB | the same as KEY0 and KEY1 |
 | Restart (button), Uptime | USB | |
 | Battery voltage, Battery level | battery | level is a rough LiPo estimate, 3.3 V empty to 4.2 V full; unknown with no cell |
+| Update window, Update window ends | battery | on while KEY2 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
 
 The frame never depends on Home Assistant: with it down the frame keeps
 drawing and does not reboot. The battery build waits up to 10 s per wake for
@@ -229,7 +231,7 @@ Example automations (change the entity IDs to match yours):
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below ~3.5 V |
 | KEY0 | redraw now | wake and redraw |
 | KEY1 | toggle bird names | wake and toggle bird names |
-| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates* shows along the bottom of the panel (and as Frame status) until the window closes |
+| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |
 | Updates | over Wi-Fi any time | press KEY2 first, or use USB |
 
 Bird names are on by default. KEY1's setting survives reboots and sleep.

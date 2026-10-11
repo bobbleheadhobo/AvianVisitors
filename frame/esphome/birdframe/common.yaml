@@ -19,6 +19,7 @@ esphome:
       then:
         - component.update: last_drawn
         - component.update: station_updated
+        - component.update: firmware_build
   includes:
     # Relative to the device YAML (birdframe-usb/-battery.yaml), not to
     # this file: ESPHome resolves includes from the main config's folder.
@@ -95,6 +96,10 @@ globals:
   - id: awake_mark
     type: bool
     initial_value: "false"
+  # The KEY2 tag's text, with the window's end time once it is known.
+  - id: awake_text
+    type: std::string
+    initial_value: '"Awake for updates, 5 min"'
   - id: pending_sig
     type: std::string
     initial_value: '""'
@@ -166,7 +171,7 @@ display:
         birdframe::draw_low_battery(it);
       }
       if (id(awake_mark)) {
-        birdframe::draw_awake(it, id(awake_font));
+        birdframe::draw_awake(it, id(awake_font), id(awake_text).c_str());
       }
 
 # For the KEY2 tag; 1 bit per pixel, so it stays crisp on the panel.
@@ -265,6 +270,14 @@ text_sensor:
     ip_address:
       name: IP address
       entity_category: diagnostic
+  # Which firmware the frame runs: USB or Battery (set by the device YAML).
+  - platform: template
+    id: firmware_build
+    name: Firmware
+    icon: ${build_icon}
+    entity_category: diagnostic
+    update_interval: never
+    lambda: 'return {"${build}"};'
   - platform: version
     name: ESPHome version
     hide_timestamp: true

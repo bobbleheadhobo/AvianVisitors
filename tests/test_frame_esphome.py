@@ -253,5 +253,24 @@ class FrameServerInstallerTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
 
 
+class FrameFirmwareTests(unittest.TestCase):
+    """Both device YAMLs feed common.yaml's Firmware entity."""
+
+    def test_each_build_names_itself_for_home_assistant(self):
+        common = (FRAME / "esphome" / "birdframe" / "common.yaml").read_text()
+        self.assertIn("${build}", common)
+        for device, build in (("birdframe-usb.yaml", "USB"), ("birdframe-battery.yaml", "Battery")):
+            text = (FRAME / "esphome" / device).read_text()
+            self.assertRegex(text, rf"(?m)^  build: {build}$", device)
+            self.assertRegex(text, r"(?m)^  build_icon: mdi:[a-z-]+$", device)
+
+    def test_battery_update_window_is_reported(self):
+        text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
+        for entity in ("name: Update window\n", "name: Update window ends\n"):
+            self.assertIn(entity, text)
+        # The window's end is fixed before check_frame draws the tag that shows it.
+        self.assertLess(text.index("id(awake_until_ts) = now.timestamp"), text.index("id: check_frame"))
+
+
 if __name__ == "__main__":
     unittest.main()
