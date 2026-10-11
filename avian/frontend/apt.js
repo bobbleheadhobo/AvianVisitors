@@ -9193,7 +9193,8 @@
         onDone();
       } else {
         finishActiveGenerate(job);
-        genBtnState(btn, 'failed, try again', false);
+        genBtnState(btn, /no image quota/.test(s.error || '')
+          ? 'gemini key needs billing for images' : 'failed, try again', false);
       }
     }).catch(function (error) {
       if (activeGenerate !== job) return;

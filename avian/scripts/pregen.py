@@ -492,6 +492,17 @@ def gen_one(
                 resp = json.loads(r.read())
             break
         except urllib.error.HTTPError as e:
+            if e.code == 429:
+                try:
+                    detail = e.read().decode("utf-8", "replace")
+                except Exception:
+                    detail = ""
+                # A free-tier key: Google gives the image model no free
+                # requests, so retrying cannot help. Say what will.
+                if "free_tier" in detail and "limit: 0" in detail:
+                    raise RuntimeError(
+                        "this Gemini key has no image quota on the free tier; "
+                        "turn on billing for its Google Cloud project") from None
             if e.code in (429, 500, 502, 503, 504) and attempt < 3:
                 ra = e.headers.get("Retry-After")
                 try:
