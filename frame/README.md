@@ -229,7 +229,7 @@ Example automations (change the entity IDs to match yours):
 | | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
 |---|---|---|
 | Checks | every 3 min, stays connected | follows the sun, deep sleeping between: every 10 min from 1 h before sunrise to 2 h after (the dawn chorus), every 30 min until 30 min after sunset, up to 3 h at night; every 2 h when the battery is low |
-| Redraws | only when the server's image changes | same, plus a small empty-battery mark below ~3.5 V |
+| Redraws | only when the server's image changes | same, plus a small empty-battery mark below 3.6 V (about 5%), when it also drops to waking every 2 h |
 | KEY0 | redraw now | wake and redraw |
 | KEY1 | toggle bird names | wake and toggle bird names |
 | KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |

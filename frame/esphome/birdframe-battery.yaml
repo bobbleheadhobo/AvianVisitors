@@ -42,7 +42,7 @@ substitutions:
   sleep_day: 1800s
   sleep_night_max: 10800s
   sleep_low: 7200s
-  low_battery_volts: "3.5"
+  low_battery_volts: "3.6"
 
 packages:
   common: !include birdframe/common.yaml
