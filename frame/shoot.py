@@ -155,17 +155,25 @@ def _make_cutout_handler(base, local_dir=None):
     return handler
 
 
+def _tunable_rewrites(xbias, ybias, count_exp, pad, label_min_px):
+    """(pattern, replacement) for each collage tunable in apt.js. Each pattern
+    matches the whole right-hand side, so a website tweak to the expression
+    (a phone-only branch, say) still gets overridden instead of stopping every
+    frame render. tests/test_frame_shoot.py checks them against apt.js."""
+    return ((r"var xBias = [^;\n]+;", f"var xBias = {xbias};"),
+            (r"var yBias = [^;\n]+;", f"var yBias = {ybias};"),
+            (r"countExp:\s*[^,\n]+,", f"countExp: {count_exp},"),
+            (r"var pad = narrow [^;\n]+;", f"var pad = {pad};"),
+            (r"var LABEL_MIN_PX = \d+;", f"var LABEL_MIN_PX = {int(label_min_px)};"))
+
+
 def _make_js_handler(xbias, ybias, count_exp, pad, label_min_px, auth, misses):
     """Rewrite the collage tunables inside the page's apt.js at capture time."""
     def handler(route):
         try:
             kw = {"headers": {**route.request.headers, "authorization": auth}} if auth else {}
             js = route.fetch(**kw).text()
-            for pat, repl in ((r"var xBias = narrow \? 1 : T\.ellipseAspectBias;", f"var xBias = {xbias};"),
-                              (r"var yBias = narrow \? 1\.7 : 1;", f"var yBias = {ybias};"),
-                              (r"countExp:\s*[\d.]+,", f"countExp: {count_exp},"),
-                              (r"var pad = narrow \? Math\.max\(1, COLLAGE_PAD - 1\) : COLLAGE_PAD;", f"var pad = {pad};"),
-                              (r"var LABEL_MIN_PX = \d+;", f"var LABEL_MIN_PX = {int(label_min_px)};")):
+            for pat, repl in _tunable_rewrites(xbias, ybias, count_exp, pad, label_min_px):
                 js, n = re.subn(pat, repl, js)
                 if not n:
                     misses.append(pat)

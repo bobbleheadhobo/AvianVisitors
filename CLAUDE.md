@@ -93,6 +93,11 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `apt.js` (a single IIFE), `styles.css`. **Bump `?v=rNNN` in `index.html`**
   for `apt.js` / `styles.css` whenever you change them, or phones keep the old
   copy.
+- `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
+  collage lines in `apt.js` (`xBias`, `yBias`, `countExp`, `pad`,
+  `LABEL_MIN_PX`). If those lines change shape it refuses to render and the
+  frame quietly goes stale (it did for two days); `tests/test_frame_shoot.py`
+  checks them. Frame logs: `journalctl -u birdframe-server`.
 - `avian/api/*.php`: JSON endpoints. **A new endpoint must be added to the
   `@unknownAvianApi` allow-list in `scripts/update_caddyfile.sh`**, then
   Caddy regenerated (below), or it returns 404.
