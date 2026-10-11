@@ -117,10 +117,12 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   scalar constructor and are ambiguous.
 - EE04 board (rev 1.2 schematic: files.seeedstudio.com/wiki/Epaper/EE04/
   XIAO_ePaper_Display_Board_EE04_SCH_V1.2.pdf; `pypdf` text extraction works, there's no
-  poppler) charges with an SY6974B, an I2C switching charger (BQ25601-style, nets
-  SY_SDA/SY_SCL/SY_INT) whose registers report charging/done/USB present. Which ESP32
-  pins those reach isn't confirmed; GPIO6 is already the battery ADC enable. Seeed
-  doesn't publish its charge current.
+  poppler; `pymupdf` renders pages to PNG) charges with an SY6974B, an I2C switching
+  charger. Its I2C and /INT lines (SY_SDA/SY_SCL/SY_INT) end at pull-ups on the power
+  sheet and never reach the XIAO, STAT only drives the green LED, and D+/D- go to
+  unfitted test points: so the firmware can't see charging, and the charger runs on its
+  power-on defaults. XIAO pins: GPIO1 BAT_ADC, GPIO2/3/5 keys, GPIO4 EDP_BUSY, GPIO6
+  ADC_EN, D6 PWR_EN, GPIO38 EDP_RES. Seeed doesn't publish the charge current.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
