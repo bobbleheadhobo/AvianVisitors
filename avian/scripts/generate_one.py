@@ -52,33 +52,11 @@ def write_state(**kw) -> None:
         pass
 
 
-def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
-    """Instant cutout for a cream-ground render: everything reachable from
-    the border through near-paper pixels is background; everything else is
-    bird. Enclosed pale patches (a white belly) are unreachable, so they
-    stay opaque - the same property the BiRefNet pipeline's fill step has
-    to reconstruct. Edges get a light feather instead of a learned matte.
-
-    The paper tolerance adapts per image: the model renders real grain
-    and a slight vignette, so the ground's distance-from-corner-paper
-    varies render to render (a fixed tolerance either strands ground or
-    eats pale plumage). The border strips are guaranteed paper - their
-    99th percentile, widened, clears grain and vignette while staying
-    far below the inked outline. Pass `tol` to override it for a render
-    whose pale plumage meets the ground with no ink line (it leaks in)."""
-    im = Image.open(src).convert("RGB")
-    arr = np.asarray(im)
-    h, w, _ = arr.shape
-    corners = np.concatenate([arr[:15, :15].reshape(-1, 3), arr[:15, -15:].reshape(-1, 3),
-                              arr[-15:, :15].reshape(-1, 3), arr[-15:, -15:].reshape(-1, 3)])
-    paper = np.median(corners, axis=0)
-    dist = np.sqrt(((arr.astype(np.int32) - paper) ** 2).sum(2))
-    border = np.concatenate([dist[:40, :].ravel(), dist[-40:, :].ravel(),
-                             dist[:, :40].ravel(), dist[:, -40:].ravel()])
-    if tol is None:
-        tol = float(min(40.0, max(15.0, 2.5 * np.percentile(border, 99))))
+def _solid_mask(dist: np.ndarray, tol: float) -> np.ndarray:
+    """Bird pixels for one paper tolerance: everything the border flood
+    cannot reach through near-paper pixels, with grain specks opened away."""
+    h, w = dist.shape
     passable = dist < tol
-
     # Flood the passable region from the border (ImageDraw.floodfill runs
     # at C speed; seeds cover each edge in case a wing splits the margin).
     # The .copy() is load-bearing: floodfill's writes are lost on a
@@ -93,13 +71,48 @@ def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
     if exterior.mean() < 0.5:
         raise RuntimeError(f"cutout flood failed (tol {tol:.0f}, "
                            f"exterior {100 * exterior.mean():.0f}%) - raw kept for the upgrade pass")
-
-    solid = ~exterior
     # Opening (erode then dilate) drops stray grain specks the flood
     # couldn't reach without nibbling the bird.
-    sm = Image.fromarray(solid.astype(np.uint8) * 255)
+    sm = Image.fromarray((~exterior).astype(np.uint8) * 255)
     sm = sm.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
-    solid = np.asarray(sm) > 127
+    return np.asarray(sm) > 127
+
+
+def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
+    """Instant cutout for a cream-ground render: everything reachable from
+    the border through near-paper pixels is background; everything else is
+    bird. Enclosed pale patches (a white belly) are unreachable, so they
+    stay opaque - the same property the BiRefNet pipeline's fill step has
+    to reconstruct. Edges get a light feather instead of a learned matte.
+
+    The paper tolerance adapts per image: the model renders real grain
+    and a slight vignette, so the ground's distance-from-corner-paper
+    varies render to render (a fixed tolerance either strands ground or
+    eats pale plumage). The border strips are guaranteed paper - their
+    99th percentile, widened, clears grain and vignette while staying
+    far below the inked outline. If that cut leaks into pale plumage, a
+    tighter one is used instead (see below); `tol` forces a value."""
+    im = Image.open(src).convert("RGB")
+    arr = np.asarray(im)
+    h, w, _ = arr.shape
+    corners = np.concatenate([arr[:15, :15].reshape(-1, 3), arr[:15, -15:].reshape(-1, 3),
+                              arr[-15:, :15].reshape(-1, 3), arr[-15:, -15:].reshape(-1, 3)])
+    paper = np.median(corners, axis=0)
+    dist = np.sqrt(((arr.astype(np.int32) - paper) ** 2).sum(2))
+    border = np.concatenate([dist[:40, :].ravel(), dist[-40:, :].ravel(),
+                             dist[:, :40].ravel(), dist[:, -40:].ravel()])
+    if tol is None:
+        auto = float(min(40.0, max(15.0, 2.5 * np.percentile(border, 99))))
+        solid = _solid_mask(dist, auto)
+        # Leak check: where pale plumage meets the ground with no ink line,
+        # the flood runs into the bird. A tighter cut then keeps much more
+        # bird (+25% on a leaky woodpecker; good renders gain under 5%).
+        tight = _solid_mask(dist, max(12.0, 0.7 * auto))
+        if tight.sum() > 1.10 * solid.sum():
+            print(f"[cut] pale edge leaked at tol {auto:.0f}; using {max(12.0, 0.7 * auto):.0f}")
+            solid = tight
+    else:
+        solid = _solid_mask(dist, tol)
     binary = solid.astype(np.uint8) * 255
     # Feather: soften the silhouette edge, keep the interior fully opaque,
     # never bleed outside the silhouette.
