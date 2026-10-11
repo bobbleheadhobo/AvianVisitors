@@ -109,9 +109,12 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `birdframe/` needs adding to the `files` lists in `push-to-ha.sh`.
   `~/.cache/esphome-venv/bin/esphome compile --only-generate <yaml>` (light: no
   toolchain) writes the C++ to `.esphome/build/birdframe/src/main.cpp` beside the
-  YAML; read it to check lambdas and globals. A struct global must not use
-  `initial_value: "{}"` (ambiguous constructor); give the struct member
-  initialisers instead.
+  YAML; read it to check lambdas and globals. Globals are declared there
+  *before* the `includes:` headers, so a global can't have a type from our
+  headers (the Home Assistant build failed on that): use a built-in type such
+  as `int32_t[20]` and convert in the header (see `battery.h`). An array
+  global's `initial_value` must be `"{0, 0}"`: `"{}"` and `"{0}"` also fit the
+  scalar constructor and are ambiguous.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few

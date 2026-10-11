@@ -183,10 +183,14 @@ globals:
   - id: wake_reason
     type: int
     initial_value: "0"
-  # Daily mean battery levels for Battery days left (birdframe/battery.h).
+  # Daily mean battery levels for Battery days left: a birdframe::BatteryLog
+  # (birdframe/battery.h) as raw words, since ESPHome declares globals before
+  # it includes that header. Two zeros, not "{}" or "{0}", which also fit
+  # the scalar constructor and so are ambiguous; the rest is zero too.
   - id: battery_log
-    type: birdframe::BatteryLog
+    type: int32_t[20]
     restore_value: yes
+    initial_value: "{0, 0}"
   # When the KEY2 window ends (Unix time; 0 until known).
   - id: awake_until_ts
     type: int

@@ -25,6 +25,7 @@ MST = dt.timezone(dt.timedelta(hours=-7))
 DRIVER = r"""
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include "schedule.h"
 #include "battery.h"
 int main(int argc, char **argv) {
@@ -34,12 +35,15 @@ int main(int argc, char **argv) {
   }
   if (argv[1][0] == 'd') {
     // stdin: "day level" per wake; argv[2]: the level now.
-    birdframe::BatteryLog log;  // default-constructed, as the restoring global is
+    // The raw words the YAML global holds, all zero to start, as in flash.
+    int32_t raw[birdframe::BATTERY_LOG_WORDS] = {0, 0};
     long day;
     float level;
     while (scanf("%ld %f", &day, &level) == 2)
-      birdframe::battery_log_add(log, (int32_t) day, level);
-    printf("%d %.3f\n", log.n, birdframe::battery_days_left(log, atof(argv[2])));
+      birdframe::battery_log_add(raw, (int32_t) day, level);
+    birdframe::BatteryLog log;
+    memcpy(&log, raw, sizeof(log));
+    printf("%d %.3f\n", log.n, birdframe::battery_days_left(raw, atof(argv[2])));
     return 0;
   }
   double lat = atof(argv[3]), lon = atof(argv[4]);
@@ -222,13 +226,22 @@ class FrameBatteryTests(unittest.TestCase):
         _, days = self.days_left(self.wakes(20000, 6, 80, 0.0), 80)
         self.assertTrue(math.isnan(days))
 
-    def test_battery_log_global_has_no_initial_value(self):
-        # "{}" picks neither of RestoringGlobalsComponent's T and std::array<T, 0>
-        # constructors, so the build fails; BatteryLog starts empty on its own.
+    def test_battery_log_global_is_a_plain_array(self):
+        # ESPHome declares globals before it includes our headers, so the
+        # global cannot be a birdframe:: type (the Home Assistant build failed).
+        # And "{}" or "{0}" also fit RestoringGlobalsComponent's scalar
+        # constructor (ambiguous); "{0, 0}" fits only the array one.
         text = (ESPHOME / "birdframe-battery.yaml").read_text()
         block = text[text.index("- id: battery_log"):]
         block = block[:block.index("\n  - id:", 1)]
-        self.assertNotIn("initial_value", block)
+        self.assertIn("type: int32_t[20]", block)
+        self.assertIn('initial_value: "{0, 0}"', block)
+        header = (ESPHOME / "birdframe" / "battery.h").read_text()
+        self.assertIn("BATTERY_LOG_WORDS = 20;", header)
+        for path in (ESPHOME / "birdframe-battery.yaml", ESPHOME / "birdframe" / "common.yaml"):
+            for line in path.read_text().splitlines():
+                if line.strip().startswith("type:"):
+                    self.assertNotIn("birdframe::", line, f"{path.name}: {line.strip()}")
 
     def test_log_keeps_the_last_eight_days(self):
         n, days = self.days_left(self.wakes(20000, 20, 90, 0.5), 80)

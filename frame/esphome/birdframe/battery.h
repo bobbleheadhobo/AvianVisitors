@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 namespace birdframe {
 
@@ -35,8 +36,9 @@ inline float lipo_percent(float volts) {
 
 // Daily mean battery levels, kept in flash across deep sleep. One wake's
 // reading jumps by a few points; the mean of a day's 40-odd wakes does not.
-// Starts empty through its member initialisers: the YAML global gives no
-// initial_value, as "{}" is ambiguous between ESPHome's two constructors.
+// The YAML global holds it as int32_t[BATTERY_LOG_WORDS] (all zeros is an
+// empty log): ESPHome declares globals before it includes this header, so
+// a global cannot have this struct's type.
 struct BatteryLog {
   static const int DAYS = 8;
   int32_t day[DAYS] = {};   // days since 1970 (UTC), oldest first
@@ -46,6 +48,9 @@ struct BatteryLog {
   float sum = 0;
   int32_t count = 0;
 };
+
+static const int BATTERY_LOG_WORDS = 20;
+static_assert(sizeof(BatteryLog) == BATTERY_LOG_WORDS * 4, "BatteryLog must fill the YAML global exactly");
 
 // Add one wake's level. A finished day goes into the log; a day well above
 // the one before means the battery was charged, so the trend starts over.
@@ -102,6 +107,20 @@ inline float battery_days_left(const BatteryLog &log, float level_now) {
     return NAN;
   double days = level_now / per_day;
   return days > 999 ? 999.0f : (float) days;
+}
+
+// The same on the YAML global's raw words.
+inline void battery_log_add(int32_t (&raw)[BATTERY_LOG_WORDS], int32_t day, float level) {
+  BatteryLog log;
+  std::memcpy(&log, raw, sizeof(log));
+  battery_log_add(log, day, level);
+  std::memcpy(raw, &log, sizeof(log));
+}
+
+inline float battery_days_left(const int32_t (&raw)[BATTERY_LOG_WORDS], float level_now) {
+  BatteryLog log;
+  std::memcpy(&log, raw, sizeof(log));
+  return battery_days_left(log, level_now);
 }
 
 }  // namespace birdframe
