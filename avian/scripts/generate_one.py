@@ -97,29 +97,43 @@ def _edge_matte(arr: np.ndarray, paper: np.ndarray, solid: np.ndarray,
                 noise: float) -> tuple[np.ndarray, np.ndarray]:
     """Soft alpha and paper-free colour in a thin band round the silhouette.
 
-    Each edge pixel is a mix of the bird colour just inside it (F, the
-    average of nearby interior pixels) and the paper (P); alpha is how far
-    it sits from P toward F, and its colour is unmixed from the paper.
-    Keeping those pixels opaque with their paper tint (the old feather)
-    traced a pale rim round every dark edge, which read as a jagged
-    outline on the site's lighter backgrounds. Where F is too close to the
-    paper to tell them apart (a pale throat on cream), the silhouette is
-    kept, lightly softened."""
+    Each edge pixel is a mix of the bird colour beside it (F) and the
+    paper (P); alpha is how far it sits from P toward F, and its colour is
+    F. F is the most un-paper-like bird pixel within 3 px, which on these
+    renders is the ink outline: an average of the interior is lighter, so
+    half-ink pixels came out nearly opaque with their paper tint and traced
+    a pale rim round every edge, plain on the dark theme. Where F is too
+    close to the paper to tell them apart (a pale throat on cream), the
+    silhouette is kept, lightly softened."""
     C = arr.astype(np.float64)
     P = np.asarray(paper, np.float64)
     inner = _morph(solid, 5, grow=False)
-    band = _morph(solid, 5, grow=True) & ~inner
-    weight = _box(inner.astype(np.float64), 4)
-    F = _box(C * inner[..., None], 4) / np.maximum(weight, 1e-6)[..., None]
+    band = _morph(solid, 3, grow=True) & ~inner
+    dist = np.sqrt(((C - P) ** 2).sum(2))
+    score = np.where(solid, dist, -1.0)
+    h, w = score.shape
+    r = 3
+    sp = np.pad(score, r, constant_values=-1.0)
+    cp = np.pad(C, [(r, r), (r, r), (0, 0)], mode="edge")
+    best = np.full((h, w), -1.0)
+    F = C.copy()
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            sc = sp[r + dy:r + dy + h, r + dx:r + dx + w]
+            take = sc > best
+            best = np.where(take, sc, best)
+            F[take] = cp[r + dy:r + dy + h, r + dx:r + dx + w][take]
     FP, CP = F - P, C - P
     fp2 = (FP ** 2).sum(2)
     a = np.clip((CP * FP).sum(2) / np.maximum(fp2, 1e-6), 0.0, 1.0)
-    weak = (fp2 < (3 * noise) ** 2) | (weight < 0.02)
+    weak = (fp2 < (3 * noise) ** 2) | (best < 0)
     a = np.where(weak, _box(solid.astype(np.float64), 1), a)
+    # Outside the silhouette, a faint match is paper grain, not bird.
+    a = np.where(~solid & (a < 0.25), 0.0, a)
     alpha = np.where(inner, 1.0, np.where(band, a, 0.0))
     out = C.copy()
-    m = band & (alpha > 0.05)
-    out[m] = np.clip(P + CP[m] / alpha[m][:, None], 0, 255)
+    m = band & ~weak
+    out[m] = F[m]
     return alpha, out.astype(np.uint8)
 
 

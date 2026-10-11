@@ -14,14 +14,14 @@
   // with clean cutouts, so drop every cached copy.
   // Keep table and one-off art revisions separate from the library-wide
   // versions above. A corrected species should not evict every bird image.
-  var TABLE_VERSION = 'r15';
+  var TABLE_VERSION = 'r16';
   var ART_REVISIONS = {
     'aphelocoma-woodhouseii': 'anatomy-1',
     // 2026-10-11: first art for these three (Nano Banana 2, by hand);
     // -soft: re-cut with the soft edge matte.
-    'pica-hudsonia': 'nb2-1-soft',
-    'dryobates-scalaris': 'nb2-2-soft',
-    'toxostoma-curvirostre': 'nb2-1-soft'
+    'pica-hudsonia': 'nb2-1-soft2',
+    'dryobates-scalaris': 'nb2-2-soft2',
+    'toxostoma-curvirostre': 'nb2-1-soft2'
   };
   function artRevision(sci, fallback) {
     return ART_REVISIONS[slugify(String(sci || ''))] || fallback;
