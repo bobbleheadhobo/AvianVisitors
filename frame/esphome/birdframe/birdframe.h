@@ -89,15 +89,13 @@ inline void draw_awake(esphome::display::Display &it, esphome::display::BaseFont
   const int cx = it.get_width() / 2, base = it.get_height() - 14;
   int x1, y1, w, h;
   it.get_text_bounds(cx, base, text, font, esphome::display::TextAlign::BOTTOM_CENTER, &x1, &y1, &w, &h);
-  const int dot = 10, gap = 8, pad = 8;
-  const int left = x1 - (dot + gap) / 2 - pad, top = y1 - pad;
-  const int bw = w + dot + gap + 2 * pad, bh = h + 2 * pad;
+  // White box with a red outline (3 px, so it reads through the glass).
+  const int pad = 8, edge = 3;
+  const int left = x1 - pad, top = y1 - pad, bw = w + 2 * pad, bh = h + 2 * pad;
   it.filled_rectangle(left, top, bw, bh, esphome::Color(255, 255, 255));
-  it.rectangle(left, top, bw, bh, esphome::Color(0, 0, 0));
-  it.rectangle(left + 1, top + 1, bw - 2, bh - 2, esphome::Color(0, 0, 0));
-  it.filled_circle(left + pad + dot / 2, top + bh / 2, dot / 2, esphome::Color(255, 0, 0));
-  it.print(cx + (dot + gap) / 2, base, font, esphome::Color(0, 0, 0),
-           esphome::display::TextAlign::BOTTOM_CENTER, text);
+  for (int i = 0; i < edge; i++)
+    it.rectangle(left + i, top + i, bw - 2 * i, bh - 2 * i, esphome::Color(255, 0, 0));
+  it.print(cx, base, font, esphome::Color(0, 0, 0), esphome::display::TextAlign::BOTTOM_CENTER, text);
 }
 
 }  // namespace birdframe
