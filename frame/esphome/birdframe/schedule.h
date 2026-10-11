@@ -1,5 +1,5 @@
 // Wake schedule for the battery frame, from the sun (birdframe-battery.yaml).
-// Plain C++ with no ESPHome headers, so tests/test_frame_schedule.py can
+// Plain C++ with no ESPHome headers, so tests/test_frame_headers.py can
 // build and check it on its own.
 //
 // Birds here are busiest around sunrise: in the first days of data 60% of

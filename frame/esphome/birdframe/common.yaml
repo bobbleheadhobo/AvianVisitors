@@ -25,6 +25,7 @@ esphome:
     # this file: ESPHome resolves includes from the main config's folder.
     - birdframe/birdframe.h
     - birdframe/schedule.h
+    - birdframe/battery.h
 
 esp32:
   board: esp32-s3-devkitc-1

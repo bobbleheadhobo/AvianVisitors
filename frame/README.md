@@ -175,7 +175,8 @@ Or use the Samba share add-on and drag the same two items into
 | Wi-Fi signal, IP address, ESPHome version | both (diagnostic) | |
 | Redraw (button), Bird names (switch) | USB | the same as KEY0 and KEY1 |
 | Restart (button), Uptime | USB | |
-| Battery voltage, Battery level | battery | level is a rough LiPo estimate, 3.3 V empty to 4.2 V full; unknown with no cell |
+| Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points); unknown with no cell |
+| Battery days left | battery | days until empty at the recent rate, from a trend line through each day's average level over the last 8 days. Unknown for the first 3 days, and for 3 days after each charge; it settles as the days add up |
 | Update window, Update window ends | battery | on while KEY2 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
 
 The frame never depends on Home Assistant: with it down the frame keeps

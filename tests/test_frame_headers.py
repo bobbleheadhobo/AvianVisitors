@@ -1,9 +1,12 @@
-"""The battery frame's sun-based wake schedule (frame/esphome/birdframe/schedule.h).
+"""The battery frame's plain C++ headers: the sun-based wake schedule
+(frame/esphome/birdframe/schedule.h) and the battery level and days left
+(birdframe/battery.h).
 
 Builds the header with a host C++ compiler: g++/clang++ if present, else zig
 (`pip install ziglang` into ~/.cache/avian-dev-venv). Skipped without one.
 """
 import datetime as dt
+import math
 import os
 import pathlib
 import re
@@ -23,7 +26,22 @@ DRIVER = r"""
 #include <cstdio>
 #include <cstdlib>
 #include "schedule.h"
+#include "battery.h"
 int main(int argc, char **argv) {
+  if (argv[1][0] == 'p') {
+    printf("%.3f\n", birdframe::lipo_percent(atof(argv[2])));
+    return 0;
+  }
+  if (argv[1][0] == 'd') {
+    // stdin: "day level" per wake; argv[2]: the level now.
+    birdframe::BatteryLog log{};
+    long day;
+    float level;
+    while (scanf("%ld %f", &day, &level) == 2)
+      birdframe::battery_log_add(log, (int32_t) day, level);
+    printf("%d %.3f\n", log.n, birdframe::battery_days_left(log, atof(argv[2])));
+    return 0;
+  }
   double lat = atof(argv[3]), lon = atof(argv[4]);
   long long x = atoll(argv[2]);
   if (argv[1][0] == 'r') {
@@ -141,6 +159,73 @@ class FrameScheduleTests(unittest.TestCase):
         # About 18 at dawn, 20 by day and a few at night; 48 before.
         self.assertGreater(wakes, 35)
         self.assertLess(wakes, 48)
+
+
+class FrameBatteryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        FrameScheduleTests.setUpClass.__func__(cls)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def percent(self, volts):
+        out = subprocess.run([str(self.exe), "p", str(volts)], capture_output=True, text=True, check=True)
+        return float(out.stdout)
+
+    def days_left(self, wakes, now):
+        feed = "".join(f"{d} {lvl}\n" for d, lvl in wakes)
+        out = subprocess.run([str(self.exe), "d", str(now)], input=feed, capture_output=True, text=True, check=True)
+        n, days = out.stdout.split()
+        return int(n), float(days)
+
+    def test_lipo_curve(self):
+        self.assertEqual(self.percent(4.25), 100)
+        self.assertEqual(self.percent(4.20), 100)
+        self.assertAlmostEqual(self.percent(3.84), 50, places=1)
+        self.assertAlmostEqual(self.percent(3.845), 52.5, places=1)
+        self.assertEqual(self.percent(3.2), 0)
+        # The flat middle: 3.7-3.9 V is most of the charge, not a fifth of it.
+        self.assertGreater(self.percent(3.9) - self.percent(3.7), 45)
+        self.assertNotEqual(self.percent(1.0), self.percent(1.0), "no cell (USB only) reads as unknown")
+
+    @staticmethod
+    def wakes(start_day, days, start_level, per_day, noise=0.0, per_wake=40):
+        """A day's worth of noisy wakes for each of `days`, falling `per_day`."""
+        out = []
+        for d in range(days):
+            for w in range(per_wake):
+                wobble = noise * (1 if (d * per_wake + w) % 2 else -1)
+                out.append((start_day + d, start_level - per_day * (d + w / per_wake) + wobble))
+        return out
+
+    def test_days_left_from_a_steady_fall(self):
+        # 1 point a day from 80%: after a week, about 73 days left at 73%.
+        n, days = self.days_left(self.wakes(20000, 8, 80, 1.0, noise=4), 73)
+        self.assertEqual(n, 7)
+        self.assertAlmostEqual(days, 73, delta=4)
+
+    def test_days_left_is_unknown_at_first(self):
+        n, days = self.days_left(self.wakes(20000, 3, 80, 1.0), 77)
+        self.assertEqual(n, 2)
+        self.assertTrue(math.isnan(days))
+
+    def test_a_charge_starts_the_trend_over(self):
+        wakes = self.wakes(20000, 5, 60, 1.0) + self.wakes(20005, 3, 100, 1.0)
+        n, days = self.days_left(wakes, 98)
+        # Days 5 and 6 are finished (7 is still being averaged); 0-4 are gone.
+        self.assertEqual(n, 2, "the days before the charge are dropped")
+        self.assertTrue(math.isnan(days), "and the estimate waits for 3 new days")
+
+    def test_a_level_that_is_not_falling_has_no_estimate(self):
+        _, days = self.days_left(self.wakes(20000, 6, 80, 0.0), 80)
+        self.assertTrue(math.isnan(days))
+
+    def test_log_keeps_the_last_eight_days(self):
+        n, days = self.days_left(self.wakes(20000, 20, 90, 0.5), 80)
+        self.assertEqual(n, 8)
+        self.assertAlmostEqual(days, 160, delta=10)
 
 
 if __name__ == "__main__":

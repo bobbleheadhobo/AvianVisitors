@@ -100,8 +100,9 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `shoot_cluster_ybias` (1.6) in `frame/config.station.toml` (symlinked as
   `~/.birdframe/config.toml`) pack the birds into a tall box to fill it.
   `frame/display.py --preview out.png` renders without pushing.
-- The battery frame's wake schedule follows the sun (`frame/esphome/birdframe/schedule.h`,
-  plain C++ so it can be tested here): `tests/test_frame_schedule.py` builds it with
+- The battery frame's wake schedule follows the sun (`frame/esphome/birdframe/schedule.h`)
+  and its battery level and days left are in `birdframe/battery.h`; both are
+  plain C++ so they can be tested here: `tests/test_frame_headers.py` builds it with
   `zig c++` from the `ziglang` wheel in `~/.cache/avian-dev-venv` (skips without a
   compiler). ESPHome lambdas themselves only compile in Home Assistant, and
   `esphome config` doesn't check them, so keep logic in headers. A new file in
