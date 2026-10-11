@@ -189,6 +189,7 @@ valid_config_value() {
     SF_THRESH) valid_number "$value" 0.0005 0.99 ;;
     OVERLAP) valid_number "$value" 0 2.5 ;;
     RESET_AT_MIDNIGHT) [ "$value" = 0 ] || [ "$value" = 1 ] ;;
+    RESET_HOUR) [[ "$value" =~ ^[0345]$ ]] ;;
     LATITUDE) valid_number "$value" -90 90 ;;
     LONGITUDE) valid_number "$value" -180 180 ;;
     MAX_FILES_SPECIES)

@@ -79,12 +79,29 @@ function publicConfigFlag(string $path, string $key): bool {
     return in_array($value, ['1', 'true', 'yes', 'on'], true);
 }
 
+/** The hour "today" starts at when Reset at midnight is on (RESET_HOUR,
+ *  0 = midnight). An early-morning reset keeps last night's birds on the
+ *  site and the frame until just before the dawn chorus. */
+function publicResetHour(string $path): int {
+    if (!is_readable($path) || is_dir($path)) return 0;
+    $lines = @file($path, FILE_IGNORE_NEW_LINES);
+    if (!is_array($lines)) return 0;
+    $hour = 0;
+    foreach ($lines as $line) {
+        if (preg_match('/^\s*(?:export\s+)?RESET_HOUR\s*=\s*["\']?([0-9]{1,2})["\']?\s*$/', $line, $match) === 1) {
+            $hour = (int)$match[1];
+        }
+    }
+    return $hour <= 6 ? $hour : 0;
+}
+
 function recentWindow(
     SQLite3 $db,
     int $hours,
     array $dateContext,
     bool $resetAtMidnight,
-    bool $scoped
+    bool $scoped,
+    int $resetHour = 0
 ): array {
     $through = "DATETIME(Date||' '||Time) <= DATETIME(:anchor)";
     $enabled = $resetAtMidnight && !$scoped;
@@ -95,11 +112,15 @@ function recentWindow(
             'reset_at_midnight' => $enabled,
             'midnight_clamped' => false,
             'window_start' => null,
+            'reset_hour' => null,
         ];
     }
+    // The most recent reset: today at the reset hour, or yesterday's while
+    // it is still before that hour.
+    $resetHour = max(0, min(6, $resetHour));
     $statement = $db->prepare(
         "SELECT DATETIME(:anchor,'-".$hours." hours') AS rolling, "
-            . "DATETIME(:anchor,'start of day') AS midnight"
+            . "DATETIME(:anchor,'-".$resetHour." hours','start of day','+".$resetHour." hours') AS midnight"
     );
     if (!$statement) throw new RuntimeException('could not prepare time window');
     $statement->bindValue(':anchor', $dateContext['anchor'], SQLITE3_TEXT);
@@ -107,7 +128,8 @@ function recentWindow(
     $times = $result ? ($result->fetchArray(SQLITE3_ASSOC) ?: []) : [];
     $rolling = (string)($times['rolling'] ?? '');
     $midnight = (string)($times['midnight'] ?? '');
-    // Reset at midnight trims the day-sized windows (1H/12H/24H). 7D still
+    // Reset at midnight (or at RESET_HOUR) trims the day-sized windows
+    // (1H/12H/24H). 7D still
     // means the past seven days; clamping it made it a copy of 24H.
     $clamped = $enabled
         && $hours <= 24
@@ -124,12 +146,14 @@ function recentWindow(
         'reset_at_midnight' => $enabled,
         'midnight_clamped' => $clamped,
         'window_start' => $start,
+        'reset_hour' => $enabled ? $resetHour : null,
     ];
 }
 
 if (defined('AVIAN_BIRDNET_API_LIBRARY_ONLY')) return;
 
 $RESET_AT_MIDNIGHT = publicConfigFlag($CONF_PATH, 'RESET_AT_MIDNIGHT');
+$RESET_HOUR = publicResetHour($CONF_PATH);
 
 $educatorDirectRequest = avian_is_direct_local_request($_SERVER);
 $educatorSavedRequest = educator_saved_scope_requested($_GET);
@@ -363,7 +387,8 @@ switch ($action) {
             $hours,
             $ctx,
             $RESET_AT_MIDNIGHT,
-            $educatorScope !== null
+            $educatorScope !== null,
+            $RESET_HOUR
         );
         $where = $window['where'];
         $bind = $window['bind'];
@@ -396,6 +421,7 @@ switch ($action) {
             'is_today' => $ctx['is_today'], 'anchor' => $ctx['anchor'],
             'reset_at_midnight' => $window['reset_at_midnight'],
             'midnight_clamped' => $window['midnight_clamped'],
+            'reset_hour' => $window['reset_hour'],
             'window_start' => $window['window_start'],
             'species' => $rs, 'site_name' => publicSiteName($CONF_PATH), 'as_of' => date('c')
         ]);

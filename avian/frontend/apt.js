@@ -8778,7 +8778,8 @@
     autoSaveT = null;
     var submitted = pending;
     pending = {};
-    var resetAtMidnightChanged = Object.prototype.hasOwnProperty.call(submitted, 'RESET_AT_MIDNIGHT');
+    var resetAtMidnightChanged = Object.prototype.hasOwnProperty.call(submitted, 'RESET_AT_MIDNIGHT')
+      || Object.prototype.hasOwnProperty.call(submitted, 'RESET_HOUR');
     // Notification targets and body live in their own files; the rest is
     // birdnet.conf. Write the files first, then the config.
     var notifyPart = {};
@@ -8813,7 +8814,8 @@
             applySiteName(submitted.SITE_NAME);
           }
           if (resetAtMidnightChanged
-            && !Object.prototype.hasOwnProperty.call(pending, 'RESET_AT_MIDNIGHT')) {
+            && !Object.prototype.hasOwnProperty.call(pending, 'RESET_AT_MIDNIGHT')
+            && !Object.prototype.hasOwnProperty.call(pending, 'RESET_HOUR')) {
             refreshAll();
           }
           setSaveState('saved', 'ok');
@@ -13419,7 +13421,10 @@
           + settingsSlider('SENSITIVITY', 'Sensitivity', 'sigmoid slope on the classifier output', v.SENSITIVITY, 0.5, 1.5, 0.05, 2, 1.25)
           + settingsSlider('OVERLAP', 'Chunk overlap', 'seconds re-analyzed per pass', v.OVERLAP, 0, 2.5, 0.1, 1, 0.0)
           + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-detection>reset detection to defaults</button></div>'
-          + settingsToggle('RESET_AT_MIDNIGHT', 'Reset at midnight', '1H, 12H and 24H start no earlier than midnight', !!v.RESET_AT_MIDNIGHT)
+          + settingsToggle('RESET_AT_MIDNIGHT', 'Daily reset', '1H, 12H and 24H start no earlier than the reset time', !!v.RESET_AT_MIDNIGHT)
+          + settingsSegmented('RESET_HOUR', 'Reset time', 'a reset before dawn keeps last night\'s birds up', String(v.RESET_HOUR || '0'), [
+              { v: '0', label: '12am' }, { v: '3', label: '3am' }, { v: '4', label: '4am' }, { v: '5', label: '5am' },
+            ])
           + '</section>'
           + notificationsSection(notify, v)
           + frameSection(frame)

@@ -42,6 +42,8 @@ $ALLOWED = [
     'SF_THRESH'          => ['type' => 'float', 'min' => 0.0005, 'max' => 0.99, 'restart' => true],
     'OVERLAP'            => ['type' => 'float', 'min' => 0.0,  'max' => 2.5,  'restart' => true],
     'RESET_AT_MIDNIGHT'  => ['type' => 'bool'],
+    // The hour Reset at midnight starts the day at (0 = midnight).
+    'RESET_HOUR'         => ['type' => 'enum',  'values' => ['0', '3', '4', '5']],
     'MAX_FILES_SPECIES'  => ['type' => 'int',   'min' => 0,    'max' => 100000],
     'FULL_DISK'          => ['type' => 'enum',  'values' => ['purge', 'keep']],
     'PURGE_THRESHOLD'    => ['type' => 'int',   'min' => 50,   'max' => 99],

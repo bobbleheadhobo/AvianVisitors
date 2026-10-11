@@ -188,6 +188,8 @@ OVERLAP=0.0
 
 ## Keep dashboard time windows inside the current day when enabled.
 RESET_AT_MIDNIGHT=0
+## The hour that day starts at: 0 (midnight), 3, 4 or 5.
+RESET_HOUR=0
 
 ## CONFIDENCE is the minimum confidence level from 0.0-1.0 BirdNET's analysis
 ## should reach before creating an entry in the BirdNET.selection.txt file.

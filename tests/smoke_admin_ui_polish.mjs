@@ -745,8 +745,8 @@ assert.match(functionSource('renderAdminSettings'), /wireLabelsPreference\(admin
 
 assert.match(apt, /themeRow\(\)[\s\S]{0,100}labelsRow\(\)[\s\S]{0,100}atlasAlwaysAllRow\(\)[\s\S]{0,100}atlasClassicRow\(\)[\s\S]{0,120}settingsText\('SITE_NAME', 'Station name'/,
   'Station name finishes the appearance group beneath Classic Atlas cards');
-assert.match(apt, /settingsSlider\('OVERLAP',[\s\S]{0,180}settingsToggle\('RESET_AT_MIDNIGHT', 'Reset at midnight'/,
-  'Reset at midnight uses the standard Settings switch beside detection controls');
+assert.match(apt, /settingsSlider\('OVERLAP',[\s\S]{0,320}settingsToggle\('RESET_AT_MIDNIGHT', 'Daily reset'[\s\S]{0,400}settingsSegmented\('RESET_HOUR', 'Reset time'/,
+  'Daily reset and its reset time sit beside the detection controls');
 assert.match(functionSource('saveSettings'), /resetAtMidnightChanged[\s\S]*!Object\.prototype\.hasOwnProperty\.call\(pending, 'RESET_AT_MIDNIGHT'\)[\s\S]*refreshAll\(\)/,
   'a saved midnight preference refreshes data unless a newer toggle value is pending');
 assert.match(functionSource('renderAtlas'), /DATA\.recent && DATA\.recent\.window_start[\s\S]*Date\.parse/,

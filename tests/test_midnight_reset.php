@@ -65,6 +65,30 @@ $all = recentWindow($db, 1000000, $today, true, false);
 checkMidnight($all['window_start'] === null, 'all time has no lower bound');
 checkMidnight($all['midnight_clamped'] === false, 'all time is never clamped');
 
+// An early-morning reset (RESET_HOUR) keeps the night's birds until then.
+$early = recentWindow($db, 24, $today, true, false, 4);
+checkMidnight($early['midnight_clamped'] === true, '24 hour window clamps at the reset hour');
+checkMidnight($early['window_start'] === '2026-09-02 04:00:00', 'clamp uses the reset hour');
+checkMidnight($early['reset_hour'] === 4, 'reset hour is reported');
+$beforeReset = recentWindow($db, 24, ['anchor' => '2026-09-02 02:30:00', 'is_today' => true], true, false, 4);
+checkMidnight($beforeReset['midnight_clamped'] === true, 'before the reset hour the window still clamps');
+checkMidnight($beforeReset['window_start'] === '2026-09-01 04:00:00', 'before the reset hour yesterday\'s birds stay');
+$beforeShort = recentWindow($db, 12, ['anchor' => '2026-09-02 02:30:00', 'is_today' => true], true, false, 4);
+checkMidnight($beforeShort['midnight_clamped'] === false, 'a 12 hour window before the reset hour stays rolling');
+checkMidnight($beforeShort['window_start'] === '2026-09-01 14:30:00', 'rolling start crosses midnight before the reset');
+$offEarly = recentWindow($db, 24, $today, false, false, 4);
+checkMidnight($offEarly['reset_hour'] === null && $offEarly['midnight_clamped'] === false, 'reset hour is ignored when reset is off');
+
+file_put_contents($config, "RESET_HOUR=4\n");
+checkMidnight(publicResetHour($config) === 4, 'reset hour is read from the config');
+file_put_contents($config, "RESET_HOUR=\"5\"\n");
+checkMidnight(publicResetHour($config) === 5, 'quoted reset hour is accepted');
+file_put_contents($config, "RESET_HOUR=13\n");
+checkMidnight(publicResetHour($config) === 0, 'a reset hour past 6 falls back to midnight');
+file_put_contents($config, "OTHER=1\n");
+checkMidnight(publicResetHour($config) === 0, 'missing reset hour is midnight');
+unlink($config);
+
 $db->exec('CREATE TABLE detections (Date TEXT NOT NULL, Time TEXT NOT NULL)');
 $db->exec("INSERT INTO detections VALUES
     ('2026-09-01', '23:59:59'),
