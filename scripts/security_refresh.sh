@@ -92,6 +92,15 @@ if [ ! -f "$generation_lock" ] || [ -L "$generation_lock" ] \
   echo "Unsafe illustration generation lock: $generation_lock" >&2
   exit 1
 fi
+# /run is emptied at every boot; recreate the lock there too, or after a
+# reboot the Atlas's generate button fails with "generation lock unavailable".
+generation_tmpfiles=/etc/tmpfiles.d/avian-generation.conf
+generation_tmpfiles_line="f $generation_lock 0660 root $birdnet_gid -"
+if [ "$(cat "$generation_tmpfiles" 2>/dev/null)" != "$generation_tmpfiles_line" ]; then
+  printf '%s\n' "$generation_tmpfiles_line" >"$generation_tmpfiles.tmp"
+  chmod 0644 "$generation_tmpfiles.tmp"
+  mv -f "$generation_tmpfiles.tmp" "$generation_tmpfiles"
+fi
 
 legacy_state_dir=$repo_dir/scripts
 legacy_state_file=$legacy_state_dir/disk_check_exclude.txt

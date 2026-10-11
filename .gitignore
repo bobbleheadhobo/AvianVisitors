@@ -80,3 +80,6 @@ requirements_custom.txt
 # Impeccable design-review screenshots: regenerated each review and stale
 # after the next UI change. Critiques and design notes stay tracked.
 .impeccable/review/
+
+# Atlas illustration generation: progress, log and rate-limit state.
+avian/assets/illustrations/.generate.*

@@ -68,6 +68,10 @@ done
 # --- birdnet.conf ------------------------------------------------------------
 [ -L /etc/birdnet/birdnet.conf ] || problem "/etc/birdnet/birdnet.conf is no longer a symlink to the repo copy"
 
+# --- runtime files in /run (emptied at boot) ----------------------------------
+[ -f /run/lock/avian-generation.lock ] && [ -f /etc/tmpfiles.d/avian-generation.conf ] \
+  || problem "illustration generation lock or its tmpfiles.d entry is missing (Atlas generate fails); run: sudo avian-security-refresh"
+
 # --- test data -----------------------------------------------------------------
 fakes=$(sqlite3 scripts/birds.db "SELECT COUNT(*) FROM detections WHERE File_Name LIKE 'FAKE-%'" 2>/dev/null || echo 0)
 [ "$fakes" = 0 ] || problem "$fakes fake detection(s) still in birds.db; remove with dev/fake-detection.py clean"

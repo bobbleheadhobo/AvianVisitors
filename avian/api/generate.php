@@ -114,8 +114,18 @@ function restore_file(string $path, bool $existed, string $contents): bool {
     return !file_exists($path) || @unlink($path);
 }
 
+// PHP-FPM clears the environment by default, so PATH is often empty here
+// (the CLI test server keeps it). Fall back to the standard system path, or
+// nohup is never found and every start fails as "generator unavailable".
+function search_path(): string {
+    $path = getenv('PATH');
+    return is_string($path) && $path !== ''
+        ? $path
+        : '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+}
+
 function find_executable(string $name): ?string {
-    foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $directory) {
+    foreach (explode(PATH_SEPARATOR, search_path()) as $directory) {
         if ($directory === '' || $directory[0] !== DIRECTORY_SEPARATOR) continue;
         $candidate = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $name;
         if (is_file($candidate) && is_executable($candidate)) return $candidate;
@@ -337,6 +347,7 @@ if ($action === 'start') {
          . 'worker_pid=$!; sleep 0.05; kill -0 "$worker_pid" 2>/dev/null';
     $environment = getenv();
     if (!is_array($environment)) $environment = [];
+    $environment['PATH'] = search_path();  // the spawn script runs sleep
     $environment['GEMINI_API_KEY'] = $key;
     $descriptors = [
         0 => ['file', '/dev/null', 'r'],

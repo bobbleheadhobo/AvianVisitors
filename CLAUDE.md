@@ -127,6 +127,12 @@ Privileged work goes through a helper with fixed, validated actions:
 - PHP calls a helper with `sudo -n /usr/local/sbin/avian-...` (see
   `run_admin_control` in `avian/api/config.php`, or `detection-delete.php`).
 
+PHP-FPM clears the environment, so `getenv('PATH')` is empty in endpoints:
+use absolute paths or a fallback (see `search_path()` in `generate.php`).
+Anything a feature needs in `/run` is gone after a reboot; give it a
+`tmpfiles.d` entry (the Atlas generation lock has one, written by
+`security_refresh.sh`).
+
 **After editing a helper, the installed copy is stale: run
 `dev/sync-live.sh`.** It installs every helper that differs from the repo.
 Never run `avian-caddy-refresh` by hand before installing the repo copy: a
