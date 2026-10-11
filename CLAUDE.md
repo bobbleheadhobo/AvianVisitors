@@ -98,6 +98,13 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `LABEL_MIN_PX`). If those lines change shape it refuses to render and the
   frame quietly goes stale (it did for two days); `tests/test_frame_shoot.py`
   checks them. Frame logs: `journalctl -u birdframe-server`.
+- Bird art (`avian/assets/illustrations/<slug>.png`, `-2` = flight) is served
+  by `cutout.php` with a day of cache, under a URL that only changes with the
+  species' entry in `ART_REVISIONS` in `apt.js`; `dims.json`/`masks.json`
+  with `TABLE_VERSION`. Changing art without bumping these leaves browsers on
+  the old picture (`dev/sync-live.sh` warns). New art from outside the
+  generator: run it through `generate_one.chroma_cut` and
+  `build_masks.py --add` as `caddy`, holding `/run/lock/avian-generation.lock`.
 - `avian/api/*.php`: JSON endpoints. **A new endpoint must be added to the
   `@unknownAvianApi` allow-list in `scripts/update_caddyfile.sh`**, then
   Caddy regenerated (below), or it returns 404.

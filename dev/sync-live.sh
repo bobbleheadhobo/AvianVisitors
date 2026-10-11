@@ -65,6 +65,20 @@ for asset in apt.js styles.css; do
   [ "$old" != "$new" ] || problem "avian/frontend/$asset changed but index.html still loads $new; bump the ?v="
 done
 
+# --- cached bird art --------------------------------------------------------
+# cutout.php is cached for a day under a URL that only changes with
+# ART_REVISIONS (per species) in apt.js, and dims/masks with TABLE_VERSION.
+added_js=$(git diff "$base" -- avian/frontend/apt.js | grep '^+' || true)
+for png in $(git diff --name-only "$base" -- 'avian/assets/illustrations/*.png'); do
+  slug=$(basename "$png" .png); slug=${slug%-2}
+  grep -q "'$slug':" <<<"$added_js" \
+    || problem "$png changed but apt.js ART_REVISIONS has no new entry for '$slug'; browsers keep the old image for a day"
+done
+if ! git diff --quiet "$base" -- avian/frontend/dims.json avian/frontend/masks.json; then
+  grep -q "TABLE_VERSION" <<<"$added_js" \
+    || problem "dims.json/masks.json changed but TABLE_VERSION in apt.js was not bumped"
+fi
+
 # --- birdnet.conf ------------------------------------------------------------
 [ -L /etc/birdnet/birdnet.conf ] || problem "/etc/birdnet/birdnet.conf is no longer a symlink to the repo copy"
 
