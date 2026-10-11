@@ -52,7 +52,7 @@ def write_state(**kw) -> None:
         pass
 
 
-def chroma_cut(src: Path, dst: Path) -> None:
+def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
     """Instant cutout for a cream-ground render: everything reachable from
     the border through near-paper pixels is background; everything else is
     bird. Enclosed pale patches (a white belly) are unreachable, so they
@@ -64,7 +64,8 @@ def chroma_cut(src: Path, dst: Path) -> None:
     varies render to render (a fixed tolerance either strands ground or
     eats pale plumage). The border strips are guaranteed paper - their
     99th percentile, widened, clears grain and vignette while staying
-    far below the inked outline."""
+    far below the inked outline. Pass `tol` to override it for a render
+    whose pale plumage meets the ground with no ink line (it leaks in)."""
     im = Image.open(src).convert("RGB")
     arr = np.asarray(im)
     h, w, _ = arr.shape
@@ -74,7 +75,8 @@ def chroma_cut(src: Path, dst: Path) -> None:
     dist = np.sqrt(((arr.astype(np.int32) - paper) ** 2).sum(2))
     border = np.concatenate([dist[:40, :].ravel(), dist[-40:, :].ravel(),
                              dist[:, :40].ravel(), dist[:, -40:].ravel()])
-    tol = float(min(40.0, max(15.0, 2.5 * np.percentile(border, 99))))
+    if tol is None:
+        tol = float(min(40.0, max(15.0, 2.5 * np.percentile(border, 99))))
     passable = dist < tol
 
     # Flood the passable region from the border (ImageDraw.floodfill runs

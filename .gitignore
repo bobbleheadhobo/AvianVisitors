@@ -83,3 +83,5 @@ requirements_custom.txt
 
 # Atlas illustration generation: progress, log and rate-limit state.
 avian/assets/illustrations/.generate.*
+avian/assets/illustrations/raw/
+avian/assets/illustrations/cuts.json
