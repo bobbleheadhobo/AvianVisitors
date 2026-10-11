@@ -65,6 +65,8 @@ DEFAULTS = {
     "shoot_headline_px": 42, "shoot_eyebrow_px": 18, "shoot_lowercase": False,
     "shoot_mat": 0.04, "shoot_small_floor": 0.04, "shoot_count_exp": 0.65,
     "shoot_label_min_px": 11,  # smallest bird-name font, CSS px
+    "shoot_collage_vh": 52,     # height the birds are packed into, % of the screenshot
+    "shoot_cluster_ybias": 1.2,  # >1 stretches the cluster taller (portrait)
     "bird_names": False,
     "mat": 0.0,             # extra global shrink of the content inside the A5 opening
     "opening": 0.7071,      # opening height as a panel fraction; 0.7071 preserves A5
@@ -600,7 +602,8 @@ def shoot_viewport(geo):
 def obtain_image(cfg, species=None, bird_names=None):
     if bird_names is None:
         bird_names = cfg["bird_names"]
-    look = dict(shoot_viewport(Geometry.from_cfg(cfg)), label_min_px=cfg["shoot_label_min_px"])
+    look = dict(shoot_viewport(Geometry.from_cfg(cfg)), label_min_px=cfg["shoot_label_min_px"],
+                collage_vh=cfg["shoot_collage_vh"], cluster_ybias=cfg["shoot_cluster_ybias"])
     if cfg.get("species_source") == "birdweather":
         from shoot import shoot_birdweather
         if species is None:  # gate skipped (--no-signature): fetch the list to render

@@ -77,6 +77,9 @@ else
     printf '%s\n' 'collage_frac = 0.95'
     printf '%s\n' 'gap_frac = 0.04'
     printf '%s\n' 'shoot_label_min_px = 13'
+    printf '%s\n' '# pack the birds into a tall box so they fill the panel height'
+    printf '%s\n' 'shoot_collage_vh = 75'
+    printf '%s\n' 'shoot_cluster_ybias = 1.6'
     printf '%s\n' 'timeout = 180'
   } > "$CONFIG"
 fi

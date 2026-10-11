@@ -16,4 +16,7 @@ title_frac = 0.065
 collage_frac = 0.95
 gap_frac = 0.04
 shoot_label_min_px = 13
+# pack the birds into a tall box so they fill the panel height
+shoot_collage_vh = 75
+shoot_cluster_ybias = 1.6
 timeout = 180

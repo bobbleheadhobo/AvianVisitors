@@ -49,6 +49,8 @@ opening = 0.7071       # opening height as a panel fraction; raise toward 0.98 f
 # collage_frac = 0.66  # max collage width, fraction of the opening width
 # gap_frac = 0.1       # title-to-collage gap, fraction of the opening height
 # shoot_label_min_px = 11  # smallest bird-name font (CSS px)
+# shoot_collage_vh = 52     # height the birds are packed into, % of the screenshot
+# shoot_cluster_ybias = 1.2  # above 1 stretches the cluster taller
 
 # --- ESPHome frame (7.3" Spectra 6 on a XIAO EE04) --------------------------
 # Run this on the BirdNET server (install-server.sh writes it). Instead of
@@ -65,6 +67,8 @@ opening = 0.7071       # opening height as a panel fraction; raise toward 0.98 f
 # collage_frac = 0.95
 # gap_frac = 0.04
 # shoot_label_min_px = 13
+# shoot_collage_vh = 75
+# shoot_cluster_ybias = 1.6
 # paper_warmth = 0.12  # dot this share of the open background yellow, so it reads cream, not white
 # Settings > Frame on the website saves paper_warmth, ink_saturation,
 # ink_contrast, shoot_title, shoot_subtitle and quiet hours to
