@@ -276,7 +276,7 @@ class FrameFirmwareTests(unittest.TestCase):
         self.assertIn("name: Wake cause\n", text)
         self.assertIn("birdframe::wake_description()", text)
         # An update flashed during an ordinary wake must not be cut off by
-        # sleep: the battery build's only route while KEY2 is not recognised.
+        # sleep, so the battery build can be updated during any wake.
         self.assertIn('id(ota_busy) = true;', text)
         self.assertLess(text.index('return !id(ota_busy);'), text.rindex("deep_sleep.enter:"))
         self.assertIn("!id(ota_busy);", text[text.index("Safety net"):text.index("priority: -100")])

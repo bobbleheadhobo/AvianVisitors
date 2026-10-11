@@ -13,13 +13,13 @@
 # no power.
 #
 # Keys wake the board at any time:
-#   KEY0  redraw now
-#   KEY1  toggle bird names
-#   KEY2  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
+#   KEY1  redraw now
+#   KEY2  toggle bird names
+#   KEY3  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
 #         the bottom of the panel shows while the window is open, with the
 #         time it ends (also in Home Assistant: Update window, and Update
 #         window ends, which counts down)
-# Updating: press KEY2, then `esphome run birdframe-battery.yaml` and pick
+# Updating: press KEY3, then `esphome run birdframe-battery.yaml` and pick
 # the network device; or flash over USB as the first time.
 
 substitutions:
@@ -28,7 +28,7 @@ substitutions:
   # Shown in Home Assistant as Firmware.
   build: Battery
   build_icon: mdi:battery
-  # How long KEY2 keeps the frame awake for updates, in seconds.
+  # How long KEY3 keeps the frame awake for updates, in seconds.
   awake_window: 300s
   # The station's location, for sunrise and sunset.
   latitude: "35.0813"
@@ -49,7 +49,7 @@ packages:
 
 esphome:
   on_boot:
-    # Safety net: never stay awake longer than 3 minutes unless KEY2 asked
+    # Safety net: never stay awake longer than 3 minutes unless KEY3 asked
     # to or an update is being flashed.
     - priority: 600
       then:
@@ -91,7 +91,7 @@ esphome:
         - if:
             condition: wifi.connected
             then:
-              # KEY2: fix when the window ends before the tag is drawn, so
+              # KEY3: fix when the window ends before the tag is drawn, so
               # the panel and Home Assistant can both say. The clock usually
               # survives deep sleep; after a power cut SNTP sets it in a
               # moment. Without it the tag just says "5 min".
@@ -139,7 +139,7 @@ esphome:
             condition:
               lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
             then:
-              - logger.log: "KEY2: staying awake for updates"
+              - logger.log: "KEY3: staying awake for updates"
               - text_sensor.template.publish:
                   id: frame_status
                   state: !lambda "return id(awake_text);"
@@ -204,12 +204,12 @@ globals:
   - id: ota_busy
     type: bool
     initial_value: "false"
-  # When the KEY2 window ends (Unix time; 0 until known).
+  # When the KEY3 window ends (Unix time; 0 until known).
   - id: awake_until_ts
     type: int
     initial_value: "0"
 
-# Home Assistant: whether KEY2's update window is open, and when it ends.
+# Home Assistant: whether KEY3's update window is open, and when it ends.
 # A timestamp shows there as "in 4 minutes", counting down.
 binary_sensor:
   - platform: template
@@ -218,7 +218,7 @@ binary_sensor:
     icon: mdi:cellphone-arrow-down
 
 text_sensor:
-  # Why the frame last woke: Timer, KEY0/1/2 (with the raw pin mask), or a
+  # Why the frame last woke: Timer, KEY1/2/3 (with the raw pin mask), or a
   # reset.
   - platform: template
     id: wake_cause
@@ -235,7 +235,7 @@ text_sensor:
       if (id(awake_until_ts) <= 0) return {};
       return ESPTime::from_epoch_utc(id(awake_until_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
 
-# The KEY2 tag shows a local time: pin the zone rather than take the one
+# The KEY3 tag shows a local time: pin the zone rather than take the one
 # of whichever machine builds the firmware.
 time:
   - id: !extend sntp_time

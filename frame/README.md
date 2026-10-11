@@ -151,7 +151,9 @@ Or use the Samba share add-on and drag the same two items into
    factory `.bin` from step 4. Use USB too when the board last ran firmware
    with a different `ota_password`: a wireless install is refused then.
 6. Later updates of the USB build: **Install → Wirelessly**. The battery
-   build accepts them only for 5 minutes after KEY2; otherwise use USB.
+   build is asleep most of the time: press KEY3 to keep it awake for 5
+   minutes, then install. An install that reaches it during any other wake
+   also finishes before it sleeps. Or use USB.
 7. Check it is running: within a minute of power-up the card shows
    **ONLINE**, and its **Logs** show `server <sig>, shown <sig>, draw yes`
    then `drew frame <sig>` while the panel flashes for about 20-30 s. There
@@ -173,12 +175,12 @@ Or use the Samba share add-on and drag the same two items into
 | Station image updated | both (diagnostic) | when the station last rendered the frame. Old Last drawn with a recent Station image updated: the frame is stuck. Both old: the station is. |
 | Firmware | both (diagnostic) | which build the frame runs: *USB* or *Battery* |
 | Wi-Fi signal, IP address, ESPHome version | both (diagnostic) | |
-| Redraw (button), Bird names (switch) | USB | the same as KEY0 and KEY1 |
+| Redraw (button), Bird names (switch) | USB | the same as KEY1 and KEY2 |
 | Restart (button), Uptime | USB | |
 | Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points); unknown with no cell |
 | Battery days left | battery | days until empty at the recent rate, from a trend line through each day's average level over the last 8 days. Unknown for the first 3 days, and for 3 days after each charge; it settles as the days add up |
-| Wake cause | battery (diagnostic) | why it last woke: *Timer*, *KEY0*/*KEY1*/*KEY2* with the raw pin mask, or *Reset: ...* |
-| Update window, Update window ends | battery | on while KEY2 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
+| Wake cause | battery (diagnostic) | why it last woke: *Timer*, *KEY1*/*KEY2*/*KEY3* with the raw pin mask, or *Reset: ...* |
+| Update window, Update window ends | battery | on while KEY3 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
 
 The frame never depends on Home Assistant: with it down the frame keeps
 drawing and does not reboot. The battery build waits up to 10 s per wake for
@@ -231,12 +233,12 @@ Example automations (change the entity IDs to match yours):
 |---|---|---|
 | Checks | every 3 min, stays connected | follows the sun, deep sleeping between: every 10 min from 1 h before sunrise to 2 h after (the dawn chorus), every 30 min until 30 min after sunset, up to 3 h at night; every 2 h when the battery is low |
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below 3.6 V (about 5%), when it also drops to waking every 2 h |
-| KEY0 | redraw now | wake and redraw |
-| KEY1 | toggle bird names | wake and toggle bird names |
-| KEY2 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |
-| Updates | over Wi-Fi any time | press KEY2 first, or use USB |
+| KEY1 | redraw now | wake and redraw |
+| KEY2 | toggle bird names | wake and toggle bird names |
+| KEY3 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |
+| Updates | over Wi-Fi any time | press KEY3 first, or use USB |
 
-Bird names are on by default. KEY1's setting survives reboots and sleep.
+Bird names are on by default. KEY2's setting survives reboots and sleep.
 The server renders both versions each time the birds change, so switching
 takes a single redraw (~20 s).
 

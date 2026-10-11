@@ -74,7 +74,7 @@ globals:
     type: bool
     restore_value: yes
     initial_value: "false"
-  # The battery build's KEY2 tag. Remembered so a reboot mid-window (an
+  # The battery build's KEY3 tag. Remembered so a reboot mid-window (an
   # update flashed over Wi-Fi) still redraws without it.
   - id: shown_awake_mark
     type: bool
@@ -97,7 +97,7 @@ globals:
   - id: awake_mark
     type: bool
     initial_value: "false"
-  # The KEY2 tag's text, with the window's end time once it is known.
+  # The KEY3 tag's text, with the window's end time once it is known.
   - id: awake_text
     type: std::string
     initial_value: '"Awake for updates, 5 min"'
@@ -175,7 +175,7 @@ display:
         birdframe::draw_awake(it, id(awake_font), id(awake_text).c_str());
       }
 
-# For the KEY2 tag; 1 bit per pixel, so it stays crisp on the panel.
+# For the KEY3 tag; 1 bit per pixel, so it stays crisp on the panel.
 font:
   - id: awake_font
     file:
@@ -186,7 +186,7 @@ font:
 
 script:
   # Fetch frame.json; download and draw the image when it changed, when
-  # forced, or when the low-battery mark or KEY2 tag needs to appear or clear.
+  # forced, or when the low-battery mark or KEY3 tag needs to appear or clear.
   - id: check_frame
     mode: queued
     max_runs: 2

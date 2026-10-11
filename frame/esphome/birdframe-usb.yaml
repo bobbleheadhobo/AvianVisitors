@@ -1,6 +1,6 @@
 # AvianVisitors frame, USB powered: checks the server every 3 minutes.
 #   esphome run birdframe-usb.yaml      (USB the first time, then over Wi-Fi)
-# Keys: KEY0 redraws now, KEY1 toggles bird names. In Home Assistant the
+# Keys: KEY1 redraws now, KEY2 toggles bird names. In Home Assistant the
 # same two show up as a Redraw button and a Bird names switch.
 
 substitutions:
@@ -110,7 +110,7 @@ binary_sensor:
       mode:
         input: true
         pullup: true
-      # GPIO3 is an ESP32-S3 strapping pin; the EE04 wires KEY1 to it.
+      # GPIO3 is an ESP32-S3 strapping pin; the EE04 wires KEY2 to it.
       ignore_strapping_warning: true
     filters:
       - delayed_on: 30ms

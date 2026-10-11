@@ -121,7 +121,8 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   charger. Its I2C and /INT lines (SY_SDA/SY_SCL/SY_INT) end at pull-ups on the power
   sheet and never reach the XIAO, STAT only drives the green LED, and D+/D- go to
   unfitted test points: so the firmware can't see charging, and the charger runs on its
-  power-on defaults. XIAO pins: GPIO1 BAT_ADC, GPIO2/3/5 keys, GPIO4 EDP_BUSY, GPIO6
+  power-on defaults. XIAO pins: GPIO1 BAT_ADC, GPIO2/3/5 keys (printed KEY1/2/3 on the board; Seeed's wiki
+  says KEY0-2, and so did these docs until the owner noticed), GPIO4 EDP_BUSY, GPIO6
   ADC_EN, D6 PWR_EN, GPIO38 EDP_RES. Seeed doesn't publish the charge current.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.

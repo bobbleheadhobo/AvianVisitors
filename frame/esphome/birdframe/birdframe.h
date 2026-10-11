@@ -11,10 +11,11 @@
 
 namespace birdframe {
 
-// EE04 user keys (active low).
-static const gpio_num_t KEY_REFRESH = GPIO_NUM_2;  // KEY0
-static const gpio_num_t KEY_NAMES = GPIO_NUM_3;    // KEY1
-static const gpio_num_t KEY_AWAKE = GPIO_NUM_5;    // KEY2
+// EE04 user keys (active low), named as printed on the board. Seeed's wiki
+// numbers them KEY0-KEY2.
+static const gpio_num_t KEY_REFRESH = GPIO_NUM_2;  // KEY1
+static const gpio_num_t KEY_NAMES = GPIO_NUM_3;    // KEY2
+static const gpio_num_t KEY_AWAKE = GPIO_NUM_5;    // KEY3
 
 enum WakeKey { WAKE_NONE = 0, WAKE_REFRESH = 1, WAKE_NAMES = 2, WAKE_AWAKE = 3 };
 
@@ -42,8 +43,8 @@ inline std::string wake_description() {
       return "Timer";
     case ESP_SLEEP_WAKEUP_EXT1: {
       uint64_t mask = esp_sleep_get_ext1_wakeup_status();
-      const char *key = wake_key() == WAKE_REFRESH ? "KEY0" : wake_key() == WAKE_NAMES ? "KEY1"
-                        : wake_key() == WAKE_AWAKE ? "KEY2" : "Unknown key";
+      const char *key = wake_key() == WAKE_REFRESH ? "KEY1" : wake_key() == WAKE_NAMES ? "KEY2"
+                        : wake_key() == WAKE_AWAKE ? "KEY3" : "Unknown key";
       snprintf(text, sizeof(text), "%s (pins 0x%llx)", key, (unsigned long long) mask);
       return text;
     }
@@ -81,7 +82,7 @@ inline void draw_low_battery(esphome::display::Display &it) {
   it.filled_rectangle(x + 4, y + 4, 4, h - 8, esphome::Color(255, 0, 0));
 }
 
-// While KEY2 holds the battery build awake: a tag along the bottom edge, so
+// While KEY3 holds the battery build awake: a tag along the bottom edge, so
 // it shows through the glass that the frame is listening for an update, and
 // until when.
 inline void draw_awake(esphome::display::Display &it, esphome::display::BaseFont *font, const char *text) {
