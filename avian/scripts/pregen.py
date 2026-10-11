@@ -65,11 +65,12 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-# Gemini's image-out model. The endpoint changes occasionally; if you
-# get a 404 here, check Google's model catalog and bump this.
+# Gemini's image-out model (Nano Banana 2). The endpoint changes
+# occasionally; if you get a 404 here, list the models your key can see
+# (GET .../v1beta/models) and bump this.
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash-image:generateContent"
+    "gemini-3.1-flash-image:generateContent"
 )
 POSES = {1: "perched", 2: "in flight with wings spread"}
 
