@@ -78,12 +78,57 @@ def _solid_mask(dist: np.ndarray, tol: float) -> np.ndarray:
     return np.asarray(sm) > 127
 
 
+def _box(a: np.ndarray, r: int) -> np.ndarray:
+    """Mean over a (2r+1)-square window, edges clamped (HxW or HxWxC)."""
+    k = 2 * r + 1
+    pad = [(r, r), (r, r)] + [(0, 0)] * (a.ndim - 2)
+    c = np.cumsum(np.cumsum(np.pad(a, pad, mode="edge"), 0), 1)
+    c = np.pad(c, [(1, 0), (1, 0)] + [(0, 0)] * (a.ndim - 2))
+    return (c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]) / (k * k)
+
+
+def _morph(mask: np.ndarray, size: int, grow: bool) -> np.ndarray:
+    im = Image.fromarray(mask.astype(np.uint8) * 255)
+    im = im.filter(ImageFilter.MaxFilter(size) if grow else ImageFilter.MinFilter(size))
+    return np.asarray(im) > 127
+
+
+def _edge_matte(arr: np.ndarray, paper: np.ndarray, solid: np.ndarray,
+                noise: float) -> tuple[np.ndarray, np.ndarray]:
+    """Soft alpha and paper-free colour in a thin band round the silhouette.
+
+    Each edge pixel is a mix of the bird colour just inside it (F, the
+    average of nearby interior pixels) and the paper (P); alpha is how far
+    it sits from P toward F, and its colour is unmixed from the paper.
+    Keeping those pixels opaque with their paper tint (the old feather)
+    traced a pale rim round every dark edge, which read as a jagged
+    outline on the site's lighter backgrounds. Where F is too close to the
+    paper to tell them apart (a pale throat on cream), the silhouette is
+    kept, lightly softened."""
+    C = arr.astype(np.float64)
+    P = np.asarray(paper, np.float64)
+    inner = _morph(solid, 5, grow=False)
+    band = _morph(solid, 5, grow=True) & ~inner
+    weight = _box(inner.astype(np.float64), 4)
+    F = _box(C * inner[..., None], 4) / np.maximum(weight, 1e-6)[..., None]
+    FP, CP = F - P, C - P
+    fp2 = (FP ** 2).sum(2)
+    a = np.clip((CP * FP).sum(2) / np.maximum(fp2, 1e-6), 0.0, 1.0)
+    weak = (fp2 < (3 * noise) ** 2) | (weight < 0.02)
+    a = np.where(weak, _box(solid.astype(np.float64), 1), a)
+    alpha = np.where(inner, 1.0, np.where(band, a, 0.0))
+    out = C.copy()
+    m = band & (alpha > 0.05)
+    out[m] = np.clip(P + CP[m] / alpha[m][:, None], 0, 255)
+    return alpha, out.astype(np.uint8)
+
+
 def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
     """Instant cutout for a cream-ground render: everything reachable from
     the border through near-paper pixels is background; everything else is
     bird. Enclosed pale patches (a white belly) are unreachable, so they
     stay opaque - the same property the BiRefNet pipeline's fill step has
-    to reconstruct. Edges get a light feather instead of a learned matte.
+    to reconstruct. Edges get a colour-difference matte (_edge_matte).
 
     The paper tolerance adapts per image: the model renders real grain
     and a slight vignette, so the ground's distance-from-corner-paper
@@ -101,8 +146,9 @@ def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
     dist = np.sqrt(((arr.astype(np.int32) - paper) ** 2).sum(2))
     border = np.concatenate([dist[:40, :].ravel(), dist[-40:, :].ravel(),
                              dist[:, :40].ravel(), dist[:, -40:].ravel()])
+    noise = float(np.percentile(border, 99))
     if tol is None:
-        auto = float(min(40.0, max(15.0, 2.5 * np.percentile(border, 99))))
+        auto = float(min(40.0, max(15.0, 2.5 * noise)))
         solid = _solid_mask(dist, auto)
         # Leak check: where pale plumage meets the ground with no ink line,
         # the flood runs into the bird. A tighter cut then keeps much more
@@ -113,13 +159,10 @@ def chroma_cut(src: Path, dst: Path, tol: float | None = None) -> None:
             solid = tight
     else:
         solid = _solid_mask(dist, tol)
-    binary = solid.astype(np.uint8) * 255
-    # Feather: soften the silhouette edge, keep the interior fully opaque,
-    # never bleed outside the silhouette.
-    af = np.asarray(Image.fromarray(binary).filter(ImageFilter.GaussianBlur(0.8))).copy()
-    af[~solid] = 0
+    alpha, rgb = _edge_matte(arr, paper, solid, noise)
+    af = (alpha * 255).round().astype(np.uint8)
 
-    rgba = np.dstack([arr, af]).astype(np.uint8)
+    rgba = np.dstack([rgb, af]).astype(np.uint8)
     fg = af > 40
     ys, xs = np.where(fg)
     if not len(ys):
