@@ -49,13 +49,14 @@ packages:
 
 esphome:
   on_boot:
-    # Safety net: never stay awake longer than 3 minutes unless KEY2 asked to.
+    # Safety net: never stay awake longer than 3 minutes unless KEY2 asked
+    # to or an update is being flashed.
     - priority: 600
       then:
         - delay: 180s
         - if:
             condition:
-              lambda: "return id(wake_reason) != birdframe::WAKE_AWAKE;"
+              lambda: "return id(wake_reason) != birdframe::WAKE_AWAKE && !id(ota_busy);"
             then:
               - lambda: "birdframe::hold_key_pullups();"
               - deep_sleep.enter:
@@ -72,6 +73,8 @@ esphome:
               ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
             }
             id(update_window).publish_state(id(wake_reason) == birdframe::WAKE_AWAKE);
+            id(wake_cause).publish_state(birdframe::wake_description());
+            ESP_LOGI("birdframe", "wake: %s", id(wake_cause).state.c_str());
         - switch.turn_on: battery_sense_enable
         - delay: 20ms
         - component.update: battery_voltage
@@ -158,6 +161,12 @@ esphome:
                         id: check_frame
                         force: false
                     - script.wait: check_frame
+        # An update started during this wake (Install -> Wirelessly while it
+        # was up): let it finish; the frame restarts into the new firmware.
+        - wait_until:
+            condition:
+              lambda: "return !id(ota_busy);"
+            timeout: 5min
         - lambda: |-
             global_preferences->sync();
             birdframe::hold_key_pullups();
@@ -191,6 +200,10 @@ globals:
     type: int32_t[20]
     restore_value: yes
     initial_value: "{0, 0}"
+  # An update over Wi-Fi is in progress: don't sleep in the middle of it.
+  - id: ota_busy
+    type: bool
+    initial_value: "false"
   # When the KEY2 window ends (Unix time; 0 until known).
   - id: awake_until_ts
     type: int
@@ -205,6 +218,14 @@ binary_sensor:
     icon: mdi:cellphone-arrow-down
 
 text_sensor:
+  # Why the frame last woke: Timer, KEY0/1/2 (with the raw pin mask), or a
+  # reset.
+  - platform: template
+    id: wake_cause
+    name: Wake cause
+    icon: mdi:alarm
+    entity_category: diagnostic
+    update_interval: never
   - platform: template
     id: update_window_ends
     name: Update window ends
@@ -225,6 +246,10 @@ logger:
 ota:
   - platform: esphome
     password: !secret ota_password
+    on_begin:
+      - lambda: "id(ota_busy) = true;"
+    on_error:
+      - lambda: "id(ota_busy) = false;"
 
 wifi:
   ssid: !secret wifi_ssid

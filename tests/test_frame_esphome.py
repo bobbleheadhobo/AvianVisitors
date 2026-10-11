@@ -271,6 +271,16 @@ class FrameFirmwareTests(unittest.TestCase):
         # The window's end is fixed before check_frame draws the tag that shows it.
         self.assertLess(text.index("id(awake_until_ts) = now.timestamp"), text.index("id: check_frame"))
 
+    def test_battery_build_reports_its_wake_and_finishes_updates(self):
+        text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
+        self.assertIn("name: Wake cause\n", text)
+        self.assertIn("birdframe::wake_description()", text)
+        # An update flashed during an ordinary wake must not be cut off by
+        # sleep: the battery build's only route while KEY2 is not recognised.
+        self.assertIn('id(ota_busy) = true;', text)
+        self.assertLess(text.index('return !id(ota_busy);'), text.rindex("deep_sleep.enter:"))
+        self.assertIn("!id(ota_busy);", text[text.index("Safety net"):text.index("priority: -100")])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,12 @@
 // Helpers for the AvianVisitors ESPHome frame (common.yaml).
 #pragma once
 
+#include <cstdio>
+#include <string>
+
 #include "driver/rtc_io.h"
 #include "esp_sleep.h"
+#include "esp_system.h"
 #include "esphome/components/display/display.h"
 
 namespace birdframe {
@@ -26,6 +30,35 @@ inline int wake_key() {
   if (mask & (1ULL << KEY_AWAKE))
     return WAKE_AWAKE;
   return WAKE_NONE;
+}
+
+// Why this boot happened, for Home Assistant's Wake cause: the timer, a key,
+// or a reset, with the raw ext1 pin mask so a key that wakes the board but
+// is not recognised can be told apart from one that never woke it.
+inline std::string wake_description() {
+  char text[64];
+  switch (esp_sleep_get_wakeup_cause()) {
+    case ESP_SLEEP_WAKEUP_TIMER:
+      return "Timer";
+    case ESP_SLEEP_WAKEUP_EXT1: {
+      uint64_t mask = esp_sleep_get_ext1_wakeup_status();
+      const char *key = wake_key() == WAKE_REFRESH ? "KEY0" : wake_key() == WAKE_NAMES ? "KEY1"
+                        : wake_key() == WAKE_AWAKE ? "KEY2" : "Unknown key";
+      snprintf(text, sizeof(text), "%s (pins 0x%llx)", key, (unsigned long long) mask);
+      return text;
+    }
+    case ESP_SLEEP_WAKEUP_UNDEFINED: {
+      static const char *const reasons[] = {"unknown", "power on", "external", "software",
+                                            "panic", "interrupt watchdog", "task watchdog",
+                                            "watchdog", "deep sleep", "brownout", "SDIO"};
+      int r = (int) esp_reset_reason();
+      snprintf(text, sizeof(text), "Reset: %s", r >= 0 && r < 11 ? reasons[r] : "other");
+      return text;
+    }
+    default:
+      snprintf(text, sizeof(text), "Other (%d)", (int) esp_sleep_get_wakeup_cause());
+      return text;
+  }
 }
 
 // ESPHome's ext1 wakeup does not set sleep pull-ups. Hold the keys high
