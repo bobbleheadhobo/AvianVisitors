@@ -32,8 +32,11 @@ themselves, almost all from the first four gaps here):
 1. **Tested the way the owner uses it.** APIs through Caddy as the web user
    (`curl http://127.0.0.1/avian/api/...`), not by running PHP or a helper as
    `avian`. HTTPS-only features through https://merlin.streamvine.app.
-2. **Looked at it.** For any UI change, `dev/shot.sh <path>` (phone by
-   default, `--device both` for desktop too) and read the PNG. It exits 1 on
+2. **Looked at it.** For any UI change, `dev/shot.sh --theme dark <path>`
+   (phone by default, `--device both` for desktop too) and read the PNG; zoom
+   into edges for anything drawn over a background. The owner uses **dark
+   mode only** (the frame is the one light surface): a pale halo round the
+   bird art was invisible in light shots and obvious to them. It exits 1 on
    any page or console error.
 3. **Made it live.** `dev/sync-live.sh` installs changed root helpers,
    regenerates Caddy when its generator changed (and shows the diff), and
@@ -93,6 +96,10 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `apt.js` (a single IIFE), `styles.css`. **Bump `?v=rNNN` in `index.html`**
   for `apt.js` / `styles.css` whenever you change them, or phones keep the old
   copy.
+- Frame layout on the 7.3" panel: `shoot_collage_vh` (75) and
+  `shoot_cluster_ybias` (1.6) in `frame/config.station.toml` (symlinked as
+  `~/.birdframe/config.toml`) pack the birds into a tall box to fill it.
+  `frame/display.py --preview out.png` renders without pushing.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
   collage lines in `apt.js` (`xBias`, `yBias`, `countExp`, `pad`,
   `LABEL_MIN_PX`). If those lines change shape it refuses to render and the
@@ -198,6 +205,29 @@ says whether admin is open in this tab.
   Swan (out of range here, bundled illustration) and sends you a real alert
   for it. `... clean` removes every fake. Never add test rows by hand: unmarked
   fakes once sat in the owner's data for two days.
+
+## Bird illustrations (Atlas "generate image")
+
+- `avian/api/generate.php` spawns `avian/scripts/generate_one.py` as
+  `caddy`: Gemini render on a cream ground (model in `pregen.GEMINI_URL`,
+  now `gemini-3.1-flash-image`), `chroma_cut`, then `build_masks.py --add`.
+  If Google retires the model (404), list what the key can see with
+  `GET https://generativelanguage.googleapis.com/v1beta/models` (free).
+- Gemini image models have **no free tier** ("limit: 0" 429); the worker
+  says so and the button reads "gemini key needs billing for images".
+- Prompt: `prompt.template.md`. Images: IMAGE 1 = Wikipedia photo of the
+  target (anatomy), IMAGE 2 = look-alike not to copy (only some genera),
+  IMAGE 3 = style (an existing robin illustration). Per-species fixes go in
+  `species-notes.json` (appended as "Species-specific note: ...").
+- `chroma_cut` floods the cream in from the edges. It needs a closed ink
+  outline (the prompt asks for one); if a pale throat leaks anyway, a
+  tighter cut that keeps >10% more bird wins. Edges get a colour matte that
+  takes the ink colour beside each edge pixel; the old feather left a cream
+  rim that showed in dark mode. Tests: `tests/test_chroma_cut.py`.
+- The owner sometimes renders by hand in Gemini and pastes the images:
+  name `<slug>.png` / `<slug>-2.png` (flight), process as in Layout above,
+  then bump `ART_REVISIONS`. Check the species against the real bird
+  before installing (wrong colours are common) and say so.
 
 ## This station (merlin)
 
