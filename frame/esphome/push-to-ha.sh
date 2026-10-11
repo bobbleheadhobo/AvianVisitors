@@ -75,7 +75,7 @@ case $build in
   battery) device=birdframe-battery.yaml other=birdframe-usb.yaml ;;
   *) echo "--build is usb or battery" >&2; exit 2 ;;
 esac
-for f in "$device" birdframe/common.yaml birdframe/birdframe.h; do
+for f in "$device" birdframe/common.yaml birdframe/birdframe.h birdframe/schedule.h; do
   [ -f "$here/$f" ] || { echo "missing $here/$f" >&2; exit 1; }
 done
 
@@ -198,7 +198,7 @@ fi
 legacy=$(sed -n 's/^LEGACY //p' <<<"$report")
 missing=$(sed -n 's/^MISSING_SECRET //p' <<<"$report")
 
-echo "will copy: $device, birdframe/common.yaml, birdframe/birdframe.h -> $host:$remote_dir/"
+echo "will copy: $device, birdframe/common.yaml, birdframe/birdframe.h, birdframe/schedule.h -> $host:$remote_dir/"
 grep -qx HAS_DEVICE <<<"$report" && echo "  replacing the $device there (backed up first)"
 [ -n "$legacy" ] && echo "  removing the old flat layout's $(echo $legacy | sed 's/ /, /g') (backed up first)"
 grep -qx NEEDS_GITIGNORE <<<"$report" && echo "  adding /.birdframe-backup/ to the folder's .gitignore (it is a git repository)"
@@ -212,7 +212,7 @@ if [ "$dry" = 1 ]; then
   exit 0
 fi
 
-files=("$device" birdframe/common.yaml birdframe/birdframe.h)
+files=("$device" birdframe/common.yaml birdframe/birdframe.h birdframe/schedule.h)
 sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
 
 # 3. Stage the new files in a hidden folder beside the live ones and check

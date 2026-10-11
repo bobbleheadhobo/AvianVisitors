@@ -92,6 +92,7 @@ the folder:
 | `birdframe-usb.yaml` | yes: the device (or `birdframe-battery.yaml`; both use the name `birdframe`, so copy only one) |
 | `birdframe/common.yaml` | yes, as `birdframe/common.yaml` |
 | `birdframe/birdframe.h` | yes, as `birdframe/birdframe.h` |
+| `birdframe/schedule.h` | yes, as `birdframe/schedule.h` (the battery build's wake schedule) |
 | `secrets.example.yaml` | no; add its keys to the add-on's own `secrets.yaml` instead |
 
 From the BirdNET server, with an SSH add-on running (Advanced SSH & Web
@@ -134,7 +135,10 @@ Or use the Samba share add-on and drag the same two items into
    `birdframe_api_key` (`openssl rand -base64 32`). If your
    existing secrets use other names, change the `!secret` lines in the
    device YAML to match.
-3. Check `server:` in the device YAML is your BirdNET server's IP.
+3. Check `server:` in the device YAML is your BirdNET server's IP. For the
+   battery build, also set `latitude:` and `longitude:` to the station's
+   (`LATITUDE`/`LONGITUDE` in `birdnet.conf`): its wake schedule follows
+   the sun there.
 4. Compile: on the `birdframe` card, **⋮ → Install → Manual download →
    Factory format**. This builds the firmware without the board attached,
    so you can do it before the hardware arrives. The first build downloads
@@ -221,7 +225,7 @@ Example automations (change the entity IDs to match yours):
 
 | | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
 |---|---|---|
-| Checks | every 3 min, stays connected | wakes every 30 min (2 h when the battery is low), deep sleeps between |
+| Checks | every 3 min, stays connected | follows the sun, deep sleeping between: every 10 min from 1 h before sunrise to 2 h after (the dawn chorus), every 30 min until 30 min after sunset, up to 3 h at night; every 2 h when the battery is low |
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below ~3.5 V |
 | KEY0 | redraw now | wake and redraw |
 | KEY1 | toggle bird names | wake and toggle bird names |

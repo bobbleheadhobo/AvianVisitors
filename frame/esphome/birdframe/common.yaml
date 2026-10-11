@@ -23,6 +23,7 @@ esphome:
     # Relative to the device YAML (birdframe-usb/-battery.yaml), not to
     # this file: ESPHome resolves includes from the main config's folder.
     - birdframe/birdframe.h
+    - birdframe/schedule.h
 
 esp32:
   board: esp32-s3-devkitc-1

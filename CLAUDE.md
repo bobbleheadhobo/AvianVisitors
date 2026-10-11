@@ -100,6 +100,14 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `shoot_cluster_ybias` (1.6) in `frame/config.station.toml` (symlinked as
   `~/.birdframe/config.toml`) pack the birds into a tall box to fill it.
   `frame/display.py --preview out.png` renders without pushing.
+- The battery frame's wake schedule follows the sun (`frame/esphome/birdframe/schedule.h`,
+  plain C++ so it can be tested here): `tests/test_frame_schedule.py` builds it with
+  `zig c++` from the `ziglang` wheel in `~/.cache/avian-dev-venv` (skips without a
+  compiler). ESPHome lambdas themselves only compile in Home Assistant, and
+  `esphome config` doesn't check them, so keep logic in headers. A new file in
+  `birdframe/` needs adding to the `files` lists in `push-to-ha.sh`.
+- The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
+  are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
   collage lines in `apt.js` (`xBias`, `yBias`, `countExp`, `pad`,
   `LABEL_MIN_PX`). If those lines change shape it refuses to render and the

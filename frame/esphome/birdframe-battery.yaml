@@ -2,9 +2,15 @@
 #   esphome run birdframe-battery.yaml   (over USB; see "Updating" below)
 #
 # Each wake: read the battery, join Wi-Fi, fetch frame.json, redraw only if
-# the birds changed, then sleep 30 min (2 h once the battery is low, with a
-# small empty-battery mark in the corner). A wake with nothing new costs a
-# few seconds of Wi-Fi; the panel holds its image with no power.
+# the birds changed, then sleep until the next check, which follows the sun
+# (birdframe/schedule.h):
+#   dawn, 1 h before sunrise to 2 h after   every 10 min (the dawn chorus)
+#   day, until 30 min after sunset          every 30 min
+#   night                                   up to 3 h, waking as dawn opens
+# Once the battery is low: every 2 h, with a small empty-battery mark in the
+# corner. Without the time (no SNTP yet) it sleeps 30 min. A wake with
+# nothing new costs a few seconds of Wi-Fi; the panel holds its image with
+# no power.
 #
 # Keys wake the board at any time:
 #   KEY0  redraw now
@@ -17,8 +23,17 @@
 substitutions:
   name: birdframe
   server: http://192.168.0.112
-  sleep_normal: 30min
-  sleep_low: 2h
+  # The station's location, for sunrise and sunset.
+  latitude: "35.0813"
+  longitude: "-106.6212"
+  # The wake schedule, in seconds.
+  dawn_before: 3600s
+  dawn_after: 7200s
+  dusk_after: 1800s
+  sleep_dawn: 600s
+  sleep_day: 1800s
+  sleep_night_max: 10800s
+  sleep_low: 7200s
   low_battery_volts: "3.5"
 
 packages:
@@ -37,7 +52,7 @@ esphome:
               - lambda: "birdframe::hold_key_pullups();"
               - deep_sleep.enter:
                   id: ds
-                  sleep_duration: ${sleep_normal}
+                  sleep_duration: ${sleep_day}
     - priority: -100
       then:
         - deep_sleep.prevent: ds
@@ -102,7 +117,21 @@ esphome:
             birdframe::hold_key_pullups();
         - deep_sleep.enter:
             id: ds
-            sleep_duration: !lambda "return id(low_battery) ? ${sleep_low} : ${sleep_normal};"
+            sleep_duration: !lambda |-
+              // Milliseconds. Substitutions read "600s"; drop the unit.
+              auto secs = [](const char *t) { return (int) atoi(t); };
+              int64_t s = secs("${sleep_low}");
+              auto now = id(sntp_time).now();
+              if (!id(low_battery)) {
+                s = secs("${sleep_day}");
+                if (now.is_valid()) {
+                  birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
+                                            secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
+                  s = birdframe::next_sleep_s(now.timestamp, ${latitude}, ${longitude}, sched);
+                }
+              }
+              ESP_LOGI("birdframe", "sleeping %d min", (int) (s / 60));
+              return (uint32_t) (s * 1000);
 
 globals:
   - id: wake_reason
