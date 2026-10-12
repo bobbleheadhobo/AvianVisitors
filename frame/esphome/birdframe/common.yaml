@@ -106,13 +106,14 @@ globals:
   - id: awake_text
     type: std::string
     initial_value: '"Awake for updates"'
-  # Settings > Frame > Check every, from frame.json (seconds; 0 = follow
-  # the sun). Only the battery build uses it. Kept in flash so a wake that
-  # can't reach the server still sleeps as asked.
-  - id: check_every_s
-    type: int
+  # Settings > Frame's check intervals from frame.json, in seconds: dawn,
+  # day, longest night sleep (0 = the device YAML's own). Only the battery
+  # build uses them. Kept in flash so a wake that can't reach the server
+  # still sleeps as asked.
+  - id: check_s
+    type: int32_t[3]
     restore_value: yes
-    initial_value: "0"
+    initial_value: "{0, 0}"
   - id: pending_sig
     type: std::string
     initial_value: '""'
@@ -226,18 +227,22 @@ script:
                     return;
                   }
                   std::string sig;
-                  int updated = 0, every = -1;
-                  json::parse_json(body, [&sig, &updated, &every](JsonObject root) -> bool {
+                  int updated = 0;
+                  int32_t check[3] = {0, 0, 0};
+                  json::parse_json(body, [&sig, &updated, &check](JsonObject root) -> bool {
                     const char *key = id(names_on) ? "sig_names" : "sig";
                     sig = root[key] | "";
                     updated = root["updated"] | 0;
-                    every = root["check_every"] | -1;
+                    check[0] = root["check"]["dawn"] | 0;
+                    check[1] = root["check"]["day"] | 0;
+                    check[2] = root["check"]["night"] | 0;
                     return true;
                   });
-                  if (every >= 0 && every != id(check_every_s)) {
-                    id(check_every_s) = every;
+                  if (memcmp(check, id(check_s), sizeof(check)) != 0) {
+                    memcpy(id(check_s), check, sizeof(check));
                     global_preferences->sync();
-                    ESP_LOGI("birdframe", "check every %d s from the site", every);
+                    ESP_LOGI("birdframe", "checks from the site: dawn %d s, day %d s, night %d s",
+                             (int) check[0], (int) check[1], (int) check[2]);
                   }
                   if (updated > 0) {
                     id(station_updated_ts) = updated;

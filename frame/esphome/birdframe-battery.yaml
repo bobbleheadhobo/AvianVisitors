@@ -9,12 +9,12 @@
 #   day, until 30 min after sunset          every 30 min
 #   night                                   up to 3 h, waking as dawn opens
 # Home Assistant shows the current rate as Check rate, and Next check says
-# when the coming wake is due.
+# when the coming wake is due. The three intervals can be changed on the
+# site (Settings > Frame: Dawn, Day and Night checks); frame.json carries
+# them and the frame uses them from its next wake. The values below are
+# what it uses until then.
 # Once the battery is low (below 3.6 V, until it is back above 3.7 V): at
 # least 2 h between wakes, and a small empty-battery mark in the corner.
-# Settings > Frame > Check every on the site (frame.json's check_every)
-# replaces all of that with one fixed interval, day and night, low battery
-# or not, until it is set back to 0. The frame learns it at its next wake.
 # Without the time (no SNTP yet) it sleeps 30 min. A wake with nothing new
 # costs a few seconds of Wi-Fi; the panel holds its image with no power.
 #
@@ -268,9 +268,12 @@ script:
     then:
       - lambda: |-
           auto secs = birdframe::parse_seconds;
-          int64_t s = secs("${sleep_day}");
+          // Settings > Frame's intervals when the site has sent them.
           birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
-                                    secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
+                                    birdframe::site_or(id(check_s)[0], secs("${sleep_dawn}")),
+                                    birdframe::site_or(id(check_s)[1], secs("${sleep_day}")),
+                                    birdframe::site_or(id(check_s)[2], secs("${sleep_night_max}"))};
+          int64_t s = sched.day_every_s;
           birdframe::Phase phase = birdframe::PHASE_DAY;
           auto now = id(sntp_time).now();
           if (now.is_valid())
@@ -280,16 +283,10 @@ script:
           bool low = id(low_battery) && s < secs("${sleep_low}");
           if (low)
             s = secs("${sleep_low}");
-          // Check every from the site wins over both.
-          int64_t fixed = birdframe::fixed_sleep_s(id(check_every_s));
-          if (fixed) {
-            s = fixed;
-            low = false;
-          }
           id(sleep_s) = (int) s;
           id(next_check_ts) = now.is_valid() ? (int) (now.timestamp + s) : 0;
           char text[48];
-          birdframe::describe_sleep(text, sizeof(text), s, sched, phase, now.is_valid(), low, fixed > 0);
+          birdframe::describe_sleep(text, sizeof(text), s, sched, phase, now.is_valid(), low);
           id(check_rate).publish_state(text);
       - component.update: next_check
 
@@ -414,8 +411,7 @@ text_sensor:
     entity_category: diagnostic
     update_interval: never
   # How often it is checking now: "Every 10 min (dawn)", "Every 30 min
-  # (day)", "Every 3 h (night)", "Every 2 h (low battery)", "Every 15 min (set
-# on the site)"
+  # (day)", "Every 3 h (night)", "Every 2 h (low battery)"
   # (birdframe::describe_sleep).
   - platform: template
     id: check_rate

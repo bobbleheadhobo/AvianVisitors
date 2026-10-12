@@ -135,15 +135,12 @@ inline void format_duration(char *out, size_t n, int64_t secs) {
 // Home Assistant's Check rate: how often the frame is checking now and why,
 // e.g. "Every 10 min (dawn)", "Every 3 h (night)", or for the last, shorter
 // night sleep "Dawn checks in 2 h 5 min". `low` means a low battery
-// stretched this sleep; `clock` is false before SNTP has set the time;
-// `fixed` means Settings > Frame > Check every set it, day and night.
+// stretched this sleep; `clock` is false before SNTP has set the time.
 inline void describe_sleep(char *out, size_t n, int64_t secs, const Schedule &s, Phase phase, bool clock,
-                           bool low, bool fixed = false) {
+                           bool low) {
   char d[24];
   format_duration(d, sizeof(d), secs);
-  if (fixed)
-    std::snprintf(out, n, "Every %s (set on the site)", d);
-  else if (!clock)
+  if (!clock)
     std::snprintf(out, n, "Every %s (no clock yet)", d);
   else if (low)
     std::snprintf(out, n, "Every %s (low battery)", d);
@@ -157,12 +154,12 @@ inline void describe_sleep(char *out, size_t n, int64_t secs, const Schedule &s,
     std::snprintf(out, n, "Every %s (night)", d);
 }
 
-// The sleep the website asks for: frame.json's check_every in seconds, or 0
-// (or less) to follow the sun. Never under a minute.
-inline int64_t fixed_sleep_s(int every_s) {
-  if (every_s <= 0)
-    return 0;
-  return every_s < 60 ? 60 : every_s;
+// An interval from Settings > Frame (seconds), or the YAML's own when the
+// site sent none (0). Never under a minute.
+inline int site_or(int32_t site_s, int own_s) {
+  if (site_s <= 0)
+    return own_s;
+  return site_s < 60 ? 60 : (int) site_s;
 }
 
 }  // namespace birdframe

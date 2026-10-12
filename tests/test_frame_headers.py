@@ -33,6 +33,10 @@ int main(int argc, char **argv) {
     printf("%d\n", birdframe::parse_seconds(argv[2]));
     return 0;
   }
+  if (argv[1][0] == 'o') {
+    printf("%d\n", birdframe::site_or(atoi(argv[2]), atoi(argv[3])));
+    return 0;
+  }
   if (argv[1][0] == 'p') {
     printf("%.3f\n", birdframe::lipo_percent(atof(argv[2])));
     return 0;
@@ -62,13 +66,9 @@ int main(int argc, char **argv) {
     if (argv[1][0] == 't') {
       // Check rate's text; argv[11]: the clock is set, argv[12]: low battery
       // stretched the sleep to argv[13] seconds.
-      // argv[14]: Check every from the site (seconds; 0 = off).
       if (argv[12][0] == '1') secs = atoi(argv[13]);
-      int64_t fixed = birdframe::fixed_sleep_s(atoi(argv[14]));
-      if (fixed) secs = fixed;
       char text[48];
-      birdframe::describe_sleep(text, sizeof(text), secs, s, phase, argv[11][0] == '1', argv[12][0] == '1' && !fixed,
-                                fixed > 0);
+      birdframe::describe_sleep(text, sizeof(text), secs, s, phase, argv[11][0] == '1', argv[12][0] == '1');
       printf("%s\n", text);
     } else {
       printf("%lld\n", (long long) secs);
@@ -134,9 +134,9 @@ class FrameScheduleTests(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         return int(out.stdout)
 
-    def rate(self, when, clock=True, low_secs=0, every=0):
+    def rate(self, when, clock=True, low_secs=0):
         args = [str(self.exe), "t", str(int(when.timestamp())), str(LAT), str(LON)] + [str(v) for v in self.sched]
-        args += ["1" if clock else "0", "1" if low_secs else "0", str(low_secs), str(every)]
+        args += ["1" if clock else "0", "1" if low_secs else "0", str(low_secs)]
         return subprocess.run(args, capture_output=True, text=True, check=True).stdout.strip()
 
     def assertNear(self, epoch, expected, minutes=4):
@@ -195,11 +195,19 @@ class FrameScheduleTests(unittest.TestCase):
         self.assertEqual(self.rate(day(5, 40, d=12)), "Dawn checks in 30 min")
         self.assertEqual(self.rate(day(13), low_secs=7200), "Every 2 h (low battery)")
         self.assertEqual(self.rate(day(13), clock=False), "Every 30 min (no clock yet)")
-        # Check every from the site: day and night, and over a low battery
-        # (so the battery can be run down to watch its voltage).
-        self.assertEqual(self.rate(day(22, 40), every=900), "Every 15 min (set on the site)")
-        self.assertEqual(self.rate(day(13), low_secs=7200, every=900), "Every 15 min (set on the site)")
-        self.assertEqual(self.rate(day(13), every=10), "Every 1 min (set on the site)")
+
+    def test_site_intervals(self):
+        # Settings > Frame's intervals from frame.json; 0 (none sent) keeps the YAML's.
+        site_or = lambda site, own: int(subprocess.run([str(self.exe), "o", str(site), str(own)],
+                                                       capture_output=True, text=True, check=True).stdout)
+        self.assertEqual(site_or(0, 600), 600)
+        self.assertEqual(site_or(900, 600), 900)
+        self.assertEqual(site_or(10, 600), 60)
+        # The site's defaults are the firmware's own.
+        import json
+        web = json.loads((ROOT / "frame" / "web_settings.json").read_text())["settings"]
+        dawn, day, night = self.sched[3], self.sched[4], self.sched[5]
+        self.assertEqual([web[k]["default"] * 60 for k in ("check_dawn", "check_day", "check_night")], [dawn, day, night])
 
     def test_wakes_per_day(self):
         t = int(dt.datetime(2026, 10, 11, 4, 0, tzinfo=MDT).timestamp())

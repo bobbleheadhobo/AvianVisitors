@@ -92,10 +92,10 @@ class FrameGeometryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(self.display.web_settings(tmp), ({}, None))
             with open(os.path.join(tmp, "settings.json"), "w") as f:
-                json.dump({"paper_warmth": 5, "quiet_start": 22.0, "shoot_title": "Back\x07yard",
+                json.dump({"paper_warmth": 5, "check_day": 15.0, "shoot_title": "Back\x07yard",
                            "ink_contrast": True, "web_dir": "/etc", "base_url": "http://evil"}, f)
             saved, sig = self.display.web_settings(tmp)
-            self.assertEqual(saved, {"paper_warmth": 0.25, "quiet_start": 22, "shoot_title": "Backyard"})
+            self.assertEqual(saved, {"paper_warmth": 0.25, "check_day": 15, "shoot_title": "Backyard"})
             with open(os.path.join(tmp, "refresh"), "w") as f:
                 f.write("123.4\n")
             self.assertNotEqual(self.display.web_settings(tmp)[1], sig)  # a refresh request moves the signature
@@ -145,7 +145,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
         on_disk = json.loads((self.dir / "frame.json").read_text())
         self.assertEqual(on_disk, meta)
         self.assertEqual((on_disk["width"], on_disk["height"], on_disk["species_sig"]), (480, 800, "abc"))
-        self.assertEqual(on_disk["check_every"], 0, "the battery frame follows the sun unless the site says")
+        self.assertNotIn("check", on_disk, "no intervals given: the frame keeps its own")
         self.assertFalse(list(self.dir.glob("*.tmp")))
 
     def test_missing_names_variant_keeps_the_last_one(self):
@@ -173,11 +173,12 @@ class FrameEsphomeExportTests(unittest.TestCase):
 
         with mock.patch.object(self.display, "fetch_species", return_value=[{"sci": "Passer domesticus", "n": 3}]), \
                 mock.patch.object(self.display, "obtain_image", side_effect=fake_obtain):
-            self.display.run(self.config(check_every=15))
+            self.display.run(self.config(check_dawn=15, check_night=60))
         self.assertEqual(calls, [False, True])
         meta = json.loads((self.dir / "web" / "frame.json").read_text())
         self.assertTrue(meta["sig"] and meta["sig_names"])
-        self.assertEqual(meta["check_every"], 900, "Settings > Frame > Check every, in seconds")
+        # Settings > Frame's check intervals, in seconds, for the battery frame.
+        self.assertEqual(meta["check"], {"dawn": 900, "day": 1800, "night": 3600})
         state = json.loads((self.dir / "state.json").read_text())
         self.assertEqual(state["signature"], meta["species_sig"])
 
