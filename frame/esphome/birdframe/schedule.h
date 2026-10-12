@@ -8,10 +8,50 @@
 // at dawn, every half hour by day, and seldom at night.
 #pragma once
 
+#include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 namespace birdframe {
+
+// Seconds in a time period as ESPHome writes one in a substitution: "600s",
+// "10min", "2h", "1h30min", "1500ms" (rounded down), or a bare number of
+// seconds. The YAML lambdas get substitutions as text; reading "30min" with
+// atoi gave 30 seconds.
+inline int parse_seconds(const char *text) {
+  double ms = 0;
+  const char *t = text;
+  while (*t) {
+    while (*t == ' ')
+      t++;
+    if (!std::isdigit((unsigned char) *t) && *t != '.')
+      break;
+    char *end;
+    double n = std::strtod(t, &end);
+    t = end;
+    if (std::strncmp(t, "ms", 2) == 0) {
+      ms += n;
+      t += 2;
+    } else if (std::strncmp(t, "min", 3) == 0) {
+      ms += n * 60000;
+      t += 3;
+    } else if (*t == 's') {
+      ms += n * 1000;
+      t += 1;
+    } else if (*t == 'h') {
+      ms += n * 3600000;
+      t += 1;
+    } else if (*t == 'd') {
+      ms += n * 86400000;
+      t += 1;
+    } else {
+      ms += n * 1000;
+    }
+  }
+  return (int) (ms / 1000);
+}
 
 struct SunTimes {
   bool ok;       // false when the sun neither rises nor sets that day

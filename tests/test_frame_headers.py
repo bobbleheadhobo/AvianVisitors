@@ -29,6 +29,10 @@ DRIVER = r"""
 #include "schedule.h"
 #include "battery.h"
 int main(int argc, char **argv) {
+  if (argv[1][0] == 'u') {
+    printf("%d\n", birdframe::parse_seconds(argv[2]));
+    return 0;
+  }
   if (argv[1][0] == 'p') {
     printf("%.3f\n", birdframe::lipo_percent(atof(argv[2])));
     return 0;
@@ -74,11 +78,12 @@ def compiler():
 def battery_schedule():
     """The Schedule fields as birdframe-battery.yaml sets them, in seconds."""
     text = (ESPHOME / "birdframe-battery.yaml").read_text()
+    units = {"s": 1, "min": 60, "h": 3600}
 
     def sub(name):
-        value = re.search(rf"^\s+{name}: (\d+)s\s*$", text, re.M)
-        assert value, f"substitution {name} missing from birdframe-battery.yaml, or not in seconds"
-        return int(value.group(1))
+        value = re.search(rf"^\s+{name}: (\d+)(s|min|h)\s*$", text, re.M)
+        assert value, f"substitution {name} missing from birdframe-battery.yaml"
+        return int(value.group(1)) * units[value.group(2)]
 
     return [sub(n) for n in ("dawn_before", "dawn_after", "dusk_after", "sleep_dawn", "sleep_day", "sleep_night_max")]
 
@@ -133,6 +138,12 @@ class FrameScheduleTests(unittest.TestCase):
     def test_polar_day_has_no_sunrise(self):
         ok, _, _ = self.sun(dt.date(2026, 6, 21), lat=78.2, lon=15.6)
         self.assertFalse(ok)
+
+    def test_time_periods_parse_like_esphome(self):
+        for text, secs in [("600s", 600), ("10min", 600), ("2h", 7200), ("1h30min", 5400),
+                           ("1500ms", 1), ("45", 45), ("0.5h", 1800)]:
+            out = subprocess.run([str(self.exe), "u", text], capture_output=True, text=True, check=True)
+            self.assertEqual(int(out.stdout), secs, text)
 
     def test_wake_intervals_through_a_day(self):
         before, after, dusk, dawn_every, day_every, night_max = self.sched

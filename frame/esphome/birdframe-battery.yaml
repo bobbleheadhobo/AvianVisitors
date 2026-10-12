@@ -1,18 +1,19 @@
 # AvianVisitors frame, battery powered: deep sleeps between checks.
 #   esphome run birdframe-battery.yaml   (over USB; see "Updating" below)
 #
-# Each wake: read the battery, join Wi-Fi, fetch frame.json, redraw only if
-# the birds changed, then sleep until the next check, which follows the sun
-# (birdframe/schedule.h):
+# Each wake: read the battery (before Wi-Fi starts, so the radio's current
+# doesn't pull the reading down), join Wi-Fi, fetch frame.json, redraw only
+# if the birds changed, then sleep until the next check, which follows the
+# sun (birdframe/schedule.h):
 #   dawn, 1 h before sunrise to 2 h after   every 10 min (the dawn chorus)
 #   day, until 30 min after sunset          every 30 min
 #   night                                   up to 3 h, waking as dawn opens
-# Once the battery is low: every 2 h, with a small empty-battery mark in the
-# corner. Without the time (no SNTP yet) it sleeps 30 min. A wake with
-# nothing new costs a few seconds of Wi-Fi; the panel holds its image with
-# no power.
+# Once the battery is low (below 3.6 V, until it is back above 3.7 V): at
+# least 2 h between wakes, and a small empty-battery mark in the corner.
+# Without the time (no SNTP yet) it sleeps 30 min. A wake with nothing new
+# costs a few seconds of Wi-Fi; the panel holds its image with no power.
 #
-# Keys wake the board at any time:
+# Keys (as printed on the board) wake it at any time, and work while awake:
 #   KEY1  redraw now
 #   KEY2  toggle bird names
 #   KEY3  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
@@ -20,7 +21,8 @@
 #         time it ends (also in Home Assistant: Update window, and Update
 #         window ends, which counts down)
 # Updating: press KEY3, then `esphome run birdframe-battery.yaml` and pick
-# the network device; or flash over USB as the first time.
+# the network device; or flash over USB as the first time. An update that
+# starts during any wake finishes before the frame sleeps.
 
 substitutions:
   name: birdframe
@@ -28,20 +30,22 @@ substitutions:
   # Shown in Home Assistant as Firmware.
   build: Battery
   build_icon: mdi:battery
-  # How long KEY3 keeps the frame awake for updates, in seconds.
+  # How long KEY3 keeps the frame awake for updates.
   awake_window: 300s
   # The station's location, for sunrise and sunset.
   latitude: "35.0813"
   longitude: "-106.6212"
   timezone: America/Denver
-  # The wake schedule, in seconds.
-  dawn_before: 3600s
-  dawn_after: 7200s
-  dusk_after: 1800s
-  sleep_dawn: 600s
-  sleep_day: 1800s
-  sleep_night_max: 10800s
-  sleep_low: 7200s
+  # The wake schedule. Any ESPHome time period works ("600s", "10min", "2h").
+  dawn_before: 1h
+  dawn_after: 2h
+  dusk_after: 30min
+  sleep_dawn: 10min
+  sleep_day: 30min
+  sleep_night_max: 3h
+  sleep_low: 2h
+  # Low battery below this; back to normal only above it plus 0.1 V, so a
+  # reading that wobbles round the line doesn't redraw the mark each wake.
   low_battery_volts: "3.6"
 
 packages:
@@ -49,70 +53,62 @@ packages:
 
 esphome:
   on_boot:
-    # Safety net: never stay awake longer than 3 minutes unless KEY3 asked
-    # to or an update is being flashed.
-    - priority: 600
+    # Read the battery before Wi-Fi starts (setup priority 250), with the
+    # radio still off: its current through the cell's resistance pulls the
+    # reading down. The ADC is set up at 600, so this runs just after it.
+    - priority: 590
       then:
-        - delay: 180s
+        - lambda: |-
+            birdframe::adc_enable(true);
+            delay(20);
+            id(battery_voltage).update();
+            birdframe::adc_enable(false);
+            id(battery_level).update();
+            float v = id(battery_voltage).state;
+            float line = ${low_battery_volts}f + (id(shown_low_battery) ? 0.1f : 0.0f);
+            // No reading, or USB with no cell attached: not "low".
+            id(low_battery) = !std::isnan(v) && v > 2.5f && v < line;
+            ESP_LOGI("birdframe", "battery %.2f V%s", v, id(low_battery) ? " (low)" : "");
+    # Safety net: never stay awake longer than 5 minutes (a slow wake takes
+    # about 3) unless the KEY3 window is open or an update is being flashed.
+    - priority: 580
+      then:
+        - delay: 300s
         - if:
             condition:
-              lambda: "return id(wake_reason) != birdframe::WAKE_AWAKE && !id(ota_busy);"
+              lambda: "return !id(window_open) && !id(ota_busy);"
             then:
-              - lambda: "birdframe::hold_key_pullups();"
-              - deep_sleep.enter:
-                  id: ds
-                  sleep_duration: ${sleep_day}
+              - logger.log:
+                  level: WARN
+                  format: "wake ran too long; sleeping"
+              - script.execute: sleep_now
     - priority: -100
       then:
         - deep_sleep.prevent: ds
         - lambda: |-
             id(wake_reason) = birdframe::wake_key();
-            id(awake_mark) = id(wake_reason) == birdframe::WAKE_AWAKE;
             if (id(wake_reason) == birdframe::WAKE_NAMES) {
               id(names_on) = !id(names_on);
               ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
             }
-            id(update_window).publish_state(id(wake_reason) == birdframe::WAKE_AWAKE);
+            id(update_window).publish_state(false);
+            id(update_window_ends).update();
             id(wake_cause).publish_state(birdframe::wake_description());
             ESP_LOGI("birdframe", "wake: %s", id(wake_cause).state.c_str());
-        - switch.turn_on: battery_sense_enable
-        - delay: 20ms
-        - component.update: battery_voltage
-        - switch.turn_off: battery_sense_enable
-        - component.update: battery_level
-        - lambda: |-
-            float v = id(battery_voltage).state;
-            // No reading, or USB with no cell attached: not "low".
-            id(low_battery) = !std::isnan(v) && v > 2.5f && v < ${low_battery_volts}f;
-            ESP_LOGI("birdframe", "battery %.2f V%s", v, id(low_battery) ? " (low)" : "");
         - wait_until:
             condition: wifi.connected
             timeout: 20s
         - if:
             condition: wifi.connected
             then:
-              # KEY3: fix when the window ends before the tag is drawn, so
-              # the panel and Home Assistant can both say. The clock usually
-              # survives deep sleep; after a power cut SNTP sets it in a
-              # moment. Without it the tag just says "5 min".
+              # KEY3 woke it: open the window before the first check, so its
+              # tag is drawn with the birds in one refresh.
               - if:
                   condition:
                     lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
                   then:
-                    - wait_until:
-                        condition:
-                          lambda: "return id(sntp_time).now().is_valid();"
-                        timeout: 10s
-                    - lambda: |-
-                        auto now = id(sntp_time).now();
-                        if (!now.is_valid()) return;
-                        id(awake_until_ts) = now.timestamp + atoi("${awake_window}");
-                        auto end = ESPTime::from_epoch_local(id(awake_until_ts));
-                        char text[48];
-                        snprintf(text, sizeof(text), "Awake for updates until %d:%02d %s",
-                                 end.hour % 12 == 0 ? 12 : end.hour % 12, end.minute, end.hour < 12 ? "am" : "pm");
-                        id(awake_text) = text;
-                    - component.update: update_window_ends
+                    - script.execute: open_window
+                    - script.wait: open_window
               - script.execute:
                   id: check_frame
                   force: !lambda "return id(wake_reason) == birdframe::WAKE_REFRESH || id(wake_reason) == birdframe::WAKE_NAMES;"
@@ -135,25 +131,50 @@ esphome:
                   condition: api.connected
                   then:
                     - delay: 1s
+        # The update window: KEY3 woke the frame, or was pressed since.
         - if:
             condition:
-              lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE;"
+              lambda: "return id(wake_reason) == birdframe::WAKE_AWAKE || id(window_requested);"
             then:
+              # Pressed during this wake: open it now and draw its tag.
+              - if:
+                  condition:
+                    lambda: "return !id(window_open);"
+                  then:
+                    - script.execute: open_window
+                    - script.wait: open_window
+                    - if:
+                        condition: wifi.connected
+                        then:
+                          - script.execute:
+                              id: check_frame
+                              force: false
+                          - script.wait: check_frame
               - logger.log: "KEY3: staying awake for updates"
               - text_sensor.template.publish:
                   id: frame_status
                   state: !lambda "return id(awake_text);"
               # Until the end time shown, or the full window without a clock.
               - delay: !lambda |-
+                  uint32_t window = birdframe::parse_seconds("${awake_window}");
                   auto now = id(sntp_time).now();
-                  if (id(awake_until_ts) <= 0 || !now.is_valid()) return (uint32_t) atoi("${awake_window}") * 1000;
+                  if (id(awake_until_ts) <= 0 || !now.is_valid()) return window * 1000;
                   int64_t left = (int64_t) id(awake_until_ts) - now.timestamp;
                   return left > 0 ? (uint32_t) (left * 1000) : 0;
-              # Take the tag down. If Wi-Fi is gone, the next wake does it.
-              - lambda: "id(awake_mark) = false;"
-              - binary_sensor.template.publish:
-                  id: update_window
-                  state: false
+              # An update started in the window finishes before the redraw
+              # below, which would compete with it for memory and Wi-Fi.
+              - wait_until:
+                  condition:
+                    lambda: "return !id(ota_busy);"
+                  timeout: 5min
+              # Close the window and take the tag down. If Wi-Fi is gone,
+              # the next wake does the redraw.
+              - lambda: |-
+                  id(window_open) = false;
+                  id(awake_mark) = false;
+                  id(awake_until_ts) = 0;
+                  id(update_window).publish_state(false);
+              - component.update: update_window_ends
               - if:
                   condition: wifi.connected
                   then:
@@ -167,26 +188,74 @@ esphome:
             condition:
               lambda: "return !id(ota_busy);"
             timeout: 5min
-        - lambda: |-
-            global_preferences->sync();
-            birdframe::hold_key_pullups();
-        - deep_sleep.enter:
-            id: ds
-            sleep_duration: !lambda |-
-              // Milliseconds. Substitutions read "600s"; drop the unit.
-              auto secs = [](const char *t) { return (int) atoi(t); };
-              int64_t s = secs("${sleep_low}");
-              auto now = id(sntp_time).now();
-              if (!id(low_battery)) {
-                s = secs("${sleep_day}");
-                if (now.is_valid()) {
-                  birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
-                                            secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
-                  s = birdframe::next_sleep_s(now.timestamp, ${latitude}, ${longitude}, sched);
-                }
-              }
-              ESP_LOGI("birdframe", "sleeping %d min", (int) (s / 60));
-              return (uint32_t) (s * 1000);
+        - script.execute: sleep_now
+
+script:
+  # Open KEY3's update window: fix when it ends (so the panel tag and Home
+  # Assistant can both say), or say how long it lasts without a clock. The
+  # clock usually survives deep sleep; after a power cut SNTP sets it in a
+  # moment.
+  - id: open_window
+    mode: single
+    then:
+      - lambda: |-
+          id(window_open) = true;
+          id(window_requested) = false;
+          id(awake_mark) = true;
+          id(update_window).publish_state(true);
+      - wait_until:
+          condition:
+            lambda: "return id(sntp_time).now().is_valid();"
+          timeout: 10s
+      - lambda: |-
+          int window = birdframe::parse_seconds("${awake_window}");
+          char text[48];
+          auto now = id(sntp_time).now();
+          if (now.is_valid()) {
+            id(awake_until_ts) = now.timestamp + window;
+            auto end = ESPTime::from_epoch_local(id(awake_until_ts));
+            snprintf(text, sizeof(text), "Awake for updates until %d:%02d %s",
+                     end.hour % 12 == 0 ? 12 : end.hour % 12, end.minute, end.hour < 12 ? "am" : "pm");
+          } else {
+            snprintf(text, sizeof(text), "Awake for updates, %d min", (window + 59) / 60);
+          }
+          id(awake_text) = text;
+      - component.update: update_window_ends
+  # Sleep until the next check. Used by the end of a wake and by the safety
+  # net, so both follow the same schedule.
+  - id: sleep_now
+    mode: single
+    then:
+      # A redraw started by KEY1/KEY2 near the end of the wake finishes first.
+      - wait_until:
+          condition:
+            lambda: "return !id(check_frame).is_running();"
+          timeout: 150s
+      # A key still held would wake the board again at once (ext1, any low).
+      - wait_until:
+          condition:
+            lambda: "return !id(key_refresh).state && !id(key_names).state && !id(key_awake).state;"
+          timeout: 10s
+      - lambda: |-
+          global_preferences->sync();
+          birdframe::prepare_sleep();
+      - deep_sleep.enter:
+          id: ds
+          sleep_duration: !lambda |-
+            auto secs = birdframe::parse_seconds;
+            int64_t s = secs("${sleep_day}");
+            auto now = id(sntp_time).now();
+            if (now.is_valid()) {
+              birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
+                                        secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
+              s = birdframe::next_sleep_s(now.timestamp, ${latitude}, ${longitude}, sched);
+            }
+            // Low battery: never wake more often than sleep_low, but keep the
+            // schedule's longer night sleeps.
+            if (id(low_battery) && s < secs("${sleep_low}"))
+              s = secs("${sleep_low}");
+            ESP_LOGI("birdframe", "sleeping %d min", (int) (s / 60));
+            return (uint32_t) (s * 1000);
 
 globals:
   - id: wake_reason
@@ -204,18 +273,92 @@ globals:
   - id: ota_busy
     type: bool
     initial_value: "false"
-  # When the KEY3 window ends (Unix time; 0 until known).
+  # KEY3's update window: open now, or asked for by a press during the wake.
+  - id: window_open
+    type: bool
+    initial_value: "false"
+  - id: window_requested
+    type: bool
+    initial_value: "false"
+  # When the KEY3 window ends (Unix time; 0 when closed or not known).
   - id: awake_until_ts
     type: int
     initial_value: "0"
 
-# Home Assistant: whether KEY3's update window is open, and when it ends.
-# A timestamp shows there as "in 4 minutes", counting down.
 binary_sensor:
+  # Home Assistant: whether KEY3's update window is open (and below, when it
+  # ends; a timestamp shows there as "in 4 minutes", counting down).
   - platform: template
     id: update_window
     name: Update window
     icon: mdi:cellphone-arrow-down
+  # The keys while awake. The press that woke the board is read from the
+  # wake cause instead (a key's state at boot doesn't trigger these).
+  - platform: gpio
+    id: key_refresh
+    name: Redraw key
+    internal: true
+    pin:
+      number: GPIO2
+      inverted: true
+      allow_other_uses: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - if:
+          condition: wifi.connected
+          then:
+            - script.execute:
+                id: check_frame
+                force: true
+  - platform: gpio
+    id: key_names
+    name: Bird names key
+    internal: true
+    pin:
+      number: GPIO3
+      inverted: true
+      allow_other_uses: true
+      mode:
+        input: true
+        pullup: true
+      # GPIO3 is an ESP32-S3 strapping pin; the EE04 wires KEY2 to it.
+      ignore_strapping_warning: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - lambda: |-
+          id(names_on) = !id(names_on);
+          global_preferences->sync();
+          ESP_LOGI("birdframe", "bird names %s", id(names_on) ? "on" : "off");
+      - if:
+          condition: wifi.connected
+          then:
+            - script.execute:
+                id: check_frame
+                force: true
+  - platform: gpio
+    id: key_awake
+    name: Update window key
+    internal: true
+    pin:
+      number: GPIO5
+      inverted: true
+      allow_other_uses: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - lambda: |-
+          if (!id(window_open)) {
+            id(window_requested) = true;
+            ESP_LOGI("birdframe", "KEY3: update window after this check");
+          }
 
 text_sensor:
   # Why the frame last woke: Timer, KEY1/2/3 (with the raw pin mask), or a
@@ -226,13 +369,14 @@ text_sensor:
     icon: mdi:alarm
     entity_category: diagnostic
     update_interval: never
+  # Empty (unknown in Home Assistant) while the window is closed.
   - platform: template
     id: update_window_ends
     name: Update window ends
     device_class: timestamp
     update_interval: never
     lambda: |-
-      if (id(awake_until_ts) <= 0) return {};
+      if (id(awake_until_ts) <= 0) return std::string();
       return ESPTime::from_epoch_utc(id(awake_until_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
 
 # The KEY3 tag shows a local time: pin the zone rather than take the one
@@ -261,22 +405,23 @@ deep_sleep:
   esp32_ext1_wakeup:
     mode: ANY_LOW
     pins:
-      - GPIO2
-      - GPIO3
-      - GPIO5
-
-switch:
-  - platform: gpio
-    id: battery_sense_enable
-    pin: GPIO6
-    restore_mode: ALWAYS_OFF
+      - number: GPIO2
+        allow_other_uses: true
+      - number: GPIO3
+        allow_other_uses: true
+        ignore_strapping_warning: true
+      - number: GPIO5
+        allow_other_uses: true
 
 sensor:
+  # Read once per wake, at boot, with the divider switched on by ADC_EN
+  # (GPIO6; birdframe::adc_enable). Eight samples averaged.
   - platform: adc
     id: battery_voltage
     name: Battery voltage
     pin: GPIO1
     attenuation: 12db
+    samples: 8
     update_interval: never
     accuracy_decimals: 2
     device_class: voltage

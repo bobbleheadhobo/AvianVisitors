@@ -100,7 +100,7 @@ globals:
   # The KEY3 tag's text, with the window's end time once it is known.
   - id: awake_text
     type: std::string
-    initial_value: '"Awake for updates, 5 min"'
+    initial_value: '"Awake for updates"'
   - id: pending_sig
     type: std::string
     initial_value: '""'

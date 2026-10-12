@@ -268,8 +268,10 @@ class FrameFirmwareTests(unittest.TestCase):
         text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
         for entity in ("name: Update window\n", "name: Update window ends\n"):
             self.assertIn(entity, text)
-        # The window's end is fixed before check_frame draws the tag that shows it.
-        self.assertLess(text.index("id(awake_until_ts) = now.timestamp"), text.index("id: check_frame"))
+        # A KEY3 wake opens the window (fixing its end time) before the first
+        # check_frame draws the tag that shows it.
+        self.assertLess(text.index("- script.execute: open_window"), text.index("id: check_frame"))
+        self.assertIn("id(awake_until_ts) = now.timestamp", text[text.index("- id: open_window"):])
 
     def test_battery_build_reports_its_wake_and_finishes_updates(self):
         text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
@@ -280,6 +282,34 @@ class FrameFirmwareTests(unittest.TestCase):
         self.assertIn('id(ota_busy) = true;', text)
         self.assertLess(text.index('return !id(ota_busy);'), text.rindex("deep_sleep.enter:"))
         self.assertIn("!id(ota_busy);", text[text.index("Safety net"):text.index("priority: -100")])
+
+    def test_battery_build_review_fixes(self):
+        text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
+        boot = text[text.index("on_boot:"):text.index("\nscript:")]
+        # The battery is read before Wi-Fi starts (setup priority 250).
+        read = boot.index("birdframe::adc_enable(true)")
+        self.assertIn("- priority: 590", boot[:read])
+        self.assertNotIn("switch:", text, "ADC_EN is driven by birdframe.h, held low through sleep")
+        self.assertIn("rtc_gpio_hold_en(ADC_ENABLE)", (FRAME / "esphome" / "birdframe" / "birdframe.h").read_text())
+        # Hysteresis on the low-battery line.
+        self.assertIn("(id(shown_low_battery) ? 0.1f : 0.0f)", boot)
+        # One sleep path, shared by the safety net, with low battery as a floor.
+        self.assertEqual(text.count("deep_sleep.enter:"), 1)
+        self.assertEqual(boot.count("script.execute: sleep_now"), 2)
+        self.assertIn('if (id(low_battery) && s < secs("${sleep_low}"))', text)
+        self.assertIn("delay: 300s", boot)
+        # No redraw at the end of the window while an update is being written.
+        window_end = boot[boot.index("# Until the end time shown"):]
+        self.assertLess(window_end.index("return !id(ota_busy);"), window_end.index("id: check_frame"))
+        # Durations parse units, not atoi; the window is cleared when closed.
+        self.assertNotIn("atoi(", text)
+        self.assertIn("return std::string();", text)
+        # Keys work while awake; their redraws finish and the keys are
+        # released before sleep.
+        self.assertIn("return !id(check_frame).is_running();", text[text.index("- id: sleep_now"):])
+        for key in ("key_refresh", "key_names", "key_awake"):
+            self.assertIn(f"id: {key}", text)
+            self.assertIn(f"!id({key}).state", text)
 
 
 if __name__ == "__main__":

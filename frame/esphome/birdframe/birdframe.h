@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string>
 
+#include "driver/gpio.h"
 #include "driver/rtc_io.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
@@ -62,13 +63,31 @@ inline std::string wake_description() {
   }
 }
 
-// ESPHome's ext1 wakeup does not set sleep pull-ups. Hold the keys high
-// through deep sleep so they read as released until pressed.
-inline void hold_key_pullups() {
+// The battery divider's enable (ADC_EN, active high, per Seeed's example).
+static const gpio_num_t ADC_ENABLE = GPIO_NUM_6;
+
+// Switch the battery divider on or off. Releases the deep-sleep hold first:
+// a held pad ignores writes.
+inline void adc_enable(bool on) {
+  rtc_gpio_hold_dis(ADC_ENABLE);
+  rtc_gpio_deinit(ADC_ENABLE);
+  gpio_set_direction(ADC_ENABLE, GPIO_MODE_OUTPUT);
+  gpio_set_level(ADC_ENABLE, on ? 1 : 0);
+}
+
+// Before deep sleep. ESPHome's ext1 wakeup does not set sleep pull-ups, so
+// hold the keys high through sleep (they read as released until pressed);
+// and hold ADC_EN low, so the battery divider can't conduct while asleep
+// whatever the pad would otherwise float to.
+inline void prepare_sleep() {
   for (gpio_num_t pin : {KEY_REFRESH, KEY_NAMES, KEY_AWAKE}) {
     rtc_gpio_pullup_en(pin);
     rtc_gpio_pulldown_dis(pin);
   }
+  rtc_gpio_init(ADC_ENABLE);
+  rtc_gpio_set_direction(ADC_ENABLE, RTC_GPIO_MODE_OUTPUT_ONLY);
+  rtc_gpio_set_level(ADC_ENABLE, 0);
+  rtc_gpio_hold_en(ADC_ENABLE);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 }
 
