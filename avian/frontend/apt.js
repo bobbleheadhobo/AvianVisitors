@@ -3268,8 +3268,7 @@
   collage.addEventListener('click', function (ev) {
     var hit = maskHitTest(ev.clientX, ev.clientY);
     if (!hit) return;
-    location.hash = '#sci=' + encodeURIComponent(hit.data.sci);
-    go(2);
+    jumpToSci(hit.data.sci);
   });
 
   // Debug hook - call __layout({ slugs, weights, n }) from devtools to
@@ -8868,9 +8867,9 @@
 
   // ---- Hash routing + atlas detail modal ----
   // When a collage tile or stats row is clicked it sets
-  // location.hash = '#sci=<name>'. On arrival we switch to the atlas
-  // view, highlight the matching card, AND open the detail modal with
-  // expanded info (Wikipedia summary, taxonomy, all past recordings).
+  // location.hash = '#sci=<name>'. The postcard opens over whichever view
+  // was tapped (the owner didn't want every tap to land on the Atlas); the
+  // matching Atlas card is highlighted only when the Atlas is showing.
   function readHash() {
     var m = location.hash.match(/^#sci=([^&]+)/);
     if (!m) return null;
@@ -8902,7 +8901,9 @@
       card.setAttribute('data-active', 'true');
       card.setAttribute('data-pulse', 'true');
       setTimeout(function () { card.removeAttribute('data-pulse'); }, 520);
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Off-screen views sit beside this one, so scrolling a hidden Atlas
+      // card into view would slide the page sideways.
+      if (currentView === 2) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     })();
   }
 
@@ -14564,7 +14565,7 @@
     if (adm) { openAdmin(adm); return; }
     closeAdmin();
     if (sci && !educatorScopeBlocked) {
-      go(2); highlightAtlas(sci); openDetailModal(sci);
+      highlightAtlas(sci); openDetailModal(sci);
       if (readRecHash()) openPostcardRecording(readRecHash());
     }
     else { highlightAtlas(null); closeDetailModal(); }
@@ -15259,8 +15260,8 @@
     if (location.hash !== '#sci=' + encodeURIComponent(sci)) {
       location.hash = '#sci=' + encodeURIComponent(sci);
     } else {
-      // Same hash -> still re-highlight (the user clicked it again).
-      go(2); highlightAtlas(sci);
+      // Same hash -> still open it (the user clicked it again).
+      highlightAtlas(sci); openDetailModal(sci);
     }
   }
 
@@ -15905,7 +15906,9 @@
     var finalScale = targetScale;
     var dx = target.left + target.width / 2 - (source.left + source.width / 2);
     var dy = target.top + target.height / 2 - (source.top + source.height / 2);
-    var reduced = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    // Opened from the collage or stats: the Atlas card is off screen, so the
+    // stamp lands in place instead of flying in from beside the view.
+    var reduced = matchMedia('(prefers-reduced-motion:reduce)').matches || currentView !== 2;
     var finalTransform = 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(' + finalScale + ') rotate(' + turn + 'deg)';
     revealPostcardShell();
     var anim = flight.animate(reduced ? [
