@@ -411,9 +411,6 @@ wifi:
     gateway: ${gateway}
     subnet: ${subnet}
     dns1: ${dns}
-  # Updates go to static_ip, but the frame is on its old DHCP address until
-  # this firmware is installed. Remove after the first install with manual_ip.
-  use_address: 192.168.0.175
 
 deep_sleep:
   id: ds
