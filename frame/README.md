@@ -184,6 +184,7 @@ Or use the Samba share add-on and drag the same two items into
 | Entity | Builds | What it tells you |
 |---|---|---|
 | Frame status | both | Up to date, Drawing, Server unreachable, Server error, No image yet, Download failed or Draw timed out |
+| Last check | both | when the frame last reached the station to look for new birds, whether or not anything changed |
 | Last drawn | both | when the panel last redrew |
 | Station image updated | both (diagnostic) | when the station last rendered the frame. Old Last drawn with a recent Station image updated: the frame is stuck. Both old: the station is. |
 | Firmware | both (diagnostic) | which build the frame runs: *USB* or *Battery* |

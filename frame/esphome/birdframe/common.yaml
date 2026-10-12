@@ -90,6 +90,11 @@ globals:
     type: int
     restore_value: yes
     initial_value: "0"
+  # When the frame last reached the server for frame.json (Unix time). Not
+  # kept in flash: Home Assistant keeps the last value while the frame sleeps.
+  - id: last_check_ts
+    type: int
+    initial_value: "0"
   # Per run.
   - id: low_battery
     type: bool
@@ -203,6 +208,11 @@ script:
           on_response:
             then:
               - lambda: |-
+                  auto now = id(sntp_time).now();
+                  if (now.is_valid()) {
+                    id(last_check_ts) = now.timestamp;
+                    id(last_check).update();
+                  }
                   if (response->status_code != 200) {
                     ESP_LOGW("birdframe", "frame.json returned %d", response->status_code);
                     id(frame_status).publish_state("Server error");
@@ -294,6 +304,17 @@ text_sensor:
     lambda: |-
       if (id(last_drawn_ts) <= 0) return {};
       return ESPTime::from_epoch_utc(id(last_drawn_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
+  # When the frame last checked the server for new birds, whether or not
+  # anything had changed (Frame status says how it went).
+  - platform: template
+    id: last_check
+    name: Last check
+    icon: mdi:cloud-check-outline
+    device_class: timestamp
+    update_interval: never
+    lambda: |-
+      if (id(last_check_ts) <= 0) return {};
+      return ESPTime::from_epoch_utc(id(last_check_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
   - platform: template
     id: station_updated
     name: Station image updated

@@ -264,6 +264,12 @@ class FrameFirmwareTests(unittest.TestCase):
             self.assertRegex(text, rf"(?m)^  build: {build}$", device)
             self.assertRegex(text, r"(?m)^  build_icon: mdi:[a-z-]+$", device)
 
+    def test_last_check_is_reported_on_every_server_response(self):
+        common = (FRAME / "esphome" / "birdframe" / "common.yaml").read_text()
+        self.assertIn("name: Last check\n", common)
+        response = common[common.index("on_response:"):common.index("on_error:", common.index("on_response:"))]
+        self.assertLess(response.index("id(last_check_ts) = now.timestamp;"), response.index("status_code != 200"))
+
     def test_battery_update_window_is_reported(self):
         text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
         for entity in ("name: Update window\n", "name: Update window ends\n"):
