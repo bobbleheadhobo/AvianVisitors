@@ -124,6 +124,8 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   power-on defaults. XIAO pins: GPIO1 BAT_ADC, GPIO2/3/5 keys (printed KEY1/2/3 on the board; Seeed's wiki
   says KEY0-2, and so did these docs until the owner noticed), GPIO4 EDP_BUSY, GPIO6
   ADC_EN, D6 PWR_EN, GPIO38 EDP_RES. Seeed doesn't publish the charge current.
+  The owner's first LiPo had its JST plug reversed: Battery voltage read 0 V or the
+  charger's ~4.2 V while it neither ran nor charged. Suspect that before firmware.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few

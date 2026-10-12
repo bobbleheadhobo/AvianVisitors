@@ -23,6 +23,14 @@ EE04 (ESPHome): fetch /frame/frame.json → new sig? → download PNG → draw �
 | 1 | Seeed XIAO ePaper Display Board EE04, ESP32-S3 Plus (SKU 100075670) |
 | 1 | USB-C cable, or a 3.7 V LiPo on the JST 2.0 mm connector |
 
+**Check the battery plug's polarity before connecting it.** Many LiPo cells
+put the red wire on the other side of the JST plug from what the EE04
+expects: red must go to the board's `+`. Backwards, the battery neither
+powers nor charges (Battery voltage reads 0 V, or the charger's own ~4.2 V),
+and a reversed LiPo can be damaged. Swap the two pins in the plug (lift each
+contact's latch with a needle) or use an adapter; a multimeter on the plug
+should read +3.7 to +4.2 V with the red probe on the `+` pin.
+
 The panel uses the **50-pin** connector. With USB unplugged (and the battery
 switch off):
 
