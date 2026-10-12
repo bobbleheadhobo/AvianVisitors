@@ -62,8 +62,8 @@ Check the look at `http://<server>/frame/preview.png` (names off) and
 [`config.example.toml`](config.example.toml); after editing the config, force
 a re-render with `frame/.venv/bin/python frame/display.py --config ~/.birdframe/config.toml --force`.
 
-The frame address, title, background warmth, colour and contrast boost, and quiet hours can
-also be changed from the website under **Settings > Frame**, which shows the
+The frame address, title, background warmth, colour and contrast boost, quiet hours, and the battery frame's
+**Check every** can also be changed from the website under **Settings > Frame**, which shows the
 last render, whether the frame is online (its ESPHome API port answers), and
 a "refresh now" button; the frame picks a new render up at its next check. Values saved there go to
 `/var/lib/avian-visitors/frame/settings.json`, override the same keys in
@@ -193,7 +193,7 @@ Or use the Samba share add-on and drag the same two items into
 | Restart (button), Uptime | USB | |
 | Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points), topped out at 4.14 V, what this frame reads after a full charge; unknown with no cell |
 | Battery days left | battery | days until empty at the recent rate, from a trend line through each day's average level over the last 8 days. Unknown for the first 3 days, and for 3 days after each charge; it settles as the days add up |
-| Check rate | battery | how often it checks now: *Every 10 min (dawn)*, *Every 30 min (day)*, *Every 3 h (night)*, *Dawn checks in 2 h 10 min* for the last night sleep, *Every 2 h (low battery)*, or *(no clock yet)* |
+| Check rate | battery | how often it checks now: *Every 10 min (dawn)*, *Every 30 min (day)*, *Every 3 h (night)*, *Dawn checks in 2 h 10 min* for the last night sleep, *Every 2 h (low battery)*, *Every 15 min (set on the site)*, or *(no clock yet)* |
 | Next check | battery | when the coming wake is due, as a countdown. Last check well past this: the frame is offline, not just asleep |
 | Wake cause | battery (diagnostic) | why it last woke: *Timer*, *KEY1*/*KEY2*/*KEY3* with the raw pin mask, or *Reset: ...* |
 | Update window, Update window ends | battery | on while KEY3 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
@@ -247,7 +247,7 @@ Example automations (change the entity IDs to match yours):
 
 | | `birdframe-usb.yaml` | `birdframe-battery.yaml` |
 |---|---|---|
-| Checks | every 3 min, stays connected | follows the sun, deep sleeping between: every 10 min from 1 h before sunrise to 2 h after (the dawn chorus), every 30 min until 30 min after sunset, up to 3 h at night; never more often than every 2 h when the battery is low |
+| Checks | every 3 min, stays connected | follows the sun, deep sleeping between: every 10 min from 1 h before sunrise to 2 h after (the dawn chorus), every 30 min until 30 min after sunset, up to 3 h at night; never more often than every 2 h when the battery is low. **Settings > Frame > Check every** (minutes, 0 = off) replaces all of this with one fixed interval, day and night and on a low battery too, e.g. to run the battery down and watch its voltage; the frame picks it up at its next wake (KEY1 for now) |
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below 3.6 V (about 5%), which stays until the battery is back above 3.7 V |
 | KEY1 | redraw now | wake and redraw (or redraw, if awake) |
 | KEY2 | toggle bird names | wake and toggle bird names (or just toggle, if awake) |

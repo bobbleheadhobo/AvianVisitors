@@ -12970,6 +12970,7 @@
       + slider('ink_contrast', 'Contrast boost', 'contrast before dithering', 0.02, 2)
       + slider('quiet_start', 'Quiet from', 'hour (0-23) the frame stops refreshing; same as until = never quiet', 1, 0)
       + slider('quiet_end', 'Quiet until', 'hour (0-23) refreshing resumes', 1, 0)
+      + slider('check_every', 'Check every', 'minutes between battery frame checks, day and night, even on a low battery. 0 follows the sun. the frame picks it up at its next wake', 5, 0)
       + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-frame>reset frame to defaults</button></div>'
       + '</section>';
   }

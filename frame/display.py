@@ -85,6 +85,7 @@ DEFAULTS = {
     "output": "inky",       # "inky" pushes to the panel; "esphome" writes files for an ESP32
     "export_dir": "~/BirdSongs/Extracted/frame",  # where "esphome" output is served from
     "quiet_start": 0, "quiet_end": 0,    # 0/0 = no quiet hours
+    "check_every": 0,       # minutes between the battery frame's wakes; 0 = follow the sun
     "heal_hours": 24,
     "state": "~/.birdframe/state.json",
     "cache": "~/.birdframe",
@@ -498,7 +499,7 @@ EXPORT_VARIANTS = {"plain": ("frame.png", "preview.png", "sig"),
                    "names": ("frame-names.png", "preview-names.png", "sig_names")}
 
 
-def export_esphome(images, export_dir, species_sig=None, look=None):
+def export_esphome(images, export_dir, species_sig=None, look=None, check_every=0):
     """Write the frame for an ESP32 running ESPHome to fetch.
 
     `images` maps "plain" (names off) and "names" (names on) to a laid-out
@@ -506,8 +507,10 @@ def export_esphome(images, export_dir, species_sig=None, look=None):
     frame[-names].png is pre-dithered to the six pure Spectra-6 colours so
     the ESP32 draws it pixel for pixel; preview[-names].png is the same dither
     in approximate real inks, for a browser. frame.json carries
-    {"sig", "sig_names", "species_sig", "updated", "width", "height"}; the
-    ESP32 polls it and downloads an image only when that variant's sig moves.
+    {"sig", "sig_names", "species_sig", "updated", "width", "height",
+    "check_every"}; the ESP32 polls it and downloads an image only when that
+    variant's sig moves. check_every (seconds, 0 = follow the sun) sets how
+    long the battery build sleeps between checks.
     A sig is a hash of the image itself, so it changes with any visible change
     and nothing else. frame.json is written last, so a reader that sees a new
     sig always finds the matching image already in place."""
@@ -530,6 +533,7 @@ def export_esphome(images, export_dir, species_sig=None, look=None):
         meta["width"], meta["height"] = img.width, img.height
     meta["species_sig"] = species_sig
     meta["updated"] = int(time.time())
+    meta["check_every"] = max(0, int(check_every or 0)) * 60
     _write_atomic(os.path.join(export_dir, "frame.json"), json.dumps(meta, sort_keys=True).encode())
     return meta
 
@@ -654,7 +658,7 @@ def _export_both(cfg, geo, species, sig):
         images["names"] = render(cfg, geo, species, bird_names=True)
     except Exception as e:
         print(f"names render failed, keeping the last one: {e}", file=sys.stderr)
-    meta = export_esphome(images, cfg["export_dir"], sig, ink_look(cfg))
+    meta = export_esphome(images, cfg["export_dir"], sig, ink_look(cfg), cfg.get("check_every", 0))
     print(f"exported to {cfg['export_dir']}: sig {meta.get('sig')} names {meta.get('sig_names')}")
 
 

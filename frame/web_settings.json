@@ -45,6 +45,12 @@
       "max": 23,
       "default": 0
     },
+    "check_every": {
+      "type": "int",
+      "min": 0,
+      "max": 180,
+      "default": 0
+    },
     "device_host": {
       "type": "host",
       "maxlen": 253,

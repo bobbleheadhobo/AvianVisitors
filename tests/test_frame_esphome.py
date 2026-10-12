@@ -145,6 +145,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
         on_disk = json.loads((self.dir / "frame.json").read_text())
         self.assertEqual(on_disk, meta)
         self.assertEqual((on_disk["width"], on_disk["height"], on_disk["species_sig"]), (480, 800, "abc"))
+        self.assertEqual(on_disk["check_every"], 0, "the battery frame follows the sun unless the site says")
         self.assertFalse(list(self.dir.glob("*.tmp")))
 
     def test_missing_names_variant_keeps_the_last_one(self):
@@ -172,10 +173,11 @@ class FrameEsphomeExportTests(unittest.TestCase):
 
         with mock.patch.object(self.display, "fetch_species", return_value=[{"sci": "Passer domesticus", "n": 3}]), \
                 mock.patch.object(self.display, "obtain_image", side_effect=fake_obtain):
-            self.display.run(self.config())
+            self.display.run(self.config(check_every=15))
         self.assertEqual(calls, [False, True])
         meta = json.loads((self.dir / "web" / "frame.json").read_text())
         self.assertTrue(meta["sig"] and meta["sig_names"])
+        self.assertEqual(meta["check_every"], 900, "Settings > Frame > Check every, in seconds")
         state = json.loads((self.dir / "state.json").read_text())
         self.assertEqual(state["signature"], meta["species_sig"])
 
