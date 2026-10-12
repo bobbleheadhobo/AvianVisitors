@@ -15,7 +15,7 @@
 function systemTheme(){try{return window.matchMedia&&window.matchMedia(q).matches?'dark':'light';}catch(e){return'light';}}
 function preference(){try{var v=localStorage.getItem('bird:theme:v2');if(v==='auto'||v==='light'||v==='dark')return v;var old=localStorage.getItem('bird:theme');return old==='light'||old==='dark'?old:'auto';}catch(e){return'auto';}}
 var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemTheme());})();</script>
-  <link rel="stylesheet" href="./styles.css?v=r250">
+  <link rel="stylesheet" href="./styles.css?v=r251">
   <link rel="stylesheet" href="./stamps.css?v=r355">
   <link rel="stylesheet" href="./stamp-batch-root.css?v=r254">
   <link rel="stylesheet" href="./stamp-batch-a.css?v=r257">
@@ -278,21 +278,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
         <div class="postcard-stamp-slot" aria-label="selected stamp"></div>
       </header>
 
-      <details class="postcard-section postcard-about" name="postcard-info" open>
-        <summary>
-          <span>About</span>
-        </summary>
-        <div class="postcard-section-body">
-          <div class="desc placeholder" id="modalDesc">Loading description...</div>
-          <div class="modal-meta">
-            <span class="meta-item"><span class="k">Family</span><span class="v" id="modalFamily">-</span></span>
-            <span class="meta-item"><span class="k">Genus</span><span class="v" id="modalGenus">-</span></span>
-            <span class="meta-item"><span class="k">Species</span><span class="v" id="modalSpecies">-</span></span>
-            <span class="meta-item"><span class="k">Rarity</span><span class="v" id="modalRarity">-</span></span>
-          </div>
-        </div>
-      </details>
-
       <details class="postcard-section postcard-recordings" name="postcard-info">
         <summary>
           <span>Recordings</span>
@@ -305,6 +290,21 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
           <ol id="modalRecordings">
             <li class="rec-empty">Loading recordings...</li>
           </ol>
+        </div>
+      </details>
+
+      <details class="postcard-section postcard-about" name="postcard-info" open>
+        <summary>
+          <span>About</span>
+        </summary>
+        <div class="postcard-section-body">
+          <div class="desc placeholder" id="modalDesc">Loading description...</div>
+          <div class="modal-meta">
+            <span class="meta-item"><span class="k">Family</span><span class="v" id="modalFamily">-</span></span>
+            <span class="meta-item"><span class="k">Genus</span><span class="v" id="modalGenus">-</span></span>
+            <span class="meta-item"><span class="k">Species</span><span class="v" id="modalSpecies">-</span></span>
+            <span class="meta-item"><span class="k">Rarity</span><span class="v" id="modalRarity">-</span></span>
+          </div>
         </div>
       </details>
 
@@ -399,6 +399,6 @@ var p=preference();d.setAttribute('data-theme',p==='light'||p==='dark'?p:systemT
 <script src="./stamp-batch-a.js?v=r341"></script>
   <script src="./stamp-batch-b.js?v=r318"></script>
 <script src="./stamp-batch-c.js?v=r235"></script>
-<script src="./apt.js?v=r305"></script>
+<script src="./apt.js?v=r306"></script>
 </body>
 </html>

@@ -2157,7 +2157,7 @@ body.postcard-open { overflow: hidden; }
   background-blend-mode: normal, var(--card-paper-blend);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--card-control-active) 45%, transparent), 0 5px 15px rgba(52, 42, 29, .03);
 }
-.postcard-recordings { border-radius: 9px 9px 2px 9px; }
+.postcard-about { border-radius: 9px 9px 2px 9px; }
 .postcard-section[open] {
   flex: 0 1 auto;
   min-height: 0;
