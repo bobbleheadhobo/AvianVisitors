@@ -226,6 +226,9 @@ class FrameBatteryTests(unittest.TestCase):
     def test_lipo_curve(self):
         self.assertEqual(self.percent(4.25), 100)
         self.assertEqual(self.percent(4.20), 100)
+        # A full charge on this frame reads 4.14 V (it showed 94% before).
+        self.assertEqual(self.percent(4.14), 100)
+        self.assertLess(self.percent(4.10), 95)
         self.assertAlmostEqual(self.percent(3.84), 50, places=1)
         self.assertAlmostEqual(self.percent(3.845), 52.5, places=1)
         self.assertEqual(self.percent(3.2), 0)

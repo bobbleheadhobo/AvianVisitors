@@ -13,12 +13,16 @@ namespace birdframe {
 // discharge curve. A straight line from 3.3 to 4.2 V was off by 20-30
 // points mid-charge, where the curve is flat. Still an estimate (to about
 // 10 points): the cell, its age and the temperature all shift the curve.
+// The top is fitted to this frame: a night on the charger reads 4.14 V at
+// the next wake (the charger stops short of 4.2 V and the cell settles a
+// little), which a stock curve called 94%. Above 80% the stock points from
+// 4.02 to 4.20 V are squeezed into 4.02 to 4.14 V.
 // NAN with no cell (a reading under 2.5 V: USB only).
 inline float lipo_percent(float volts) {
   static const float curve[][2] = {
       {3.27f, 0},  {3.61f, 5},  {3.69f, 10}, {3.71f, 15}, {3.73f, 20}, {3.75f, 25}, {3.77f, 30},
       {3.79f, 35}, {3.80f, 40}, {3.82f, 45}, {3.84f, 50}, {3.85f, 55}, {3.87f, 60}, {3.91f, 65},
-      {3.95f, 70}, {3.98f, 75}, {4.02f, 80}, {4.08f, 85}, {4.11f, 90}, {4.15f, 95}, {4.20f, 100},
+      {3.95f, 70}, {3.98f, 75}, {4.02f, 80}, {4.06f, 85}, {4.08f, 90}, {4.11f, 95}, {4.14f, 100},
   };
   const int n = sizeof(curve) / sizeof(curve[0]);
   if (std::isnan(volts) || volts <= 2.5f)
