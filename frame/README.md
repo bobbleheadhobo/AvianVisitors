@@ -191,7 +191,7 @@ Or use the Samba share add-on and drag the same two items into
 | Wi-Fi signal, IP address, ESPHome version | both (diagnostic) | |
 | Redraw (button), Bird names (switch) | USB | the same as KEY1 and KEY2 |
 | Restart (button), Uptime | USB | |
-| Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points); unknown with no cell |
+| Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points), topped out at 4.14 V, what this frame reads after a full charge; unknown with no cell |
 | Battery days left | battery | days until empty at the recent rate, from a trend line through each day's average level over the last 8 days. Unknown for the first 3 days, and for 3 days after each charge; it settles as the days add up |
 | Check rate | battery | how often it checks now: *Every 10 min (dawn)*, *Every 30 min (day)*, *Every 3 h (night)*, *Dawn checks in 2 h 10 min* for the last night sleep, *Every 2 h (low battery)*, or *(no clock yet)* |
 | Next check | battery | when the coming wake is due, as a countdown. Last check well past this: the frame is offline, not just asleep |
