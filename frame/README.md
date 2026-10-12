@@ -193,6 +193,8 @@ Or use the Samba share add-on and drag the same two items into
 | Restart (button), Uptime | USB | |
 | Battery voltage, Battery level | battery | level follows a typical LiPo discharge curve (to about 10 points); unknown with no cell |
 | Battery days left | battery | days until empty at the recent rate, from a trend line through each day's average level over the last 8 days. Unknown for the first 3 days, and for 3 days after each charge; it settles as the days add up |
+| Check rate | battery | how often it checks now: *Every 10 min (dawn)*, *Every 30 min (day)*, *Every 3 h (night)*, *Dawn checks in 2 h 10 min* for the last night sleep, *Every 2 h (low battery)*, or *(no clock yet)* |
+| Next check | battery | when the coming wake is due, as a countdown. Last check well past this: the frame is offline, not just asleep |
 | Wake cause | battery (diagnostic) | why it last woke: *Timer*, *KEY1*/*KEY2*/*KEY3* with the raw pin mask, or *Reset: ...* |
 | Update window, Update window ends | battery | on while KEY3 keeps the frame awake for an update; *ends* shows the closing time as a countdown ("in 4 minutes") |
 
@@ -268,6 +270,7 @@ names the problem:
 | Server error / No image yet | the server answered but has no frame yet: run `frame/install-server.sh` or wait for its timer. |
 | Download failed | the image did not download; the logs say why. |
 | Draw timed out | the panel never finished: the 50-pin jumper and the ribbon (fully in, latch closed). |
+| Last check is hours old (battery) | at night that is normal: Check rate says *Every 3 h (night)*. Only once Next check is well past is the frame offline. |
 | Up to date, but Last drawn is old | nothing new to draw. If Station image updated is old too, the server's render timer has stopped. |
 
 A corrupted or striped image → uncomment `data_rate: 10MHz` in

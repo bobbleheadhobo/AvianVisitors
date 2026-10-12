@@ -102,7 +102,9 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `frame/display.py --preview out.png` renders without pushing.
 - The battery frame's wake schedule follows the sun (`frame/esphome/birdframe/schedule.h`)
   and its battery level and days left are in `birdframe/battery.h`; both are
-  plain C++ so they can be tested here: `tests/test_frame_headers.py` builds it with
+  plain C++ so they can be tested here (`describe_sleep` words Home
+  Assistant's Check rate; Next check says when the coming wake is due, so
+  "Last check is hours old" at night is the frame asleep, not offline): `tests/test_frame_headers.py` builds it with
   `zig c++` from the `ziglang` wheel in `~/.cache/avian-dev-venv` (skips without a
   compiler). ESPHome lambdas themselves only compile in Home Assistant, and
   `esphome config` doesn't check them, so keep logic in headers. A new file in
