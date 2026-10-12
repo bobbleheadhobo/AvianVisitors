@@ -16,7 +16,7 @@
 # Keys (as printed on the board) wake it at any time, and work while awake:
 #   KEY1  redraw now
 #   KEY2  toggle bird names
-#   KEY3  stay awake 5 min, e.g. to flash an update over Wi-Fi; a tag along
+#   KEY3  stay awake 10 min, e.g. to flash an update over Wi-Fi; a tag along
 #         the bottom of the panel shows while the window is open, with the
 #         time it ends (also in Home Assistant: Update window, and Update
 #         window ends, which counts down)
@@ -38,7 +38,7 @@ substitutions:
   build: Battery
   build_icon: mdi:battery
   # How long KEY3 keeps the frame awake for updates.
-  awake_window: 300s
+  awake_window: 10min
   # The station's location, for sunrise and sunset.
   latitude: "35.0813"
   longitude: "-106.6212"

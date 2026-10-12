@@ -159,7 +159,7 @@ Or use the Samba share add-on and drag the same two items into
    factory `.bin` from step 4. Use USB too when the board last ran firmware
    with a different `ota_password`: a wireless install is refused then.
 6. Later updates of the USB build: **Install → Wirelessly**. The battery
-   build is asleep most of the time: press KEY3 to keep it awake for 5
+   build is asleep most of the time: press KEY3 to keep it awake for 10
    minutes, then install. An install that reaches it during any other wake
    also finishes before it sleeps. Or use USB.
 7. Check it is running: within a minute of power-up the card shows
@@ -249,7 +249,7 @@ Example automations (change the entity IDs to match yours):
 | Redraws | only when the server's image changes | same, plus a small empty-battery mark below 3.6 V (about 5%), which stays until the battery is back above 3.7 V |
 | KEY1 | redraw now | wake and redraw (or redraw, if awake) |
 | KEY2 | toggle bird names | wake and toggle bird names (or just toggle, if awake) |
-| KEY3 | — | stay awake 5 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |
+| KEY3 | — | stay awake 10 min, to flash an update over Wi-Fi; *Awake for updates until 2:05 pm* shows along the bottom of the panel (and as Frame status) until the window closes, and Home Assistant counts down to it |
 | Updates | over Wi-Fi any time | press KEY3 first, or use USB; an update that starts during any wake finishes before it sleeps |
 
 Bird names are on by default. KEY2's setting survives reboots and sleep.
