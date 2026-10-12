@@ -173,6 +173,11 @@ Or use the Samba share add-on and drag the same two items into
    the frame's IP (in the first log lines or your router), port `6053`.
 9. Give the frame a DHCP reservation too. Home Assistant finds it by name,
    but a fixed address makes the manual fallback and the logs predictable.
+   The battery build also sets that address itself (`static_ip:` and the
+   lines below it in `birdframe-battery.yaml`), which saves a second or two
+   of Wi-Fi on every wake; reserve the same address in the router so nothing
+   else is given it. When you change it, set `use_address:` under `wifi:` to
+   the frame's current address for the one install that moves it.
 
 #### In Home Assistant
 

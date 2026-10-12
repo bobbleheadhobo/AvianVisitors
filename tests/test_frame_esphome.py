@@ -283,6 +283,14 @@ class FrameFirmwareTests(unittest.TestCase):
         self.assertLess(text.index('return !id(ota_busy);'), text.rindex("deep_sleep.enter:"))
         self.assertIn("!id(ota_busy);", text[text.index("Safety net"):text.index("priority: -100")])
 
+    def test_battery_build_has_a_fixed_address(self):
+        text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
+        self.assertRegex(text, r"(?m)^  static_ip: 192\.168\.0\.\d+$")
+        wifi = text[text.index("\nwifi:"):]
+        wifi = wifi[:wifi.index("\n\n")]
+        for key in ("static_ip: ${static_ip}", "gateway: ${gateway}", "subnet: ${subnet}", "dns1: ${dns}"):
+            self.assertIn(key, wifi)
+
     def test_battery_build_review_fixes(self):
         text = (FRAME / "esphome" / "birdframe-battery.yaml").read_text()
         boot = text[text.index("on_boot:"):text.index("\nscript:")]

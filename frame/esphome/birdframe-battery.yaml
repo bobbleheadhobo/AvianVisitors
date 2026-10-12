@@ -27,6 +27,13 @@
 substitutions:
   name: birdframe
   server: http://192.168.0.112
+  # The frame's own address, fixed so a wake skips DHCP (a second or two of
+  # Wi-Fi each time). Reserve it in the router as well, so nothing else is
+  # ever handed it. Gateway and DNS as the station uses.
+  static_ip: 192.168.0.123
+  gateway: 192.168.0.1
+  subnet: 255.255.255.0
+  dns: 192.168.0.107
   # Shown in Home Assistant as Firmware.
   build: Battery
   build_icon: mdi:battery
@@ -399,6 +406,14 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   fast_connect: true
+  manual_ip:
+    static_ip: ${static_ip}
+    gateway: ${gateway}
+    subnet: ${subnet}
+    dns1: ${dns}
+  # Updates go to static_ip, but the frame is on its old DHCP address until
+  # this firmware is installed. Remove after the first install with manual_ip.
+  use_address: 192.168.0.175
 
 deep_sleep:
   id: ds
