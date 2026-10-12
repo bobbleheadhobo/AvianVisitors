@@ -2,7 +2,11 @@
   "_comment": "Frame settings the website can change. Read by display.py and avian/api/frame.php; each value saved from the site overrides the same key in config.toml.",
   "device": {
     "port": 6053,
-    "poll_minutes": 3
+    "poll_minutes": 3,
+    "_windows": "the battery frame's dawn and day windows in minutes, as birdframe-battery.yaml sets them (dawn_before, dawn_after, dusk_after)",
+    "dawn_before": 60,
+    "dawn_after": 120,
+    "dusk_after": 30
   },
   "settings": {
     "paper_warmth": {

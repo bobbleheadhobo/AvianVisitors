@@ -208,6 +208,9 @@ class FrameScheduleTests(unittest.TestCase):
         web = json.loads((ROOT / "frame" / "web_settings.json").read_text())["settings"]
         dawn, day, night = self.sched[3], self.sched[4], self.sched[5]
         self.assertEqual([web[k]["default"] * 60 for k in ("check_dawn", "check_day", "check_night")], [dawn, day, night])
+        # ...and so are the windows the site shows as clock times.
+        device = json.loads((ROOT / "frame" / "web_settings.json").read_text())["device"]
+        self.assertEqual([device[k] * 60 for k in ("dawn_before", "dawn_after", "dusk_after")], self.sched[:3])
 
     def test_wakes_per_day(self):
         t = int(dt.datetime(2026, 10, 11, 4, 0, tzinfo=MDT).timestamp())

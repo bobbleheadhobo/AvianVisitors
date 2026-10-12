@@ -12935,6 +12935,20 @@
     var hrs = Math.round(mins / 60);
     return 'rendered ' + hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
   }
+  // A part of the battery frame's day as today's clock times, e.g. "6:09 to
+  // 9:09 am today (1 h before sunrise to 2 h after)"; frame.php works them
+  // out from the station's location. Just the rule without one.
+  function frameWindow(windows, part, rule) {
+    var w = windows && windows[part];
+    if (!w) return rule;
+    function clock(t) {
+      var d = new Date(t * 1000), h = d.getHours();
+      return { t: (h % 12 || 12) + ':' + String(d.getMinutes()).padStart(2, '0'), ap: h < 12 ? 'am' : 'pm' };
+    }
+    var a = clock(w[0]), b = clock(w[1]);
+    var span = (a.ap === b.ap ? a.t : a.t + ' ' + a.ap) + ' to ' + b.t + ' ' + b.ap;
+    return span + (part === 'night' ? ' tonight' : ' today' + ' (' + rule + ')');
+  }
   // Settings fall into named groups so a setting is quick to find.
   function settingsHead(title) {
     return '<h2 class="admin-section-head">' + adminEsc(title) + '</h2>';
@@ -12968,9 +12982,9 @@
       + slider('paper_warmth', 'Background warmth', 'share of the white dotted yellow: 0 is white, 0.12 cream', 0.01, 2)
       + slider('ink_saturation', 'Colour boost', 'saturation before dithering: higher is bolder, less speckled', 0.05, 2)
       + slider('ink_contrast', 'Contrast boost', 'contrast before dithering', 0.02, 2)
-      + slider('check_dawn', 'Dawn checks', 'minutes between the battery frame\'s checks from 1 h before sunrise to 2 h after', 5, 0)
-      + slider('check_day', 'Day checks', 'minutes between checks until 30 min after sunset', 5, 0)
-      + slider('check_night', 'Night checks', 'minutes between checks at night. the frame uses new intervals from its next check', 5, 0)
+      + slider('check_dawn', 'Dawn checks', frameWindow(frame.windows, 'dawn', '1 h before sunrise to 2 h after') + '. minutes between the battery frame\'s checks', 5, 0)
+      + slider('check_day', 'Day checks', frameWindow(frame.windows, 'day', 'until 30 min after sunset'), 5, 0)
+      + slider('check_night', 'Night checks', frameWindow(frame.windows, 'night', 'sunset to dawn') + '. the frame uses new intervals from its next check', 5, 0)
       + '<div class="settings-reset-row"><button type="button" class="settings-reset" data-reset-frame>reset frame to defaults</button></div>'
       + '</section>';
   }

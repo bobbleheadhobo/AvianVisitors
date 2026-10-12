@@ -83,6 +83,37 @@ function frame_write(string $dir, string $name, string $text): bool {
     return @rename($tmp, $dir . '/' . $name);
 }
 
+/** Today's dawn, day and night windows of the battery frame's schedule, as
+ *  Unix times (the browser shows them in local time): dawn from dawn_before
+ *  before sunrise to dawn_after after it, day until dusk_after past sunset,
+ *  night until the next dawn. Null without a location, or where the sun
+ *  doesn't rise and set. */
+function frame_windows(string $confPath, array $device): ?array {
+    $conf = [];
+    foreach (@file($confPath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        if (preg_match('/^\s*(LATITUDE|LONGITUDE)\s*=\s*"?(-?[0-9.]+)"?\s*$/', $line, $m)) $conf[$m[1]] = (float)$m[2];
+    }
+    if (!isset($conf['LATITUDE'], $conf['LONGITUDE'])) return null;
+    $zone = trim((string)@file_get_contents('/etc/timezone'));
+    try { $tz = new DateTimeZone($zone !== '' ? $zone : 'UTC'); } catch (Exception $e) { $tz = new DateTimeZone('UTC'); }
+    $noon = new DateTime('today 12:00', $tz);
+    $sun = function (DateTime $day) use ($conf) {
+        $info = date_sun_info($day->getTimestamp(), $conf['LATITUDE'], $conf['LONGITUDE']);
+        return is_int($info['sunrise'] ?? null) && is_int($info['sunset'] ?? null) ? $info : null;
+    };
+    $today = $sun($noon);
+    $tomorrow = $sun((clone $noon)->modify('+1 day'));
+    if (!$today || !$tomorrow) return null;
+    $before = (int)($device['dawn_before'] ?? 60) * 60;
+    $after = (int)($device['dawn_after'] ?? 120) * 60;
+    $dusk = (int)($device['dusk_after'] ?? 30) * 60;
+    return [
+        'dawn' => [$today['sunrise'] - $before, $today['sunrise'] + $after],
+        'day' => [$today['sunrise'] + $after, $today['sunset'] + $dusk],
+        'night' => [$today['sunset'] + $dusk, $tomorrow['sunrise'] - $before],
+    ];
+}
+
 /** Whether the frame answers on its ESPHome API port. A battery build that
  *  is deep asleep reads as offline between its wakes. */
 function frame_online(string $host, int $port): bool {
@@ -122,6 +153,7 @@ if ($method === 'GET') {
         'limits' => $schema,
         'online' => $online,
         'poll_minutes' => (int)($device['poll_minutes'] ?? 3),
+        'windows' => frame_windows($confPath, $device),
         'frame' => is_array($meta) ? [
             'updated' => (int)($meta['updated'] ?? 0),
             'sig' => (string)($meta['sig_names'] ?? $meta['sig'] ?? ''),
