@@ -57,7 +57,18 @@ int main(int argc, char **argv) {
     printf("%d %lld %lld\n", t.ok, (long long) t.rise, (long long) t.set);
   } else {
     birdframe::Schedule s{atoi(argv[5]), atoi(argv[6]), atoi(argv[7]), atoi(argv[8]), atoi(argv[9]), atoi(argv[10])};
-    printf("%lld\n", (long long) birdframe::next_sleep_s(x, lat, lon, s));
+    birdframe::Phase phase;
+    int64_t secs = birdframe::next_sleep_s(x, lat, lon, s, &phase);
+    if (argv[1][0] == 't') {
+      // Check rate's text; argv[11]: the clock is set, argv[12]: low battery
+      // stretched the sleep to argv[13] seconds.
+      if (argv[12][0] == '1') secs = atoi(argv[13]);
+      char text[48];
+      birdframe::describe_sleep(text, sizeof(text), secs, s, phase, argv[11][0] == '1', argv[12][0] == '1');
+      printf("%s\n", text);
+    } else {
+      printf("%lld\n", (long long) secs);
+    }
   }
 }
 """
@@ -119,6 +130,11 @@ class FrameScheduleTests(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         return int(out.stdout)
 
+    def rate(self, when, clock=True, low_secs=0):
+        args = [str(self.exe), "t", str(int(when.timestamp())), str(LAT), str(LON)] + [str(v) for v in self.sched]
+        args += ["1" if clock else "0", "1" if low_secs else "0", str(low_secs)]
+        return subprocess.run(args, capture_output=True, text=True, check=True).stdout.strip()
+
     def assertNear(self, epoch, expected, minutes=4):
         got = dt.datetime.fromtimestamp(epoch, expected.tzinfo)
         self.assertLessEqual(abs((got - expected).total_seconds()), minutes * 60, f"{got} vs {expected}")
@@ -163,6 +179,18 @@ class FrameScheduleTests(unittest.TestCase):
         self.assertEqual(self.sleep(three_am), (rise2 - before) - int(three_am.timestamp()))
         # A night sleep that ends a minute early counts as dawn.
         self.assertEqual(self.sleep(at(rise2 - before - 60)), dawn_every)
+
+    def test_check_rate_text(self):
+        # Home Assistant's Check rate through 11-12 October 2026.
+        day = lambda h, m=0, d=11: dt.datetime(2026, 10, d, h, m, tzinfo=MDT)
+        self.assertEqual(self.rate(day(6, 30)), "Every 10 min (dawn)")
+        self.assertEqual(self.rate(day(13)), "Every 30 min (day)")
+        self.assertEqual(self.rate(day(22, 40)), "Every 3 h (night)")
+        # The last night sleep ends as the dawn window opens (06:10).
+        self.assertEqual(self.rate(day(4, 0, d=12)), "Dawn checks in 2 h 10 min")
+        self.assertEqual(self.rate(day(5, 40, d=12)), "Dawn checks in 30 min")
+        self.assertEqual(self.rate(day(13), low_secs=7200), "Every 2 h (low battery)")
+        self.assertEqual(self.rate(day(13), clock=False), "Every 30 min (no clock yet)")
 
     def test_wakes_per_day(self):
         t = int(dt.datetime(2026, 10, 11, 4, 0, tzinfo=MDT).timestamp())

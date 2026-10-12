@@ -8,6 +8,8 @@
 #   dawn, 1 h before sunrise to 2 h after   every 10 min (the dawn chorus)
 #   day, until 30 min after sunset          every 30 min
 #   night                                   up to 3 h, waking as dawn opens
+# Home Assistant shows the current rate as Check rate, and Next check says
+# when the coming wake is due.
 # Once the battery is low (below 3.6 V, until it is back above 3.7 V): at
 # least 2 h between wakes, and a small empty-battery mark in the corner.
 # Without the time (no SNTP yet) it sleeps 30 min. A wake with nothing new
@@ -127,6 +129,9 @@ esphome:
                   if (now.is_valid())
                     birdframe::battery_log_add(id(battery_log), (int32_t) (now.timestamp / 86400), id(battery_level).state);
               - component.update: battery_days_left
+              # Work out the coming sleep now, so Home Assistant gets Check
+              # rate and Next check with the other readings.
+              - script.execute: plan_sleep
               # Give Home Assistant a moment to connect and take this wake's
               # readings (battery, status, Wi-Fi); it keeps them while the
               # frame sleeps. Without Home Assistant this costs at most 10 s.
@@ -243,26 +248,41 @@ script:
           condition:
             lambda: "return !id(key_refresh).state && !id(key_names).state && !id(key_awake).state;"
           timeout: 10s
+      # Again, as a KEY3 window may have kept it awake since the first plan.
+      - script.execute: plan_sleep
       - lambda: |-
           global_preferences->sync();
           birdframe::prepare_sleep();
       - deep_sleep.enter:
           id: ds
           sleep_duration: !lambda |-
-            auto secs = birdframe::parse_seconds;
-            int64_t s = secs("${sleep_day}");
-            auto now = id(sntp_time).now();
-            if (now.is_valid()) {
-              birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
-                                        secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
-              s = birdframe::next_sleep_s(now.timestamp, ${latitude}, ${longitude}, sched);
-            }
-            // Low battery: never wake more often than sleep_low, but keep the
-            // schedule's longer night sleeps.
-            if (id(low_battery) && s < secs("${sleep_low}"))
-              s = secs("${sleep_low}");
-            ESP_LOGI("birdframe", "sleeping %d min", (int) (s / 60));
-            return (uint32_t) (s * 1000);
+            ESP_LOGI("birdframe", "sleeping %d min", (int) (id(sleep_s) / 60));
+            return (uint32_t) id(sleep_s) * 1000;
+  # How long the coming sleep is, from the time and the schedule; published
+  # as Check rate and Next check.
+  - id: plan_sleep
+    mode: single
+    then:
+      - lambda: |-
+          auto secs = birdframe::parse_seconds;
+          int64_t s = secs("${sleep_day}");
+          birdframe::Schedule sched{secs("${dawn_before}"), secs("${dawn_after}"), secs("${dusk_after}"),
+                                    secs("${sleep_dawn}"), secs("${sleep_day}"), secs("${sleep_night_max}")};
+          birdframe::Phase phase = birdframe::PHASE_DAY;
+          auto now = id(sntp_time).now();
+          if (now.is_valid())
+            s = birdframe::next_sleep_s(now.timestamp, ${latitude}, ${longitude}, sched, &phase);
+          // Low battery: never wake more often than sleep_low, but keep the
+          // schedule's longer night sleeps.
+          bool low = id(low_battery) && s < secs("${sleep_low}");
+          if (low)
+            s = secs("${sleep_low}");
+          id(sleep_s) = (int) s;
+          id(next_check_ts) = now.is_valid() ? (int) (now.timestamp + s) : 0;
+          char text[48];
+          birdframe::describe_sleep(text, sizeof(text), s, sched, phase, now.is_valid(), low);
+          id(check_rate).publish_state(text);
+      - component.update: next_check
 
 globals:
   - id: wake_reason
@@ -287,6 +307,14 @@ globals:
   - id: window_requested
     type: bool
     initial_value: "false"
+  # The coming sleep (seconds) and when it ends (Unix time; 0 without a
+  # clock), set by plan_sleep.
+  - id: sleep_s
+    type: int
+    initial_value: "1800"
+  - id: next_check_ts
+    type: int
+    initial_value: "0"
   # When the KEY3 window ends (Unix time; 0 when closed or not known).
   - id: awake_until_ts
     type: int
@@ -376,6 +404,23 @@ text_sensor:
     icon: mdi:alarm
     entity_category: diagnostic
     update_interval: never
+  # How often it is checking now: "Every 10 min (dawn)", "Every 30 min
+  # (day)", "Every 3 h (night)", "Every 2 h (low battery)"
+  # (birdframe::describe_sleep).
+  - platform: template
+    id: check_rate
+    name: Check rate
+    icon: mdi:timer-sync-outline
+    update_interval: never
+  # When it should next check in. Well past this means it is offline.
+  - platform: template
+    id: next_check
+    name: Next check
+    device_class: timestamp
+    update_interval: never
+    lambda: |-
+      if (id(next_check_ts) <= 0) return std::string();
+      return ESPTime::from_epoch_utc(id(next_check_ts)).strftime("%Y-%m-%dT%H:%M:%SZ");
   # Empty (unknown in Home Assistant) while the window is closed.
   - platform: template
     id: update_window_ends

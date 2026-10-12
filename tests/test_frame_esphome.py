@@ -310,7 +310,11 @@ class FrameFirmwareTests(unittest.TestCase):
         # One sleep path, shared by the safety net, with low battery as a floor.
         self.assertEqual(text.count("deep_sleep.enter:"), 1)
         self.assertEqual(boot.count("script.execute: sleep_now"), 2)
-        self.assertIn('if (id(low_battery) && s < secs("${sleep_low}"))', text)
+        self.assertIn('bool low = id(low_battery) && s < secs("${sleep_low}");', text)
+        # The sleep is planned again just before it (Check rate, Next check).
+        sleep_now = text[text.index("- id: sleep_now"):text.index("- id: plan_sleep")]
+        self.assertLess(sleep_now.index("script.execute: plan_sleep"), sleep_now.index("deep_sleep.enter:"))
+        self.assertIn("return (uint32_t) id(sleep_s) * 1000;", sleep_now)
         self.assertIn("delay: 300s", boot)
         # No redraw at the end of the window while an update is being written.
         window_end = boot[boot.index("# Until the end time shown"):]

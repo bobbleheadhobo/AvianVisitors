@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -91,25 +92,66 @@ struct Schedule {
 // Seconds to sleep from `now` (UTC epoch). Through the night the frame
 // sleeps up to night_max_s at a time and lands exactly on the start of the
 // next dawn window. Returns day_every_s if the sun gives no answer.
-inline int64_t next_sleep_s(int64_t now, double lat, double lon, const Schedule &s) {
+// Which part of the schedule a sleep belongs to.
+enum Phase { PHASE_NIGHT, PHASE_DAWN, PHASE_DAY };
+
+inline int64_t next_sleep_s(int64_t now, double lat, double lon, const Schedule &s, Phase *phase = nullptr) {
+  Phase unused;
+  Phase &p = phase ? *phase : unused;
+  p = PHASE_DAY;
   int64_t today = (int64_t) std::floor((double) now / 86400.0 + 2440587.5 - 2451545.0);
   for (int64_t n = today - 1; n <= today + 1; n++) {
     SunTimes t = sun_times(n, lat, lon);
     if (!t.ok)
       return s.day_every_s;
     int64_t dawn = t.rise - s.dawn_before_s;
-    // A night sleep that ran short (the sleep clock drifts a few percent)
-    // counts as dawn already, rather than waking again minutes later.
-    if (now < dawn - s.dawn_every_s)
+    if (now < dawn - s.dawn_every_s) {
+      p = PHASE_NIGHT;
       return dawn - now < s.night_max_s ? dawn - now : s.night_max_s;
+    }
+    p = PHASE_DAWN;
     if (now < dawn)
       return s.dawn_every_s;
     if (now < t.rise + s.dawn_after_s)
       return s.dawn_every_s;
+    p = PHASE_DAY;
     if (now < t.set + s.dusk_after_s)
       return s.day_every_s;
   }
   return s.day_every_s;
+}
+
+// A sleep as people say it: "10 min", "3 h", "2 h 50 min".
+inline void format_duration(char *out, size_t n, int64_t secs) {
+  int64_t mins = (secs + 30) / 60;
+  if (mins < 60)
+    std::snprintf(out, n, "%d min", (int) mins);
+  else if (mins % 60 == 0)
+    std::snprintf(out, n, "%d h", (int) (mins / 60));
+  else
+    std::snprintf(out, n, "%d h %d min", (int) (mins / 60), (int) (mins % 60));
+}
+
+// Home Assistant's Check rate: how often the frame is checking now and why,
+// e.g. "Every 10 min (dawn)", "Every 3 h (night)", or for the last, shorter
+// night sleep "Dawn checks in 2 h 5 min". `low` means a low battery
+// stretched this sleep; `clock` is false before SNTP has set the time.
+inline void describe_sleep(char *out, size_t n, int64_t secs, const Schedule &s, Phase phase, bool clock,
+                           bool low) {
+  char d[24];
+  format_duration(d, sizeof(d), secs);
+  if (!clock)
+    std::snprintf(out, n, "Every %s (no clock yet)", d);
+  else if (low)
+    std::snprintf(out, n, "Every %s (low battery)", d);
+  else if (phase == PHASE_DAWN)
+    std::snprintf(out, n, "Every %s (dawn)", d);
+  else if (phase == PHASE_DAY)
+    std::snprintf(out, n, "Every %s (day)", d);
+  else if (secs < s.night_max_s)
+    std::snprintf(out, n, "Dawn checks in %s", d);
+  else
+    std::snprintf(out, n, "Every %s (night)", d);
 }
 
 }  // namespace birdframe
