@@ -180,24 +180,12 @@ if ($passwordRequired
 }
 avian_require_admin();
 
-// Count of instant (chroma) cutouts awaiting the full-quality upgrade
-// pass - drives the notification dot on the menu button and the
-// settings entry. See generate.php / generate_one.py.
-$cuts = dirname(__DIR__) . '/assets/illustrations/cuts.json';
-$chroma = 0;
-if (is_readable($cuts)) {
-    $j = json_decode((string)file_get_contents($cuts), true);
-    if (is_array($j)) {
-        foreach ($j as $kind) { if ($kind === 'chroma') $chroma++; }
-    }
-}
-
 // The four base items are in-app overlays. `native: true` tells the FE to
 // route via `#admin=<section>` rather than opening a new window. We
 // link out to BirdNET-Pi's stock pages only as the "classic" item below.
 $educatorProfile = educator_profile_state();
 $items = [
-        ['label' => 'settings', 'href' => '/#admin=settings', 'native' => true, 'dot' => $chroma > 0],
+        ['label' => 'settings', 'href' => '/#admin=settings', 'native' => true],
         ['label' => 'system',   'href' => '/#admin=system',   'native' => true],
         ['label' => 'logs',     'href' => '/#admin=logs',     'native' => true],
         ['label' => 'tools',    'href' => '/#admin=tools',    'native' => true],
@@ -224,7 +212,6 @@ if (!empty($educatorProfile['valid']) && !empty($educatorProfile['enabled'])) {
 }
 echo json_encode([
     'items' => $items,
-    'chroma' => $chroma,
     'auth' => [
         'required' => $passwordRequired,
         'direct_local' => avian_is_direct_local_request($_SERVER),

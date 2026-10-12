@@ -6879,9 +6879,6 @@
         return r.json().then(function (j) {
           if (probeGeneration !== adminUnlockProbeGeneration) return;
           renderMenu(j.items || [], j.auth || {});
-          // Notification dot on the menu button itself when something
-          // inside is waiting (instant cutouts awaiting their upgrade).
-          menuBtn.classList.toggle('has-dot', (j.chroma || 0) > 0);
         });
       }
       if (r.status === 401) {
@@ -13325,10 +13322,6 @@
     Promise.all([
       adminFetch('./avian/api/config.php', { credentials: 'same-origin', cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }),
-      adminJson('./avian/api/generate.php?action=status').catch(function (error) {
-        if (adminAuthCancelled(error)) throw error;
-        return null;
-      }),
       adminFetch('./avian/api/birdweather.php', { credentials: 'same-origin', cache: 'no-store' })
         .then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (body) {
@@ -13371,34 +13364,16 @@
     ])
       .then(function (parts) {
         var cfg = parts[0];
-        var gen = parts[1] || {};
-        var birdweather = parts[2] || { ok: false };
-        var archive = parts[3] || { ok: false, failure_kind: 'network' };
-        var listen = parts[4];
-        var notify = parts[5];
-        var frame = parts[6];
-        var devices = parts[7];
+        var birdweather = parts[1] || { ok: false };
+        var archive = parts[2] || { ok: false, failure_kind: 'network' };
+        var listen = parts[3];
+        var notify = parts[4];
+        var frame = parts[5];
+        var devices = parts[6];
         var v = cfg.values || {};
         var sec = cfg.secrets || {};
         var security = cfg.security || {};
         var preserve = cfg.preserve;
-        // Instant chroma cutouts awaiting the full-quality workstation
-        // pass: surface the count and a ready-to-paste command. The
-        // command carries this station's hostname; only the ssh user is
-        // left for the owner to fill in.
-        var cutoutsNote = '';
-        if (gen.chroma > 0) {
-          var cmd = 'curl -sLO https://raw.githubusercontent.com/Twarner491/AvianVisitors/avian-visitors/avian/scripts/upgrade_cutouts.py'
-            + ' && python3 upgrade_cutouts.py --pi pi-user@' + location.hostname;
-          cutoutsNote = ''
-            + '<div class="cutouts-note" id="cutoutsNote">'
-            + '  <div><span class="label">Instant cutouts <i class="notif-dot"></i></span>'
-            + '  <span class="hint">' + gen.chroma + ' bird' + (gen.chroma === 1 ? '' : 's') + ' cut on the Pi with the quick method. '
-            + 'For full-quality edges, run this on your computer (swap in your ssh user):</span></div>'
-            + '  <code class="cutcmd" id="cutCmd">' + cmd + '</code>'
-            + '  <button type="button" class="chip" id="cutCopy">copy command</button>'
-            + '</div>';
-        }
         adminBody.innerHTML =
           '<div class="admin-settings">'
           + settingsHead('this device')
@@ -13449,7 +13424,6 @@
             { v: 'purge', label: 'purge' },
           ])
           + '</section>'
-          + cutoutsNote
           + '<div class="menu-save-row settings-save-bar" id="settingsSaveBar" data-dirty="false">'
           + '  <span class="save-count" data-save-count role="status" aria-live="polite"></span>'
           + '  <span class="save-state" id="saveState" role="status" aria-live="polite"></span>'
@@ -13457,14 +13431,6 @@
           + '  <button type="button" class="save-go" data-save-go disabled>save</button>'
           + '</div>'
           + '</div>';
-        var cutCopy = document.getElementById('cutCopy');
-        if (cutCopy) cutCopy.addEventListener('click', function () {
-          var t = document.getElementById('cutCmd').textContent;
-          adminCopyText(t).then(function () {
-            cutCopy.textContent = 'copied';
-            setTimeout(function () { cutCopy.textContent = 'copy command'; }, 1600);
-          }).catch(function () { cutCopy.textContent = 'copy failed'; });
-        });
         var pin = document.getElementById('stationEdit');
         if (pin) pin.addEventListener('click', function () {
           openStationPicker(+v.LATITUDE || 0, +v.LONGITUDE || 0, function (la, lo) {
