@@ -124,7 +124,7 @@ Listening periods scope the Collage, Stats, Atlas, and available detection clips
 
 ### Updating an existing station
 
-For the first v1 update, keep the existing checkout and run:
+For the first v1 update, or if an interrupted older update left the admin helper missing and Tools locked, keep the existing checkout and run this verified setup over SSH:
 
 ```bash
 upgrade=$(mktemp "$HOME/avian-v1-upgrade.XXXXXX")
@@ -140,18 +140,31 @@ cd ~/BirdNET-Pi
 ./scripts/update_birdnet.sh
 ```
 
-The updater keeps generated mask data and stops if tracked files have local edits. If its service setup needs repair, use **Tools → Reinstall services** or run:
+The updater preserves custom bird artwork, generated mask data, and existing credentials. It stops if other tracked files have local edits. It verifies and stages one official release before changing the checkout. If applying that release is interrupted, keep the new checkout and resume the same prepared installation without fetching another release:
 
 ```bash
-cd ~/BirdNET-Pi
-./scripts/reinstall_services.sh
+sudo /usr/local/sbin/avian-service-refresh
 ```
+
+If the installed refresher itself is missing or unsafe, use the verified setup command above. An already-running older updater cannot gain the new preparation checks until it has finished or been recovered this way. Only use `sudo /usr/local/sbin/avian-admin-control password-reset` for missing credentials after the helper is installed successfully.
 
 ---
 
-## 3. (Optional) Restyle the illustrations
+## 3. Illustration bundles
 
-The repo ships with 666 bundled illustrations (333 species, perched + flight). To restyle them or generate a set for your own region:
+By default, new stations use the included Japanese Woodblock bundle, which covers Western North America. If you live elsewhere or want a different style, open **Settings → Bird bundle** or browse available bundles at [avianvisitors.com/bundles](https://avianvisitors.com/bundles). On the public site, **Use on my local station** is the main action. Its adjacent command button opens and copies one line. After SSHing into a station or BirdFrame, run:
+
+```bash
+sudo avian-bundle use '<BUNDLE_ID>'
+```
+
+With a saved location, the device downloads the bundle's birds expected there throughout the year. Coordinates are not sent to the bundle catalog. Without a location, it downloads the full set; add `--all-species` to request the full set explicitly. In Settings, **Refresh local birds** reapplies a changed location to the current downloaded bundle.
+
+To share your own set, open **Tools → Your data → Export bundle**. Review the local illustrations, download the upload-ready ZIP, then sign in at [avianvisitors.com/bundles](https://avianvisitors.com/bundles) and upload it. The station never uploads a bundle automatically.
+
+### Restyle or generate your own
+
+The repo includes 666 illustrations for 333 species, each perched and in flight. To restyle them or generate a set for your own region:
 
 ```bash
 pip install -r ~/BirdNET-Pi/avian/scripts/requirements.txt
@@ -163,13 +176,16 @@ python3 ~/BirdNET-Pi/avian/scripts/cutout.py
 python3 ~/BirdNET-Pi/avian/scripts/build_masks.py
 ```
 
+On an installed station, run all three commands in order. The first changed
+PNG temporarily marks the included artwork unavailable; the final
+`build_masks.py` call atomically republishes matching geometry and restores it.
+Do not copy individual PNGs directly into the live illustration directory.
+
 On a Pi with 4 GB of RAM or less, add `--model u2net` to the `cutout.py` command; the default model may be [OOM-killed](https://github.com/Twarner491/AvianVisitors/issues/17).
 
 Filter to your region with `--ebird-region US-CA` (needs `EBIRD_API_KEY`). The full pipeline, prompt, reference images, and per-species tuning live in [`avian/scripts/README.md`](avian/scripts/README.md). Style lives in [`prompt.template.md`](avian/scripts/prompt.template.md).
 
-**A bird with no illustration.** When the station hears a species outside the bundled set, open it in the Atlas and press **generate image** (admin unlocked; needs a Gemini key in Settings). It draws both poses with Gemini's Nano Banana 2 (`gemini-3.1-flash-image`) in about a minute. The image model has **no free tier**: a key without billing gets the button message *gemini key needs billing for images*; turn billing on for the key's Google Cloud project (roughly 4 cents an image, two per bird; the site caps it at 20 runs an hour). If a species keeps coming out wrong (a yellow bill on a Black-billed Magpie, say), add a line for it to [`species-notes.json`](avian/scripts/species-notes.json) and generate again.
-
-See [illustration bundles](illustration-bundles.md) for pregenerated bundles shared by other folks in the community, or share your own for others to use!
+**A bird with no illustration.** When the station hears a species outside the bundled set, open it in the Atlas and press **generate image** (admin unlocked, Japanese Woodblock as the active bundle, and a Gemini key in Settings). It draws both poses with Gemini's Nano Banana 2 (`gemini-3.1-flash-image`) in about a minute. The image model has **no free tier**: a key without billing gets the button message *gemini key needs billing for images*; turn billing on for the key's Google Cloud project (roughly 4 cents an image, two per bird; the site caps it at 20 runs an hour). If a species keeps coming out wrong (a yellow bill on a Black-billed Magpie, say), add a line for it to [`species-notes.json`](avian/scripts/species-notes.json) and generate again.
 
 ---
 
@@ -206,7 +222,10 @@ frame/                  # optional e-ink wall display (Pi + Inky, or ESP32 + ESP
 dev/                    # tools for working on a live station (not installed or served)
 ```
 
-Everything outside `avian/`, `frame/` and `dev/` is upstream BirdNET-Pi.
+Avian Visitors also maintains the root-level installer, security, test, and
+release-documentation files used to ship those two trees. Other inherited
+application files remain upstream BirdNET-Pi unless a release note says
+otherwise.
 
 On the station, `dev/` has the checks used before a change is called done:
 `dev/shot.sh` screenshots pages as a phone or desktop and flags page errors,

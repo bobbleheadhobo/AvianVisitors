@@ -4884,6 +4884,18 @@ body.av-local #dd-items  { display: block; }
   }
 }
 
+/* A historical plate can offer more than the original two pose choices. */
+.postcard-pose-toggle.has-variants {
+  max-width: calc(100% - 32px);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.postcard-pose-toggle.has-variants button {
+  flex: 0 0 auto;
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============ Readable type floor: collage chrome, Atlas, postcard ============
    The owner reads on 1080p monitors at 1x and on phones, where the original
    7-10px mono labels pixelate. This block sits last on purpose: it overrides

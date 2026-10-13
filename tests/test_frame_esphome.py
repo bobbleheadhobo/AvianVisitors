@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FRAME = ROOT / "frame"
+sys.path.insert(0, str(FRAME))  # display.py imports bundle_runtime beside it
 PURE = {(255, 255, 255), (0, 0, 0), (255, 0, 0), (255, 255, 0), (0, 0, 255), (0, 255, 0)}
 
 
@@ -167,7 +168,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
     def test_run_exports_both_variants_and_saves_state(self):
         calls = []
 
-        def fake_obtain(cfg, species=None, bird_names=None):
+        def fake_obtain(cfg, species=None, bundle=None, *, capture=None, bird_names=None):
             calls.append(bird_names)
             return collage_shot()
 
@@ -183,7 +184,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
         self.assertEqual(state["signature"], meta["species_sig"])
 
     def test_run_publishes_plain_frame_when_names_render_fails(self):
-        def fake_obtain(cfg, species=None, bird_names=None):
+        def fake_obtain(cfg, species=None, bundle=None, *, capture=None, bird_names=None):
             if bird_names:
                 raise RuntimeError("frame labels missing for: ?")
             return collage_shot()

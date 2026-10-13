@@ -91,6 +91,7 @@ DEFAULTS = {
     "heal_hours": 24,
     "state": "~/.birdframe/state.json",
     "cache": "~/.birdframe",
+    "bundle_root": "~/.birdframe/bundles",
     "timeout": 180,      # seconds; a Zero 2 W needs ~70-120s to shoot the collage
     "basic_user": None, "basic_pass": None,
 }
@@ -121,7 +122,10 @@ def fetch_recent(base, hours, timeout, auth=None):
     if auth:
         req.add_header("Authorization", auth)
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read(2_000_000)).get("species", [])
+        data = json.loads(r.read(2_000_000))
+    if not isinstance(data, dict) or not isinstance(data.get("species"), list):
+        raise ValueError("recent API has no species list")
+    return data["species"]
 
 
 def signature(species, scope=""):
@@ -153,16 +157,24 @@ def birdweather_signature_scope(cfg):
     return f"birdweather:zip:{cfg['bw_country']}:{value}:days:{cfg['bw_days']}"
 
 
-def fetch_species(cfg, auth=None):
+def fetch_species(cfg, auth=None, drawable=None):
     """The species list the signature is built from: the BirdNET-Pi recent API
     by default, or BirdWeather detections from one station or near a ZIP when
     species_source = "birdweather"."""
     if cfg.get("species_source") == "birdweather":
         import birdweather
         kind, value = birdweather_locator(cfg)
+        inventory = {} if drawable is None else {"drawable": drawable}
         if kind == "station":
-            return birdweather.species_for_station(value, days=cfg["bw_days"])
-        return birdweather.species_for_zip(value, country=cfg["bw_country"], days=cfg["bw_days"])
+            return birdweather.species_for_station(
+                value, days=cfg["bw_days"], **inventory
+            )
+        return birdweather.species_for_zip(
+            value,
+            country=cfg["bw_country"],
+            days=cfg["bw_days"],
+            **inventory,
+        )
     return fetch_recent(cfg["base_url"], cfg["hours"], cfg["timeout"], auth)
 
 
@@ -606,19 +618,44 @@ def shoot_viewport(geo):
     return {"vw": max(1, round(800 * geo.w / geo.h)), "vh": 800, "dsf": 2}
 
 
-def obtain_image(cfg, species=None, bird_names=None):
+def bundle_signature(cfg, species, bundle):
+    scope = birdweather_signature_scope(cfg) if cfg.get("species_source") == "birdweather" else ""
+    sig = signature(species, scope)
+    if bundle is not None:
+        sig = hashlib.sha256(
+            (sig + ":" + bundle.reference.get("selection_revision", bundle.reference["revision"])).encode()
+        ).hexdigest()[:16]
+    return sig
+
+
+def obtain_image(cfg, species=None, bundle=None, *, capture=None, bird_names=None):
     if bird_names is None:
         bird_names = cfg["bird_names"]
     look = dict(shoot_viewport(Geometry.from_cfg(cfg)), label_min_px=cfg["shoot_label_min_px"],
                 collage_vh=cfg["shoot_collage_vh"], cluster_ybias=cfg["shoot_cluster_ybias"])
+    bundle_options = (
+        {}
+        if bundle is None
+        else {
+            "cutout_resolver": bundle.resolve,
+            "dims_path": bundle.dims_path,
+            "masks_path": bundle.masks_path,
+            "bundle_assets": bundle.assets_response,
+        }
+    )
     if cfg.get("species_source") == "birdweather":
         from shoot import shoot_birdweather
         if species is None:  # gate skipped (--no-signature): fetch the list to render
-            species = fetch_species(cfg, _auth(cfg))
+            species = fetch_species(
+                cfg,
+                _auth(cfg),
+                drawable=None if bundle is None else bundle.drawable_slugs,
+            )
         out = os.path.join(os.path.expanduser(cfg["cache"]), "frame.png")
         os.makedirs(os.path.dirname(out), exist_ok=True)
         shoot_birdweather(out, species, title=cfg["shoot_title"], subtitle=cfg["shoot_subtitle"],
-                          timeout_ms=cfg["timeout"] * 1000, bird_names=bird_names, **look)
+                          timeout_ms=cfg["timeout"] * 1000, bird_names=bird_names,
+                          capture=capture, **look, **bundle_options)
         return Image.open(out).convert("RGB")
     if cfg["shoot"]:
         from shoot import shoot
@@ -629,8 +666,12 @@ def obtain_image(cfg, species=None, bird_names=None):
               lowercase=cfg["shoot_lowercase"], mat=cfg["shoot_mat"],
               small_floor=cfg["shoot_small_floor"], count_exp=cfg["shoot_count_exp"], timeout_ms=cfg["timeout"] * 1000,
               user=cfg["basic_user"], password=cfg["basic_pass"], window_hours=cfg["hours"],
-              bird_names=bird_names, **look)
+              bird_names=bird_names, capture=capture, **look, **bundle_options)
         return Image.open(out).convert("RGB")
+    if bundle is not None:
+        raise ValueError(
+            "an active illustration bundle requires local or BirdWeather render mode"
+        )
     src = cfg["image_url"] or cfg["image"]
     if not src:
         raise ValueError("set image, image_url, or shoot in config")
@@ -643,38 +684,47 @@ def obtain_image(cfg, species=None, bird_names=None):
     return get_image(src, cfg["timeout"], _auth(cfg))
 
 
-def render(cfg, geo, species=None, bird_names=None):
+def render(cfg, geo, species=None, bird_names=None, bundle=None, *, capture=None):
     """Obtain the collage and lay it out on the panel. The source is first
     normalised to 1600 px tall at the panel's aspect (a no-op for the 13.3"
     and for a matching screenshot), the scale mat_and_center's split
     heuristic was tuned at."""
-    img = obtain_image(cfg, species, bird_names)
+    names = {} if bird_names is None else {"bird_names": bird_names}
+    img = obtain_image(cfg, species, bundle, capture=capture, **names)
     img = fit_panel(img, (max(1, round(1600 * geo.w / geo.h)), 1600))
     return mat_and_center(img, geo)
 
 
-def _export_both(cfg, geo, species, sig):
+def _export_both(cfg, geo, species, sig, bundle=None):
     """ESPHome output: render names off and names on. The plain image is the
-    one that must exist; a names render that fails keeps its last export."""
-    images = {"plain": render(cfg, geo, species, bird_names=False)}
+    one that must exist; a names render that fails keeps its last export.
+    Returns the signature of what the plain render actually drew."""
+    capture = {}
+    images = {"plain": render(cfg, geo, species, bird_names=False, bundle=bundle, capture=capture)}
+    if "species" in capture:
+        sig = bundle_signature(cfg, capture["species"], bundle)
     try:
-        images["names"] = render(cfg, geo, species, bird_names=True)
+        images["names"] = render(cfg, geo, species, bird_names=True, bundle=bundle)
     except Exception as e:
         print(f"names render failed, keeping the last one: {e}", file=sys.stderr)
     check = {part: int(cfg[f"check_{part}"]) * 60 for part in ("dawn", "day", "night")}
     meta = export_esphome(images, cfg["export_dir"], sig, ink_look(cfg), check)
     print(f"exported to {cfg['export_dir']}: sig {meta.get('sig')} names {meta.get('sig_names')}")
+    return sig
 
 
-def _gate(cfg, state, now, preview, force, use_signature):
+def _gate(cfg, state, now, preview, force, use_signature, bundle=None):
     """Decide whether this run refreshes. Returns (go, sig, species)."""
     sig = None
     species = None
     if use_signature:
         try:
-            species = fetch_species(cfg, _auth(cfg))
-            scope = birdweather_signature_scope(cfg) if cfg.get("species_source") == "birdweather" else ""
-            sig = signature(species, scope)
+            species = fetch_species(
+                cfg,
+                _auth(cfg),
+                drawable=None if bundle is None else bundle.drawable_slugs,
+            )
+            sig = bundle_signature(cfg, species, bundle)
         except Exception as e:
             print(f"signature fetch failed: {e}", file=sys.stderr)  # treat as no change
     heal_due = now - state.get("last_refresh", 0) >= cfg["heal_hours"] * 3600
@@ -691,47 +741,58 @@ def _gate(cfg, state, now, preview, force, use_signature):
 
 
 def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
+    """One refresh. Returns False only when something failed; a skip is fine."""
     now = time.time()
     state = load_state(cfg["state"])
     web = cfg.get("_web_sig")
     if web is not None and web != state.get("web") and not preview:
         print("website settings changed or a refresh was asked for")
         force = True
-    go, sig, species = _gate(cfg, state, now, preview, force, use_signature)
+    try:
+        from bundle_runtime import active_bundle
+        bundle = active_bundle(cfg.get("bundle_root"))
+    except Exception as error:
+        print(f"active bundle validation failed: {error}", file=sys.stderr)
+        return False
+    go, sig, species = _gate(cfg, state, now, preview, force, use_signature, bundle)
     if not go:
-        return
+        return True
     try:
         geo = Geometry.from_cfg(cfg)
     except ValueError as e:
         print(f"bad panel config: {e}", file=sys.stderr)
-        return
+        return False
     if cfg["output"] == "esphome" and not preview:
         try:
-            _export_both(cfg, geo, species, sig)
+            sig = _export_both(cfg, geo, species, sig, bundle)
         except Exception as e:
             print(f"could not render: {e}", file=sys.stderr)  # the ESP32 keeps the last export
-            return
+            return False
         save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
-        return
+        return True
     try:
-        img = render(cfg, geo, species)
+        capture = {}
+        img = render(cfg, geo, species, bundle=bundle, capture=capture)
+        if "species" in capture:
+            sig = bundle_signature(cfg, capture["species"], bundle)
     except Exception as e:
         print(f"could not get image: {e}", file=sys.stderr)  # keep last panel image
-        return
+        return False
     if preview:
         out = quantize_spectra6(img, **ink_look(cfg))
         if mat_box:
             _draw_mat_box(out, geo)
         out.save(preview)
         print(f"wrote preview {preview}")
-        return
+        return True
     try:
         push_panel(img, cfg["rotate"], cfg["saturation"], cfg.get("panel", ""))
     except Exception as e:
         print(f"panel push failed: {e}", file=sys.stderr)
-        return
+        return False
     save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
     print("panel updated")
+    return True
 
 
 def load_config(path):
@@ -790,6 +851,7 @@ def main():
     ap.add_argument("--force", action="store_true", help="refresh even if unchanged")
     ap.add_argument("--no-signature", action="store_true", help="skip change detection")
     ap.add_argument("--mat-box", action="store_true", help="dev: outline the mat window on the preview")
+    ap.add_argument("--wait-lock", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -813,12 +875,20 @@ def main():
     os.makedirs(os.path.dirname(lock_path), exist_ok=True)
     lock = open(lock_path, "w")
     try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        flags = fcntl.LOCK_EX if args.wait_lock else fcntl.LOCK_EX | fcntl.LOCK_NB
+        fcntl.flock(lock, flags)
     except OSError:
         print("another render is in progress; skipping")
-        return
-    run(cfg, preview=args.preview, force=args.force, use_signature=not args.no_signature, mat_box=args.mat_box)
+        return 0
+    succeeded = run(
+        cfg,
+        preview=args.preview,
+        force=args.force,
+        use_signature=not args.no_signature,
+        mat_box=args.mat_box,
+    )
+    return 0 if succeeded else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
