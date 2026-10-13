@@ -1,0 +1,11 @@
+[Unit]
+Description=Avian Visitors: hourly check for the daily bird bundle switch
+
+[Timer]
+# Hourly, so the switch follows Settings > Reset time without a reinstall;
+# the script itself only acts once per site day.
+OnCalendar=*-*-* *:00:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

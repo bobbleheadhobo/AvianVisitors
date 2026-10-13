@@ -190,6 +190,11 @@ valid_config_value() {
     OVERLAP) valid_number "$value" 0 2.5 ;;
     RESET_AT_MIDNIGHT) [ "$value" = 0 ] || [ "$value" = 1 ] ;;
     RESET_HOUR) [[ "$value" =~ ^[0345]$ ]] ;;
+    BUNDLE_ROTATE) [ "$value" = 0 ] || [ "$value" = 1 ] ;;
+    BUNDLE_ROTATE_SKIP)
+      [ "${#value}" -le 1000 ] \
+        && [[ "$value" =~ ^([a-z0-9][a-z0-9._-]{0,79}(,[a-z0-9][a-z0-9._-]{0,79})*)?$ ]]
+      ;;
     LATITUDE) valid_number "$value" -90 90 ;;
     LONGITUDE) valid_number "$value" -180 180 ;;
     MAX_FILES_SPECIES)

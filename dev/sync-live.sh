@@ -24,6 +24,7 @@ problem() { printf 'WARN: %s\n' "$*"; warn=1; }
 map=$(awk '/^install_avian_controls\(\)/ {f=1} f && /<<.EOF.$/ {r=1; next} r && /^EOF$/ {exit} r {print}' scripts/install_services.sh)
 [ -n "$map" ] || { echo "could not read the helper map from scripts/install_services.sh" >&2; exit 2; }
 caddy_changed=0
+units_changed=0
 while read -r source target; do
   [ -f "scripts/$source" ] || continue
   installed=/usr/local/sbin/$target
@@ -51,16 +52,29 @@ while read -r source installed mode; do
   case "$source" in
     *.py) python3 -m py_compile "$source" ;;
     *.json) python3 -m json.tool "$source" >/dev/null ;;
+    *.service|*.timer) systemd-analyze verify "$source" >/dev/null 2>&1 || true ;;
     *) bash -n "$source" ;;
   esac || { echo "$source does not parse; not installing" >&2; exit 1; }
   sudo install -o root -g root -m "$mode" "$source" "$installed"
   note "installed $installed"
+  case "$installed" in /etc/systemd/*) units_changed=1 ;; esac
 done <<'BUNDLE_FILES'
 avian/scripts/bundle_manager.py /usr/local/sbin/avian-bundle-control 0755
 scripts/avian-bundle /usr/local/bin/avian-bundle 0755
 avian/scripts/bundle_species.py /usr/share/avian-visitors/bundles/bundle_species.py 0644
 avian/bundles/catalog-v1.json /usr/share/avian-visitors/bundles/catalog-v1.json 0644
+avian/scripts/bundle_rotate.py /usr/local/sbin/avian-bundle-rotate 0755
+templates/avian-bundle-rotate.service /etc/systemd/system/avian-bundle-rotate.service 0644
+templates/avian-bundle-rotate.timer /etc/systemd/system/avian-bundle-rotate.timer 0644
 BUNDLE_FILES
+[ "$units_changed" = 1 ] && sudo systemctl daemon-reload
+if ! systemctl is-enabled --quiet avian-bundle-rotate.timer 2>/dev/null; then
+  if [ "$check" = 1 ]; then
+    problem "avian-bundle-rotate.timer is not enabled (New bundle each day never runs)"
+  else
+    sudo systemctl enable --now avian-bundle-rotate.timer 2>/dev/null && note "enabled avian-bundle-rotate.timer"
+  fi
+fi
 
 # --- Caddy ------------------------------------------------------------------
 if [ "$caddy_changed" = 1 ] && [ "$check" = 0 ]; then

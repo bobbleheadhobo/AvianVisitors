@@ -44,6 +44,10 @@ $ALLOWED = [
     'RESET_AT_MIDNIGHT'  => ['type' => 'bool'],
     // The hour Reset at midnight starts the day at (0 = midnight).
     'RESET_HOUR'         => ['type' => 'enum',  'values' => ['0', '3', '4', '5']],
+    // Settings > Station > New bundle each day (avian-bundle-rotate.timer).
+    // The list holds the downloaded bundles left OUT, so new ones join.
+    'BUNDLE_ROTATE'      => ['type' => 'bool'],
+    'BUNDLE_ROTATE_SKIP' => ['type' => 'idlist', 'maxlen' => 1000],
     'MAX_FILES_SPECIES'  => ['type' => 'int',   'min' => 0,    'max' => 100000],
     'FULL_DISK'          => ['type' => 'enum',  'values' => ['purge', 'keep']],
     'PURGE_THRESHOLD'    => ['type' => 'int',   'min' => 50,   'max' => 99],
@@ -268,6 +272,12 @@ if ($method === 'POST') {
             // source. Keep shell metacharacters out before the root writer
             // repeats the same validation.
             if (!safe_string_value($v)) { $errors[$k] = 'invalid characters'; continue; }
+        } elseif ($spec['type'] === 'idlist') {
+            // Comma-separated bundle ids, as avian-bundle-control spells them.
+            if (!is_string($v) || strlen($v) > $spec['maxlen']
+                || !preg_match('/\A(?:[a-z0-9][a-z0-9._-]{0,79}(?:,[a-z0-9][a-z0-9._-]{0,79})*)?\z/', $v)) {
+                $errors[$k] = 'invalid bundle list'; continue;
+            }
         } elseif ($spec['type'] === 'title') {
             if (!is_string($v)) { $errors[$k] = 'not a string'; continue; }
             $v = trim($v);

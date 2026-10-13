@@ -175,7 +175,19 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `avian-bundle-control` (`avian/scripts/bundle_manager.py` installed as
   root); downloaded sets live under `/var/lib/avian-visitors`. Our own art
   (generated or hand-made) belongs to the included Japanese Woodblock set,
-  and generate refuses while another bundle is active. Upstream's tests
+  and generate refuses while another bundle is active.
+  Settings > Station > New bundle each day: `BUNDLE_ROTATE` and
+  `BUNDLE_ROTATE_SKIP` (the downloaded ids left out, so new downloads join)
+  in birdnet.conf; `avian-bundle-rotate.timer` runs hourly as root
+  (`avian/scripts/bundle_rotate.py` → `/usr/local/sbin/avian-bundle-rotate`,
+  units in `templates/`, installed as copies by `install_avian_controls` and
+  `dev/sync-live.sh`) and switches once per site day via the manager's
+  `activate` job. Trap: a oneshot unit's leftover processes are killed when it
+  exits, and `enqueue` detaches its worker, so the script must wait for the
+  job (a first version didn't, and left a job stuck "queued", which blocks all bundle jobs for
+  4 h; finish one with `sudo env -i PATH=/usr/bin:/bin
+  /usr/local/sbin/avian-bundle-control run-job --job-id <id>`). Log:
+  `sudo journalctl -u avian-bundle-rotate`. Upstream's tests
   assume 333 species and their own admin session format; ours has 336 and
   v5 sessions, and those tests are adjusted for it.
 - `avian/api/*.php`: JSON endpoints. **A new endpoint must be added to the

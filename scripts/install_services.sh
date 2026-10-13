@@ -166,6 +166,15 @@ EOF
   install -o root -g root -m 0644 \
     "${my_dir}/avian/scripts/bundle_species.py" \
     /usr/share/avian-visitors/bundles/bundle_species.py
+  # Settings > Station > New bundle each day. Root-owned copies, not links
+  # into the checkout: the service runs as root.
+  install -o root -g root -m 0755 \
+    "${my_dir}/avian/scripts/bundle_rotate.py" /usr/local/sbin/avian-bundle-rotate
+  install -o root -g root -m 0644 \
+    "${my_dir}/templates/avian-bundle-rotate.service" \
+    "${my_dir}/templates/avian-bundle-rotate.timer" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now avian-bundle-rotate.timer
   env -i LC_ALL=C PATH=/usr/sbin:/usr/bin:/sbin:/bin \
     /usr/local/sbin/avian-bundle-control configure-station \
     --user "$USER" --root "$my_dir" --json

@@ -8210,6 +8210,84 @@
       + '    aria-checked="' + (on ? 'true' : 'false') + '" data-atlas-classic></button>'
       + '</div>';
   }
+  // Settings > Station > New bundle each day. avian-bundle-rotate.timer does
+  // the switching; this only saves BUNDLE_ROTATE and the downloaded bundles
+  // left out (BUNDLE_ROTATE_SKIP), so a new download joins by itself. The
+  // list folds away behind one row so it stays small as bundles are added.
+  function bundleRotateRow(v) {
+    var on = !!v.BUNDLE_ROTATE;
+    return ''
+      + settingsToggle('BUNDLE_ROTATE', 'New bundle each day', 'switches at the reset time', on)
+      + '<div class="bundle-rotate" data-bundle-rotate' + (on ? '' : ' hidden') + '>'
+      + '  <div class="menu-row bundle-setting-row">'
+      + '    <div><span class="label">Bundles to use</span>'
+      + '      <span class="hint" data-bundle-rotate-note hidden></span></div>'
+      + '    <button class="bundle-setting-trigger bundle-rotate-trigger" type="button" data-bundle-rotate-open'
+      + '      aria-expanded="false" aria-controls="bundleRotateList">'
+      + '      <span data-bundle-rotate-count>loading</span>'
+      + '      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>'
+      + '    </button>'
+      + '  </div>'
+      + '  <div class="bundle-rotate-list" id="bundleRotateList" data-bundle-rotate-list hidden></div>'
+      + '</div>';
+  }
+
+  function wireBundleRotate(scope, v) {
+    var wrap = scope.querySelector('[data-bundle-rotate]');
+    var sw = scope.querySelector('.switch[data-key="BUNDLE_ROTATE"]');
+    if (!wrap || !sw) return function () { };
+    var open = wrap.querySelector('[data-bundle-rotate-open]');
+    var list = wrap.querySelector('[data-bundle-rotate-list]');
+    var count = wrap.querySelector('[data-bundle-rotate-count]');
+    var note = wrap.querySelector('[data-bundle-rotate-note]');
+    var ID = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+    var skip = String(v.BUNDLE_ROTATE_SKIP || '').split(',').filter(function (id) { return ID.test(id); });
+    var installed = [];
+    settingsBaseline.BUNDLE_ROTATE_SKIP = skip.slice().sort().join(',');
+
+    function show() {
+      var ticked = installed.filter(function (b) { return skip.indexOf(b.id) < 0; }).length;
+      count.textContent = !installed.length ? 'none downloaded'
+        : ticked === installed.length ? 'all ' + installed.length
+        : ticked + ' of ' + installed.length;
+      note.hidden = ticked >= 2 || !installed.length;
+      note.textContent = installed.length < 2
+        ? 'download another bundle to switch between'
+        : 'tick at least two to switch between';
+    }
+    function draw() {
+      list.innerHTML = installed.map(function (b) {
+        return '<label class="bundle-rotate-item">'
+          + '<input type="checkbox" value="' + adminAttr(b.id) + '"' + (skip.indexOf(b.id) < 0 ? ' checked' : '') + '>'
+          + '<span>' + adminEsc(b.name || b.id) + '</span></label>';
+      }).join('');
+      show();
+    }
+    list.addEventListener('change', function (event) {
+      var box = event.target;
+      if (!box || box.type !== 'checkbox') return;
+      skip = skip.filter(function (id) { return id !== box.value; });
+      if (!box.checked) skip.push(box.value);
+      stageSetting('BUNDLE_ROTATE_SKIP', skip.slice().sort().join(','));
+      show();
+    });
+    open.addEventListener('click', function () {
+      var expand = list.hidden;
+      list.hidden = !expand;
+      open.setAttribute('aria-expanded', expand ? 'true' : 'false');
+    });
+    sw.addEventListener('click', function () {
+      wrap.hidden = sw.getAttribute('aria-checked') !== 'true';
+    });
+    return function (snapshot) {
+      var lib = snapshot && snapshot.library;
+      installed = (lib && Array.isArray(lib.installed) ? lib.installed : []).filter(function (b) {
+        return b && ID.test(String(b.id || ''));
+      });
+      draw();
+    };
+  }
+
   function deleteEverywhereRow() {
     var on = deleteEverywhere();
     return ''
@@ -13852,7 +13930,7 @@
           + stationRow(v)
           // The bundle draws every bird on the site and the frame, so it is a
           // station setting, not a per-browser one.
-          + (window.AVIAN_BUNDLES ? window.AVIAN_BUNDLES.rowMarkup() : '')
+          + (window.AVIAN_BUNDLES ? window.AVIAN_BUNDLES.rowMarkup() + bundleRotateRow(v) : '')
           + '</section>'
           + settingsHead('detection')
           + '<section>'
@@ -13927,8 +14005,10 @@
         wireArchiveControl(adminBody, archive);
         wireSettingsInfo(adminBody);
         if (window.AVIAN_BUNDLES) {
+          var showRotateLibrary = wireBundleRotate(adminBody, v);
           window.AVIAN_BUNDLES.mount({
             root: adminBody,
+            onSnapshot: showRotateLibrary,
             latitude: v.LATITUDE,
             longitude: v.LONGITUDE,
             refreshArtwork: function (active) { return refreshBundleArtwork(active); },

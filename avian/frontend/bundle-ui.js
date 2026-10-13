@@ -22,6 +22,9 @@
   // session into the unlock prompt instead of a raw "unauthorized" error.
   var adminRequest = null;
   var refreshArtwork = null;
+  // Settings' own listener for a fresh library (New bundle each day lists
+  // the downloaded bundles from it).
+  var snapshotListener = null;
   var requestController = null;
   var pollTimer = 0;
   var pollDeadline = 0;
@@ -190,6 +193,9 @@
     var job = ownRecord(value.job) ? value.job : null;
     setBusy(!!job && job.state === 'running');
     sendLibrary();
+    if (snapshotListener) {
+      try { snapshotListener(value); } catch (_) { }
+    }
     return value;
   }
 
@@ -861,6 +867,7 @@
     note = root.querySelector('[data-bundle-note]');
     live = root.querySelector('[data-bundle-live]');
     refreshArtwork = options.refreshArtwork || null;
+    snapshotListener = typeof options.onSnapshot === 'function' ? options.onSnapshot : null;
     adminRequest = typeof options.fetch === 'function' ? options.fetch : null;
     stationRegion = broadRegionForCoordinates(options.latitude, options.longitude);
     mounted = true;
@@ -904,6 +911,7 @@
     live = null;
     snapshot = null;
     refreshArtwork = null;
+    snapshotListener = null;
     adminRequest = null;
     requestedPackId = '';
     stationRegion = '';

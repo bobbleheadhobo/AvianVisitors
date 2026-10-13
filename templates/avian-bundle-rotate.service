@@ -1,0 +1,10 @@
+[Unit]
+Description=Avian Visitors: switch to another bird bundle once a day
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/avian-bundle-rotate
+# It waits for the bundle job it queues (a few seconds; longer if the pack
+# has to be re-verified).
+TimeoutStartSec=30min

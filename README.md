@@ -160,6 +160,8 @@ sudo avian-bundle use '<BUNDLE_ID>'
 
 With a saved location, the device downloads the bundle's birds expected there throughout the year. Coordinates are not sent to the bundle catalog. Without a location, it downloads the full set; add `--all-species` to request the full set explicitly. In Settings, **Refresh local birds** reapplies a changed location to the current downloaded bundle.
 
+For a different look each day, turn on **Settings → Station → New bundle each day**. At the reset time (4am by default) the station switches to a random downloaded bundle, never the same one twice in a row. **Bundles to use** lists the downloaded bundles; untick any to leave out. Bundles you download later are included automatically. Your own generated birds only appear in Japanese Woodblock, and **generate image** only works on days that bundle is active.
+
 To share your own set, open **Tools → Your data → Export bundle**. Review the local illustrations, download the upload-ready ZIP, then sign in at [avianvisitors.com/bundles](https://avianvisitors.com/bundles) and upload it. The station never uploads a bundle automatically.
 
 ### Restyle or generate your own
