@@ -13837,7 +13837,6 @@
           + settingsHead('this device')
           + '<section>'
           + themeRow()
-          + (window.AVIAN_BUNDLES ? window.AVIAN_BUNDLES.rowMarkup() : '')
           + labelsRow()
           + atlasAlwaysAllRow()
           + atlasClassicRow()
@@ -13847,6 +13846,9 @@
           + '<section>'
           + settingsText('SITE_NAME', 'Station name', v.SITE_NAME || 'BirdNET-Pi', 60)
           + stationRow(v)
+          // The bundle draws every bird on the site and the frame, so it is a
+          // station setting, not a per-browser one.
+          + (window.AVIAN_BUNDLES ? window.AVIAN_BUNDLES.rowMarkup() : '')
           + '</section>'
           + settingsHead('detection')
           + '<section>'

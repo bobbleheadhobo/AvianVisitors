@@ -83,8 +83,10 @@ fi
 [ -L /etc/birdnet/birdnet.conf ] || problem "/etc/birdnet/birdnet.conf is no longer a symlink to the repo copy"
 
 # --- runtime files in /run (emptied at boot) ----------------------------------
-[ -f /run/lock/avian-generation.lock ] && [ -f /etc/tmpfiles.d/avian-generation.conf ] \
-  || problem "illustration generation lock or its tmpfiles.d entry is missing (Atlas generate fails); run: sudo avian-security-refresh"
+grep -qs avian-generation.lock /etc/tmpfiles.d/avian-bundle-locks.conf && [ -f /run/lock/avian-generation.lock ] \
+  || problem "illustration generation lock or its tmpfiles.d entry is missing (Atlas generate fails); rerun install_avian_controls (see CLAUDE.md)"
+[ -e /etc/tmpfiles.d/avian-generation.conf ] \
+  && problem "/etc/tmpfiles.d/avian-generation.conf is obsolete (avian-bundle-locks.conf has the lock now); remove it"
 
 # --- test data -----------------------------------------------------------------
 fakes=$(sqlite3 scripts/birds.db "SELECT COUNT(*) FROM detections WHERE File_Name LIKE 'FAKE-%'" 2>/dev/null || echo 0)
