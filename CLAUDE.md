@@ -322,6 +322,15 @@ says whether admin is open in this tab.
   own reverse proxy, so every request counts as remote and needs admin
   unlocked); the LAN is plain http (192.168.0.112). HTTPS-only features must be
   tested through the proxy URL.
+- That name resolves two ways. On the LAN (split DNS) it's the proxy at
+  192.168.0.106 with no login. From outside, or a phone using Private DNS,
+  it's Cloudflare, and then a Basic-auth gate (401 for everything until the
+  browser logs in). `dev/shot.sh --base https://merlin.streamvine.app` from
+  here never meets that gate. To see it:
+  `curl --resolve merlin.streamvine.app:443:104.21.80.87 ...`. The bundle
+  catalog iframe (`sandbox="allow-scripts"`, an opaque origin) loads its CSS
+  and JS without the browser's saved Basic-auth login, so behind the gate it
+  shows unstyled and stuck on "Loading bundles".
 - Mic: ALSA dsnoop device `birdmic` (`~/.asoundrc`), `REC_CARD=birdmic`,
   `CHANNELS=1`; the user's PulseAudio units are masked on purpose.
 - The `avian` user has passwordless sudo, so you can install helpers and
