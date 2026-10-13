@@ -37,6 +37,24 @@ $tableLock = !empty($active['included'])
 if ($tableLock === false) {
     avian_bundle_assets_fail(503, 'active bundle inventory is changing');
 }
+
+// The ETag needs only the file-identity revision, so an unchanged client
+// (the frame polls this every few minutes) gets its 304 before the ~820 KB
+// tables are read and decoded.
+$contentRevision = avian_bundle_content_revision($active, $tableLock);
+if ($contentRevision === null) {
+    avian_bundle_close_included_table_read_lock($tableLock);
+    avian_bundle_assets_fail(503, 'active bundle inventory is unavailable');
+}
+$etag = '"avian-bundle-' . $active['revision']
+    . ($active['included'] || isset($active['selection_revision']) ? '-' . $contentRevision : '') . '"';
+header('ETag: ' . $etag);
+if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+    avian_bundle_close_included_table_read_lock($tableLock);
+    http_response_code(304);
+    exit;
+}
+
 $dims = avian_bundle_read_table($active, 'dims');
 $masks = avian_bundle_read_table($active, 'masks');
 if ($dims === null || $masks === null) {
@@ -77,18 +95,7 @@ if (!$active['included']) {
     }
 }
 
-$contentRevision = avian_bundle_content_revision($active, $tableLock);
 avian_bundle_close_included_table_read_lock($tableLock);
-if ($contentRevision === null) {
-    avian_bundle_assets_fail(503, 'active bundle inventory is unavailable');
-}
-$etag = '"avian-bundle-' . $active['revision']
-    . ($active['included'] || isset($active['selection_revision']) ? '-' . $contentRevision : '') . '"';
-header('ETag: ' . $etag);
-if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
-    http_response_code(304);
-    exit;
-}
 
 echo json_encode([
     'ok' => true,
