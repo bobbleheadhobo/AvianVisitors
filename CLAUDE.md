@@ -44,8 +44,8 @@ themselves, almost all from the first four gaps here):
    allow-list, a broken `birdnet.conf` symlink, or leftover fake detections.
    It must print "live copy matches the checkout".
 4. **Test data gone.** `birdnet/bin/python dev/fake-detection.py clean`.
-5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the two known
-   failures noted below.
+5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the one known
+   failure noted below.
 
 When the owner reports a bug, the fix includes whatever would have caught it:
 a test, a `dev/sync-live.sh` check, or a line in this list.
@@ -74,13 +74,12 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
 
 ## Checking your work
 
-- `birdnet/bin/python -m pytest -q tests`. Two failures are expected on the
-  station, both from root-owned files a CI machine doesn't have:
-  `test_diagnostic_redaction.py::...stale_logs` (the user can't read
-  `/etc/caddy/Caddyfile`) and `test_bundle_manager.py::...test_use_refreshes_installs_activates_and_is_idempotent`
-  (its worker process reads the installed
-  `/usr/share/avian-visitors/bundles/station.json`; the other bundle tests
-  point that path elsewhere).
+- `birdnet/bin/python -m pytest -q tests`. One failure is expected on the
+  station: `test_diagnostic_redaction.py::...stale_logs` (the user can't read
+  `/etc/caddy/Caddyfile`). The bundle-manager tests point
+  `STATION_RUNTIME_PATH` at a missing file, and their job workers start
+  through `WORKER_SHIM`, because a provisioned station's root-owned
+  `/usr/share/avian-visitors/bundles/station.json` reads as unsafe to them.
 - PHP: `php -l <file>`. Bash: `bash -n <file>`.
 - Screenshots: `dev/shot.sh` drives the headless Chromium already in
   `~/.cache/ms-playwright` through a playwright venv kept in
@@ -162,7 +161,11 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   with `TABLE_VERSION`. Changing art without bumping these leaves browsers on
   the old picture (`dev/sync-live.sh` warns). New art from outside the
   generator: run it through `generate_one.chroma_cut`, then
-  `build_masks.py --add <slug>` as `caddy`. Since the v1.3 merge build_masks
+  `build_masks.py --add <slug>` as `caddy`. Included art keeps its plain
+  `cutout.php` URL keyed by `ART_REVISIONS` (no `bundle=`/`content=`):
+  binding it to the content revision re-downloads every bird whenever one is
+  added and gives open tabs 409s. Only downloaded bundles use revision-bound
+  URLs. Since the v1.3 merge build_masks
   takes `/run/lock/avian-generation.lock` itself and commits a new content
   revision (`/var/lib/avian-visitors/included-art.revision`), so don't hold
   the lock around it (it deadlocks). A failed run leaves the revision marked
@@ -211,7 +214,10 @@ Anything a feature needs in `/run` is gone after a reboot; give it a
 `/etc/tmpfiles.d/avian-bundle-locks.conf`, written by `install_avian_controls`).
 
 **After editing a helper, the installed copy is stale: run
-`dev/sync-live.sh`.** It installs every helper that differs from the repo.
+`dev/sync-live.sh`.** It installs every helper that differs from the repo,
+and the bundle manager's root copies (`avian-bundle-control`,
+`/usr/local/bin/avian-bundle`, `bundle_species.py` and `catalog-v1.json` in
+`/usr/share/avian-visitors/bundles`).
 Never run `avian-caddy-refresh` by hand before installing the repo copy: a
 stale installed copy rewrites the Caddyfile from its old route list and drops
 routes (it dropped `manifest.php` once). On another station the owner's route

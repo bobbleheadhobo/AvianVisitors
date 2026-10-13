@@ -27,6 +27,25 @@ SPEC.loader.exec_module(bundle_manager)
 # A provisioned station has a root-owned station.json the tests must not read.
 bundle_manager.STATION_RUNTIME_PATH = Path("/nonexistent/avian-test/station.json")
 
+# Job workers re-import the manager in a new process; run them through this
+# shim so they skip the installed station.json too.
+WORKER_SHIM = (
+    "import importlib.util, pathlib, sys\n"
+    "spec = importlib.util.spec_from_file_location('avian_bundle_worker', sys.argv[1])\n"
+    "module = importlib.util.module_from_spec(spec)\n"
+    "spec.loader.exec_module(module)\n"
+    "module.STATION_RUNTIME_PATH = pathlib.Path(%r)\n"
+    "sys.argv = sys.argv[1:]\n"
+    "raise SystemExit(module.main())\n"
+) % str(bundle_manager.STATION_RUNTIME_PATH)
+
+
+def isolated_worker(command):
+    if (isinstance(command, list) and len(command) > 1
+            and Path(command[1]).resolve() == Path(MANAGER_PATH).resolve()):
+        return [command[0], "-c", WORKER_SHIM, *command[1:]]
+    return command
+
 
 def png_bytes(color: tuple[int, int, int, int]) -> bytes:
     """Return a small, static PNG with both visible art and transparency."""
@@ -1027,8 +1046,8 @@ class BundleLifecycleTests(unittest.TestCase):
         workers = []
         real_popen = subprocess.Popen
 
-        def tracked_popen(*args, **kwargs):
-            worker = real_popen(*args, **kwargs)
+        def tracked_popen(command, *args, **kwargs):
+            worker = real_popen(isolated_worker(command), *args, **kwargs)
             workers.append(worker)
             return worker
 

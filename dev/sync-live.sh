@@ -38,6 +38,30 @@ while read -r source target; do
   [ "$target" = avian-caddy-refresh ] && caddy_changed=1
 done <<<"$map"
 
+# --- bundle manager ----------------------------------------------------------
+# install_avian_controls copies these outside its helper map; keep the list in
+# step with it. The manager runs as root, so a stale copy keeps old behaviour.
+while read -r source installed mode; do
+  [ -f "$source" ] || continue
+  if sudo cmp -s "$source" "$installed" 2>/dev/null; then continue; fi
+  if [ "$check" = 1 ]; then
+    problem "$installed differs from $source"
+    continue
+  fi
+  case "$source" in
+    *.py) python3 -m py_compile "$source" ;;
+    *.json) python3 -m json.tool "$source" >/dev/null ;;
+    *) bash -n "$source" ;;
+  esac || { echo "$source does not parse; not installing" >&2; exit 1; }
+  sudo install -o root -g root -m "$mode" "$source" "$installed"
+  note "installed $installed"
+done <<'BUNDLE_FILES'
+avian/scripts/bundle_manager.py /usr/local/sbin/avian-bundle-control 0755
+scripts/avian-bundle /usr/local/bin/avian-bundle 0755
+avian/scripts/bundle_species.py /usr/share/avian-visitors/bundles/bundle_species.py 0644
+avian/bundles/catalog-v1.json /usr/share/avian-visitors/bundles/catalog-v1.json 0644
+BUNDLE_FILES
+
 # --- Caddy ------------------------------------------------------------------
 if [ "$caddy_changed" = 1 ] && [ "$check" = 0 ]; then
   note "regenerating the Caddyfile..."
@@ -50,7 +74,8 @@ allowed=$(sudo grep -o '/avian/api/[a-z-]*\.php' /etc/caddy/Caddyfile 2>/dev/nul
 for f in avian/api/*.php; do
   route=/$f
   grep -qxF "$route" <<<"$allowed" && continue
-  grep -rqF "api/$(basename "$f")" avian/frontend/apt.js avian/frontend/index.html frame 2>/dev/null \
+  grep -rqF "api/$(basename "$f")" avian/frontend/apt.js avian/frontend/index.html \
+    avian/frontend/bundle-ui.js avian/frontend/assets/bundle-catalog frame 2>/dev/null \
     && problem "$route is used by the frontend but the live Caddyfile does not allow it (add it in scripts/update_caddyfile.sh)"
 done
 
