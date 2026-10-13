@@ -126,12 +126,7 @@ function search_path(): string {
 }
 
 function find_executable(string $name): ?string {
-    // PHP-FPM clears PATH unless the pool explicitly supplies it.
-    $path = (string)getenv('PATH');
-    $directories = $path !== ''
-        ? explode(PATH_SEPARATOR, $path)
-        : ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin'];
-    foreach ($directories as $directory) {
+    foreach (explode(PATH_SEPARATOR, search_path()) as $directory) {
         if ($directory === '' || $directory[0] !== DIRECTORY_SEPARATOR) continue;
         $candidate = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $name;
         if (is_file($candidate) && is_executable($candidate)) return $candidate;

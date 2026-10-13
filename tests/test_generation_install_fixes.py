@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PHP = shutil.which("php")
 
 
+def generator_lookup_functions():
+    """find_executable and the search_path() fallback it reads."""
+    source = (ROOT / "avian/api/generate.php").read_text()
+    return "\n".join(re.search(rf"function {name}\(.*?^\}}", source, re.M | re.S).group()
+                     for name in ("search_path", "find_executable"))
+
+
 def shell_functions(path):
     return "\n".join(re.findall(
         r"^\w+\(\) \{\n.*?^\}", path.read_text(), re.M | re.S))
@@ -22,9 +29,7 @@ def shell_functions(path):
 @pytest.mark.skipif(not PHP, reason="PHP is unavailable")
 @pytest.mark.parametrize("path", [None, ""])
 def test_generator_finds_nohup_without_fpm_path(path):
-    function = re.search(
-        r"function find_executable\(.*?^\}",
-        (ROOT / "avian/api/generate.php").read_text(), re.M | re.S).group()
+    function = generator_lookup_functions()
     env = dict(os.environ)
     env.pop("PATH", None)
     if path is not None:
@@ -40,9 +45,7 @@ def test_generator_finds_nohup_without_fpm_path(path):
 
 @pytest.mark.skipif(not PHP, reason="PHP is unavailable")
 def test_generator_respects_explicit_path_and_ignores_relative_entries(tmp_path):
-    function = re.search(
-        r"function find_executable\(.*?^\}",
-        (ROOT / "avian/api/generate.php").read_text(), re.M | re.S).group()
+    function = generator_lookup_functions()
     (tmp_path / "nohup").write_text("#!/bin/sh\nexit 0\n")
     (tmp_path / "nohup").chmod(0o755)
     for path, expected in [(str(tmp_path), str(tmp_path / "nohup")), (".:", None)]:
