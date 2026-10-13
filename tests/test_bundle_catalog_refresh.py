@@ -19,6 +19,8 @@ SPEC = importlib.util.spec_from_file_location("avian_bundle_refresh_manager", MA
 assert SPEC is not None and SPEC.loader is not None
 bundle_manager = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bundle_manager)
+# A provisioned station has a root-owned station.json the tests must not read.
+bundle_manager.STATION_RUNTIME_PATH = Path("/nonexistent/avian-test/station.json")
 
 from tests.test_bundle_manager import BundleFixture
 

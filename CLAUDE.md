@@ -44,8 +44,8 @@ themselves, almost all from the first four gaps here):
    allow-list, a broken `birdnet.conf` symlink, or leftover fake detections.
    It must print "live copy matches the checkout".
 4. **Test data gone.** `birdnet/bin/python dev/fake-detection.py clean`.
-5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the one known
-   failure noted below.
+5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the two known
+   failures noted below.
 
 When the owner reports a bug, the fix includes whatever would have caught it:
 a test, a `dev/sync-live.sh` check, or a line in this list.
@@ -74,9 +74,13 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
 
 ## Checking your work
 
-- `birdnet/bin/python -m pytest -q tests`. One failure is expected on the
-  station: `test_diagnostic_redaction.py::...stale_logs` (the user can't read
-  `/etc/caddy/Caddyfile`).
+- `birdnet/bin/python -m pytest -q tests`. Two failures are expected on the
+  station, both from root-owned files a CI machine doesn't have:
+  `test_diagnostic_redaction.py::...stale_logs` (the user can't read
+  `/etc/caddy/Caddyfile`) and `test_bundle_manager.py::...test_use_refreshes_installs_activates_and_is_idempotent`
+  (its worker process reads the installed
+  `/usr/share/avian-visitors/bundles/station.json`; the other bundle tests
+  point that path elsewhere).
 - PHP: `php -l <file>`. Bash: `bash -n <file>`.
 - Screenshots: `dev/shot.sh` drives the headless Chromium already in
   `~/.cache/ms-playwright` through a playwright venv kept in
