@@ -150,8 +150,20 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   species' entry in `ART_REVISIONS` in `apt.js`; `dims.json`/`masks.json`
   with `TABLE_VERSION`. Changing art without bumping these leaves browsers on
   the old picture (`dev/sync-live.sh` warns). New art from outside the
-  generator: run it through `generate_one.chroma_cut` and
-  `build_masks.py --add` as `caddy`, holding `/run/lock/avian-generation.lock`.
+  generator: run it through `generate_one.chroma_cut`, then
+  `build_masks.py --add <slug>` as `caddy`. Since the v1.3 merge build_masks
+  takes `/run/lock/avian-generation.lock` itself and commits a new content
+  revision (`/var/lib/avian-visitors/included-art.revision`), so don't hold
+  the lock around it (it deadlocks). A failed run leaves the revision marked
+  invalid and the art unavailable until a build_masks run completes.
+- Illustration bundles (upstream v1.3): Settings > Station > Bird bundle, or
+  `sudo avian-bundle use '<id>'`. `bundles.php` runs jobs through
+  `avian-bundle-control` (`avian/scripts/bundle_manager.py` installed as
+  root); downloaded sets live under `/var/lib/avian-visitors`. Our own art
+  (generated or hand-made) belongs to the included Japanese Woodblock set,
+  and generate refuses while another bundle is active. Upstream's tests
+  assume 333 species and their own admin session format; ours has 336 and
+  v5 sessions, and those tests are adjusted for it.
 - `avian/api/*.php`: JSON endpoints. **A new endpoint must be added to the
   `@unknownAvianApi` allow-list in `scripts/update_caddyfile.sh`**, then
   Caddy regenerated (below), or it returns 404.
@@ -184,8 +196,8 @@ Privileged work goes through a helper with fixed, validated actions:
 PHP-FPM clears the environment, so `getenv('PATH')` is empty in endpoints:
 use absolute paths or a fallback (see `search_path()` in `generate.php`).
 Anything a feature needs in `/run` is gone after a reboot; give it a
-`tmpfiles.d` entry (the Atlas generation lock has one, written by
-`security_refresh.sh`).
+`tmpfiles.d` entry (the generation and bundle-export locks are in
+`/etc/tmpfiles.d/avian-bundle-locks.conf`, written by `install_avian_controls`).
 
 **After editing a helper, the installed copy is stale: run
 `dev/sync-live.sh`.** It installs every helper that differs from the repo.
@@ -193,6 +205,24 @@ Never run `avian-caddy-refresh` by hand before installing the repo copy: a
 stale installed copy rewrites the Caddyfile from its old route list and drops
 routes (it dropped `manifest.php` once). On another station the owner's route
 is Tools → Reinstall services.
+
+Tools → Reinstall services (`reinstall_services.sh`) refuses to run here: it
+requires `origin` to be Twarner491's repo and verifies against upstream
+history. Its root-side setup (bundle sandbox user, `avian-bundle-control`,
+`/usr/local/bin/avian-bundle`, tmpfiles locks) lives in
+`install_avian_controls` in `install_services.sh`; run just that function as
+root by sourcing the functions between `ensure_bundle_sandbox_user()` and
+`install_birdnet_analysis()` with `birdnet.conf` loaded, then
+`avian-security-refresh` (sudoers, the bundle-export PHP-FPM pool, the art
+revision), then `avian-caddy-refresh`, in that order: the Caddy generator
+stops if the bundle-export pool is missing. The system `python3` needs
+`python3-pil` for the security refresh's art rebuild.
+
+Merging upstream: do it in a worktree (`git worktree add`), not by switching
+branches here, since the site serves from this checkout. Upstream also runs
+tests under `frame/` and `avian/scripts/`
+(`birdnet/bin/python -m pytest -q frame avian/scripts`); the Playwright ones
+need `~/.cache/avian-dev-venv/bin/python -m pytest`.
 
 Endpoint pattern: `require_once admin-auth.php`, then `avian_require_admin()`
 (open on the direct LAN unless the LAN password gate is on; password-backed
