@@ -22,6 +22,7 @@ import re
 import statistics
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime
 
@@ -126,6 +127,45 @@ def fetch_recent(base, hours, timeout, auth=None):
     if not isinstance(data, dict) or not isinstance(data.get("species"), list):
         raise ValueError("recent API has no species list")
     return data["species"]
+
+
+def fetch_art_tag(base, timeout, known=None, auth=None):
+    """Which art the station draws birds with: bundle-assets.php's ETag names
+    the active bundle, its local selection and the included art's content
+    revision, so a bundle switch (or a newly generated bird) changes it. The
+    last tag goes back as If-None-Match, so an unchanged station answers 304
+    instead of sending its tables. A station without bundles (404) gives ""."""
+    url = f"{base.rstrip('/')}/avian/api/bundle-assets.php"
+    req = urllib.request.Request(url, headers={"User-Agent": "AvianVisitors-frame/1.0"})
+    if auth:
+        req.add_header("Authorization", auth)
+    if known:
+        req.add_header("If-None-Match", known)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            tag = r.headers.get("ETag")  # the body (the full tables) is left unread
+    except urllib.error.HTTPError as e:
+        if e.code == 304 and known:
+            return known
+        if e.code == 404:
+            return ""
+        raise
+    if not tag:
+        raise ValueError("bundle-assets.php sent no ETag")
+    return tag
+
+
+def station_art_tag(cfg, state):
+    """The art tag when this frame screenshots a station, else None (a
+    BirdWeather or image-URL frame draws with its own art or none)."""
+    if not cfg["shoot"] or cfg.get("species_source") == "birdweather":
+        return None
+    try:
+        return fetch_art_tag(cfg["base_url"], cfg["timeout"], state.get("art"), _auth(cfg))
+    except Exception as e:
+        # Keep the last tag: a missed check must not look like a switch.
+        print(f"art check failed: {e}", file=sys.stderr)
+        return state.get("art")
 
 
 def signature(species, scope=""):
@@ -583,12 +623,12 @@ def load_state(path):
         return {"signature": None, "last_refresh": 0}
 
 
-def save_state(path, sig, when, web=None):
+def save_state(path, sig, when, web=None, art=None):
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"signature": sig, "last_refresh": when, "web": web}, f)
+        json.dump({"signature": sig, "last_refresh": when, "web": web, "art": art}, f)
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)  # atomic: a power cut can't leave a half-written file
@@ -618,13 +658,15 @@ def shoot_viewport(geo):
     return {"vw": max(1, round(800 * geo.w / geo.h)), "vh": 800, "dsf": 2}
 
 
-def bundle_signature(cfg, species, bundle):
+def bundle_signature(cfg, species, bundle, art=None):
     scope = birdweather_signature_scope(cfg) if cfg.get("species_source") == "birdweather" else ""
     sig = signature(species, scope)
     if bundle is not None:
         sig = hashlib.sha256(
             (sig + ":" + bundle.reference.get("selection_revision", bundle.reference["revision"])).encode()
         ).hexdigest()[:16]
+    if art:  # the station's bundle and art revision (fetch_art_tag)
+        sig = hashlib.sha256((sig + ":art:" + art).encode()).hexdigest()[:16]
     return sig
 
 
@@ -695,14 +737,14 @@ def render(cfg, geo, species=None, bird_names=None, bundle=None, *, capture=None
     return mat_and_center(img, geo)
 
 
-def _export_both(cfg, geo, species, sig, bundle=None):
+def _export_both(cfg, geo, species, sig, bundle=None, art=None):
     """ESPHome output: render names off and names on. The plain image is the
     one that must exist; a names render that fails keeps its last export.
     Returns the signature of what the plain render actually drew."""
     capture = {}
     images = {"plain": render(cfg, geo, species, bird_names=False, bundle=bundle, capture=capture)}
     if "species" in capture:
-        sig = bundle_signature(cfg, capture["species"], bundle)
+        sig = bundle_signature(cfg, capture["species"], bundle, art)
     try:
         images["names"] = render(cfg, geo, species, bird_names=True, bundle=bundle)
     except Exception as e:
@@ -714,9 +756,10 @@ def _export_both(cfg, geo, species, sig, bundle=None):
 
 
 def _gate(cfg, state, now, preview, force, use_signature, bundle=None):
-    """Decide whether this run refreshes. Returns (go, sig, species)."""
+    """Decide whether this run refreshes. Returns (go, sig, species, art)."""
     sig = None
     species = None
+    art = None
     if use_signature:
         try:
             species = fetch_species(
@@ -724,7 +767,8 @@ def _gate(cfg, state, now, preview, force, use_signature, bundle=None):
                 _auth(cfg),
                 drawable=None if bundle is None else bundle.drawable_slugs,
             )
-            sig = bundle_signature(cfg, species, bundle)
+            art = station_art_tag(cfg, state)
+            sig = bundle_signature(cfg, species, bundle, art)
         except Exception as e:
             print(f"signature fetch failed: {e}", file=sys.stderr)  # treat as no change
     heal_due = now - state.get("last_refresh", 0) >= cfg["heal_hours"] * 3600
@@ -732,12 +776,12 @@ def _gate(cfg, state, now, preview, force, use_signature, bundle=None):
     if not force and not preview:
         if in_quiet_hours(cfg, datetime.now().hour):
             print("quiet hours; skip")
-            return False, sig, species
+            return False, sig, species, art
         if not changed and not heal_due:
             print("no change; skip")
-            return False, sig, species
+            return False, sig, species, art
         print("refresh:", "changed" if changed else "heal")
-    return True, sig, species
+    return True, sig, species, art
 
 
 def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
@@ -754,7 +798,7 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
     except Exception as error:
         print(f"active bundle validation failed: {error}", file=sys.stderr)
         return False
-    go, sig, species = _gate(cfg, state, now, preview, force, use_signature, bundle)
+    go, sig, species, art = _gate(cfg, state, now, preview, force, use_signature, bundle)
     if not go:
         return True
     try:
@@ -764,17 +808,18 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
         return False
     if cfg["output"] == "esphome" and not preview:
         try:
-            sig = _export_both(cfg, geo, species, sig, bundle)
+            sig = _export_both(cfg, geo, species, sig, bundle, art)
         except Exception as e:
             print(f"could not render: {e}", file=sys.stderr)  # the ESP32 keeps the last export
             return False
-        save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
+        save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web,
+                   art if art is not None else state.get("art"))
         return True
     try:
         capture = {}
         img = render(cfg, geo, species, bundle=bundle, capture=capture)
         if "species" in capture:
-            sig = bundle_signature(cfg, capture["species"], bundle)
+            sig = bundle_signature(cfg, capture["species"], bundle, art)
     except Exception as e:
         print(f"could not get image: {e}", file=sys.stderr)  # keep last panel image
         return False
@@ -790,7 +835,8 @@ def run(cfg, preview=None, force=False, use_signature=True, mat_box=False):
     except Exception as e:
         print(f"panel push failed: {e}", file=sys.stderr)
         return False
-    save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web)
+    save_state(cfg["state"], sig if sig is not None else state.get("signature"), now, web,
+               art if art is not None else state.get("art"))
     print("panel updated")
     return True
 

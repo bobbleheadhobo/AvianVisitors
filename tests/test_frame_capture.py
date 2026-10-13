@@ -205,6 +205,7 @@ class FrameCaptureTests(unittest.TestCase):
         saves = []
         with mock.patch.object(self.display, "load_state", return_value=state), \
                 mock.patch.object(self.display, "fetch_species", return_value=SPECIES), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image", side_effect=RuntimeError("not ready")) as capture, \
                 mock.patch.object(self.display, "push_panel", side_effect=lambda *args: panel.append(args)), \
                 mock.patch.object(self.display, "save_state", side_effect=lambda *args: saves.append(args)), \
@@ -227,6 +228,7 @@ class FrameCaptureTests(unittest.TestCase):
 
         with mock.patch.object(self.display, "load_state", return_value={}), \
                 mock.patch.object(self.display, "fetch_species", return_value=SPECIES), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image", side_effect=obtain), \
                 mock.patch.object(self.display, "fit_panel", side_effect=lambda image, *args: image), \
                 mock.patch.object(self.display, "mat_and_center", side_effect=lambda image, *args: image), \
@@ -254,6 +256,7 @@ class FrameCaptureTests(unittest.TestCase):
         with mock.patch.object(bundle_runtime, "active_bundle", return_value=bundle), \
                 mock.patch.object(self.display, "load_state", return_value={}), \
                 mock.patch.object(self.display, "fetch_species", return_value=SPECIES), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image", side_effect=obtain), \
                 mock.patch.object(self.display, "fit_panel", side_effect=lambda image, *args: image), \
                 mock.patch.object(self.display, "mat_and_center", side_effect=lambda image, *args: image), \

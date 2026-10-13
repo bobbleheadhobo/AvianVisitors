@@ -173,6 +173,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
             return collage_shot()
 
         with mock.patch.object(self.display, "fetch_species", return_value=[{"sci": "Passer domesticus", "n": 3}]), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image", side_effect=fake_obtain):
             self.display.run(self.config(check_dawn=15, check_night=60))
         self.assertEqual(calls, [False, True])
@@ -190,6 +191,7 @@ class FrameEsphomeExportTests(unittest.TestCase):
             return collage_shot()
 
         with mock.patch.object(self.display, "fetch_species", return_value=[]), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image", side_effect=fake_obtain):
             self.display.run(self.config())
         meta = json.loads((self.dir / "web" / "frame.json").read_text())
@@ -200,11 +202,82 @@ class FrameEsphomeExportTests(unittest.TestCase):
         species = [{"sci": "Passer domesticus", "n": 3}]
         self.display.save_state(str(self.dir / "state.json"), self.display.signature(species), 2_000_000_000)
         with mock.patch.object(self.display, "fetch_species", return_value=species), \
+                mock.patch.object(self.display, "station_art_tag", return_value=None), \
                 mock.patch.object(self.display, "obtain_image") as obtain, \
                 mock.patch.object(self.display.time, "time", return_value=2_000_000_060):
             self.display.run(self.config())
         obtain.assert_not_called()
         self.assertFalse((self.dir / "web").exists())
+
+    def test_bundle_switch_rerenders_unchanged_birds(self):
+        """Switching the station's bird bundle redraws the frame at the next
+        poll even though the birds heard are the same."""
+        species = [{"sci": "Passer domesticus", "n": 3}]
+        sig = self.display.bundle_signature(self.config(), species, None, '"avian-bundle-woodblock"')
+        self.display.save_state(str(self.dir / "state.json"), sig, 2_000_000_000, None, '"avian-bundle-woodblock"')
+
+        def poll(art):
+            with mock.patch.object(self.display, "fetch_species", return_value=species), \
+                    mock.patch.object(self.display, "fetch_art_tag", return_value=art) as fetch, \
+                    mock.patch.object(self.display, "obtain_image", return_value=collage_shot()) as obtain, \
+                    mock.patch.object(self.display.time, "time", return_value=2_000_000_060):
+                self.display.run(self.config())
+            return fetch, obtain
+
+        fetch, obtain = poll('"avian-bundle-woodblock"')
+        obtain.assert_not_called()
+        self.assertEqual(fetch.call_args.args[2], '"avian-bundle-woodblock"')  # sent as If-None-Match
+        _, obtain = poll('"avian-bundle-impressionist"')
+        self.assertTrue(obtain.called)
+        state = json.loads((self.dir / "state.json").read_text())
+        self.assertEqual(state["art"], '"avian-bundle-impressionist"')
+        _, obtain = poll('"avian-bundle-impressionist"')
+        obtain.assert_not_called()
+
+    def test_failed_art_check_keeps_the_last_tag(self):
+        cfg = self.config()
+        with mock.patch.object(self.display, "fetch_art_tag", side_effect=OSError("down")):
+            self.assertEqual(self.display.station_art_tag(cfg, {"art": '"a"'}), '"a"')
+        self.assertIsNone(self.display.station_art_tag(dict(cfg, species_source="birdweather"), {}))
+
+    def test_fetch_art_tag_uses_etags(self):
+        import http.server
+        import threading
+        seen = []
+
+        class Station(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen.append(self.headers.get("If-None-Match"))
+                if self.server.missing:
+                    self.send_response(404)
+                elif self.headers.get("If-None-Match") == '"v2"':
+                    self.send_response(304)
+                    self.send_header("ETag", '"v2"')
+                else:
+                    self.send_response(200)
+                    self.send_header("ETag", '"v2"')
+                    self.send_header("Content-Length", "2")
+                self.end_headers()
+                if not self.server.missing and self.headers.get("If-None-Match") != '"v2"':
+                    self.wfile.write(b"{}")
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Station)
+        server.missing = False
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        try:
+            self.assertEqual(self.display.fetch_art_tag(base, 5), '"v2"')
+            self.assertEqual(self.display.fetch_art_tag(base, 5, '"v1"'), '"v2"')
+            self.assertEqual(self.display.fetch_art_tag(base, 5, '"v2"'), '"v2"')
+            server.missing = True  # a station from before bundles
+            self.assertEqual(self.display.fetch_art_tag(base, 5), "")
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(seen, [None, '"v1"', '"v2"', None])
 
 
 class FrameServerInstallerTests(unittest.TestCase):

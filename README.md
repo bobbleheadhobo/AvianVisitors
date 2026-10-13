@@ -152,7 +152,7 @@ If the installed refresher itself is missing or unsafe, use the verified setup c
 
 ## 3. Illustration bundles
 
-By default, new stations use the included Japanese Woodblock bundle, which covers Western North America. If you live elsewhere or want a different style, open **Settings → Bird bundle** or browse available bundles at [avianvisitors.com/bundles](https://avianvisitors.com/bundles). On the public site, **Use on my local station** is the main action. Its adjacent command button opens and copies one line. After SSHing into a station or BirdFrame, run:
+By default, new stations use the included Japanese Woodblock bundle, which covers Western North America. If you live elsewhere or want a different style, open **Settings → Station → Bird bundle** or browse available bundles at [avianvisitors.com/bundles](https://avianvisitors.com/bundles). On the public site, **Use on my local station** is the main action. Its adjacent command button opens and copies one line. After SSHing into a station or BirdFrame, run:
 
 ```bash
 sudo avian-bundle use '<BUNDLE_ID>'
@@ -241,6 +241,8 @@ agents.
 An optional e-ink frame puts the bird collage on a panel by your window. Build it from [`frame/`](frame/README.md). It can run off your own BirdNET mic, from BirdWeather around a ZIP code, or from one public BirdWeather station with `frame/install.sh --station-id <ID>`.
 
 This fork also supports a smaller 7.3" Spectra 6 panel on a Seeed XIAO EE04 (ESP32, ESPHome): the BirdNET server renders the frame and the board just downloads and draws it, on USB power or a battery. See [7.3" Spectra 6 on a XIAO EE04](frame/README.md#73-spectra-6-on-a-xiao-ee04-esphome).
+
+A frame that screenshots your station redraws at its next check after you change the station's bird bundle (or generate a new bird), even if the birds heard haven't changed.
 
 ---
 

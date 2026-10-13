@@ -142,6 +142,13 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   ADC_EN, D6 PWR_EN, GPIO38 EDP_RES. Seeed doesn't publish the charge current.
   The owner's first LiPo had its JST plug reversed: Battery voltage read 0 V or the
   charger's ~4.2 V while it neither ran nor charged. Suspect that before firmware.
+- `display.py`'s change signature includes the station's art tag: the ETag
+  of `bundle-assets.php` (active bundle, its selection, the included art's
+  content revision), fetched each poll with `If-None-Match` so an unchanged
+  station answers 304. A bundle switch or a newly generated bird therefore
+  redraws the frame at the next poll. The last tag is in `state.json` `art`;
+  a failed check keeps it. Tests that run `display.run` must mock
+  `station_art_tag`, or they wait on DNS for the configured `base_url`.
 - The site's day starts at `RESET_HOUR` (4am here, when `RESET_AT_MIDNIGHT=1`): no birds
   are heard here between 20:00 and 05:00, so the frame keeps the night's birds.
 - `frame/shoot.py` screenshots the site for the wall frame and rewrites a few
