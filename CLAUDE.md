@@ -100,6 +100,16 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `shoot_cluster_ybias` (1.6) in `frame/config.station.toml` (symlinked as
   `~/.birdframe/config.toml`) pack the birds into a tall box to fill it.
   `frame/display.py --preview out.png` renders without pushing.
+- The battery frame's dawn, day and night check intervals are set on the site
+  (Settings > Frame; quiet hours are config.toml only now). They travel in
+  `frame.json` as `check.{dawn,day,night}` (seconds), written by `display.py`
+  on each render, and the frame keeps them in flash (`check_s`); without them
+  it uses the YAML's `sleep_*`. The window offsets are copied into
+  `web_settings.json` `device` so `frame.php` can show today's clock times;
+  a test keeps both copies equal to the YAML. Low battery still floors
+  wakes at 2 h.
+- Battery level's curve is fitted at the top to this frame: a full charge
+  reads 4.14 V at the next wake (not 4.2), so 4.14 V = 100%.
 - The battery frame's wake schedule follows the sun (`frame/esphome/birdframe/schedule.h`)
   and its battery level and days left are in `birdframe/battery.h`; both are
   plain C++ so they can be tested here (`describe_sleep` words Home
