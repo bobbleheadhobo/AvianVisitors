@@ -18,6 +18,9 @@
   var note = null;
   var live = null;
   var snapshot = null;
+  // The station's adminFetch, when mounted from Settings: it turns an expired
+  // session into the unlock prompt instead of a raw "unauthorized" error.
+  var adminRequest = null;
   var refreshArtwork = null;
   var requestController = null;
   var pollTimer = 0;
@@ -199,12 +202,16 @@
     });
   }
 
+  function stationFetch(url, options) {
+    return adminRequest ? adminRequest(url, options) : fetch(url, options);
+  }
+
   function fetchSnapshot() {
     if (requestController) requestController.abort();
     requestController = typeof AbortController === 'function' ? new AbortController() : null;
     var options = { credentials: 'same-origin', cache: 'no-store' };
     if (requestController) options.signal = requestController.signal;
-    return fetch(API_URL, options).then(responseJson).then(applySnapshot);
+    return stationFetch(API_URL, options).then(responseJson).then(applySnapshot);
   }
 
   function safeRefreshArtwork(callback) {
@@ -390,7 +397,7 @@
     setBusy(true);
     announce('Preparing bird bundle.', false);
     var artworkCallback = refreshArtwork;
-    fetch(API_URL, {
+    stationFetch(API_URL, {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -854,6 +861,7 @@
     note = root.querySelector('[data-bundle-note]');
     live = root.querySelector('[data-bundle-live]');
     refreshArtwork = options.refreshArtwork || null;
+    adminRequest = typeof options.fetch === 'function' ? options.fetch : null;
     stationRegion = broadRegionForCoordinates(options.latitude, options.longitude);
     mounted = true;
     trigger.addEventListener('click', openDialog);
@@ -896,6 +904,7 @@
     live = null;
     snapshot = null;
     refreshArtwork = null;
+    adminRequest = null;
     requestedPackId = '';
     stationRegion = '';
   }

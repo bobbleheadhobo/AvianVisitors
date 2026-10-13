@@ -99,10 +99,12 @@ def test_cache_revision_is_narrow_and_reaches_every_image_builder():
     )
     assert revision_map["aphelocoma-woodhouseii"] == "anatomy-1"
 
-    # All three surfaces now share the bundle-bound builder; included artwork
-    # still adds the narrow per-species revision inside that shared cache key.
+    # All three surfaces share one builder. Included artwork is keyed only by
+    # the narrow per-species revision (this fork): the included content
+    # revision changes on every table write and would evict every image.
     assert apt.count("./avian/api/cutout.php?sci=") == 1
-    assert "ACTIVE_BUNDLE.contentRevision + '-' + artRevision(sci, fallback)" in apt
+    assert "return ACTIVE_BUNDLE.included ? artRevision(sci, fallback) : ACTIVE_BUNDLE.contentRevision;" in apt
+    assert "if (!ACTIVE_BUNDLE.included) base += '&bundle='" in apt
     assert "base += '&v=' + encodeURIComponent(activeArtRevision(sci, version || SKETCH_VERSION));" in apt
     assert "return defaultCutoutSrc(sci, pose, IMG_VERSION, commonName);" in apt
     assert "var sketchSrc = defaultCutoutSrc(s.sci, 1, SKETCH_VERSION, s.com);" in apt

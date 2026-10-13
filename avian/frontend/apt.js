@@ -1541,10 +1541,11 @@
   function activeArtRevision(sci, fallback) {
     // Downloaded bundles are immutable, so their revision is the complete
     // cache key. Included art can be generated or corrected in place and
-    // keeps its existing narrow per-species/version suffix.
-    return ACTIVE_BUNDLE.included
-      ? ACTIVE_BUNDLE.revision + '-' + ACTIVE_BUNDLE.contentRevision + '-' + artRevision(sci, fallback)
-      : ACTIVE_BUNDLE.contentRevision;
+    // keeps its narrow per-species/version suffix (ART_REVISIONS): the
+    // included set's content revision changes with every table write, and
+    // keying on it would make every phone fetch all ~670 images again
+    // whenever one bird is added.
+    return ACTIVE_BUNDLE.included ? artRevision(sci, fallback) : ACTIVE_BUNDLE.contentRevision;
   }
 
   function defaultCutoutSrc(sci, pose, version, commonName) {
@@ -1555,11 +1556,14 @@
     var com = commonName || (sp ? (sp.com || '') : '');
     if (com) base += '&com=' + encodeURIComponent(com);
     if (+pose > 1) base += '&pose=' + (+pose);
-    var legacyIncluded = ACTIVE_BUNDLE.included &&
-      ACTIVE_BUNDLE.contentRevision === LEGACY_INCLUDED_CONTENT_REVISION;
-    if (!legacyIncluded) base += '&bundle=' + encodeURIComponent(ACTIVE_BUNDLE.revision);
+    // Included art uses the plain URL, which cutout.php resolves only while
+    // the included set is active (another active bundle gets a 404), so it
+    // can't cache another bundle's picture. Binding it to the content
+    // revision instead answers 409 to every open tab once a bird is added,
+    // since nothing reloads the tables on that error.
+    if (!ACTIVE_BUNDLE.included) base += '&bundle=' + encodeURIComponent(ACTIVE_BUNDLE.revision);
     base += '&v=' + encodeURIComponent(activeArtRevision(sci, version || SKETCH_VERSION));
-    if ((ACTIVE_BUNDLE.included && !legacyIncluded) || ACTIVE_BUNDLE.selection_revision) {
+    if (!ACTIVE_BUNDLE.included && ACTIVE_BUNDLE.selection_revision) {
       base += '&content=' + encodeURIComponent(ACTIVE_BUNDLE.contentRevision);
     }
     if (ACTIVE_BUNDLE.included && justGenerated[sci]) base += '&t=' + justGenerated[sci];
@@ -13927,7 +13931,10 @@
             root: adminBody,
             latitude: v.LATITUDE,
             longitude: v.LONGITUDE,
-            refreshArtwork: function (active) { return refreshBundleArtwork(active); }
+            refreshArtwork: function (active) { return refreshBundleArtwork(active); },
+            // Job status polling stays on plain fetch: it outlives Settings
+            // so the collage can follow a finished switch.
+            fetch: adminFetch
           });
         }
         if (pendingAdminNotice) {
