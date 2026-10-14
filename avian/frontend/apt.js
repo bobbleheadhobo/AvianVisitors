@@ -15291,8 +15291,12 @@
       win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1));
     }
 
-    // Choose a hop that lays exactly W columns over the whole clip.
-    var hop = Math.max(1, Math.floor((samples.length - FFT_SIZE) / Math.max(1, W - 1)));
+    // Centre each column's window on the time at the middle of its pixel,
+    // the same mapping the playback cursor uses. Starting windows at the
+    // column's time drew every sound up to a window (~21 ms) early, so the
+    // cursor reached the ink before the sound was heard.
+    var samplesPerCol = samples.length / W;
+    var halfWindow = FFT_SIZE >> 1;
     var real = new Float32Array(FFT_SIZE);
     var imag = new Float32Array(FFT_SIZE);
 
@@ -15327,10 +15331,10 @@
     var magnitudeScale = Math.max(1, FFT_SIZE * .5);
     var processedColumns = 0;
     for (var col = 0; col < W; col++) {
-      var start = col * hop;
-      if (start + FFT_SIZE > samples.length) break;
+      var start = Math.round((col + .5) * samplesPerCol) - halfWindow;
       for (var s = 0; s < FFT_SIZE; s++) {
-        real[s] = samples[start + s] * win[s];
+        var at = start + s;
+        real[s] = at >= 0 && at < samples.length ? samples[at] * win[s] : 0;
         imag[s] = 0;
       }
       _fft(real, imag);
