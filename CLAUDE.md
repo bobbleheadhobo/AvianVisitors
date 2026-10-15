@@ -190,6 +190,20 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `sudo journalctl -u avian-bundle-rotate`. Upstream's tests
   assume 333 species and their own admin session format; ours has 336 and
   v5 sessions, and those tests are adjusted for it.
+- A downloaded bundle can't take new drawings (every file is hash-checked)
+  and the collage silently drops any bird it doesn't draw. Birds it lacks get
+  **bundle additions**: `/var/lib/avian-visitors/bundle-additions/<bundle-id>/`
+  (root-owned; `additions.json` plus PNGs named by sha256), merged in by
+  `avian/api/bundle-additions.php` (`bundle-assets.php` tables and ETag,
+  `cutout.php` images, revalidated rather than cached a year). The bundle's
+  own art always wins; a malformed or writable record is ignored. Add or
+  remove with `birdnet/bin/python dev/bundle-addon.py add <bundle-id>
+  <slug>.png <slug>-2.png` (refuses birds the bundle's manifest draws). The
+  frame redraws by itself at its next poll. Installed so far: Ladder-backed
+  Woodpecker in `official-western-us-impressionist`. Impressionist-style
+  drawings come from `dev/impressionist.py <woodblock png> <out> --seed N`
+  (redraws our Woodblock art; try a few seeds, show the owner, then add).
+  Birds of America additions the owner draws by hand.
 - `avian/api/*.php`: JSON endpoints. **A new endpoint must be added to the
   `@unknownAvianApi` allow-list in `scripts/update_caddyfile.sh`**, then
   Caddy regenerated (below), or it returns 404.

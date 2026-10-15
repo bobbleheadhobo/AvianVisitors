@@ -162,6 +162,8 @@ With a saved location, the device downloads the bundle's birds expected there th
 
 For a different look each day, turn on **Settings → Station → New bundle each day**. At the reset time (4am by default) the station switches to a random downloaded bundle, never the same one twice in a row. **Bundles to use** lists the downloaded bundles; untick any to leave out. Bundles you download later are included automatically. Your own generated birds only appear in Japanese Woodblock, and **generate image** only works on days that bundle is active.
 
+A downloaded bundle leaves out any bird it has no drawing for. Drawings made for it on this station (in its style) fill those gaps: they are added with `dev/bundle-addon.py` and show on the site and the frame like the bundle's own birds. Evolutionary Impressionist has the Ladder-backed Woodpecker this way.
+
 To share your own set, open **Tools → Your data → Export bundle**. Review the local illustrations, download the upload-ready ZIP, then sign in at [avianvisitors.com/bundles](https://avianvisitors.com/bundles) and upload it. The station never uploads a bundle automatically.
 
 ### Restyle or generate your own
