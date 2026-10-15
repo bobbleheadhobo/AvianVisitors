@@ -8,6 +8,7 @@ header('Cache-Control: public, no-cache');
 header('X-Content-Type-Options: nosniff');
 
 require_once __DIR__ . '/bundle-runtime.php';
+require_once __DIR__ . '/bundle-additions.php';
 
 function avian_bundle_assets_fail(int $status, string $error): void {
     http_response_code($status);
@@ -46,8 +47,12 @@ if ($contentRevision === null) {
     avian_bundle_close_included_table_read_lock($tableLock);
     avian_bundle_assets_fail(503, 'active bundle inventory is unavailable');
 }
+// Station additions (bundle-additions.php) change the tables too, so they
+// change the tag: the frame redraws when a drawing is added.
+$additions = avian_bundle_additions($active);
 $etag = '"avian-bundle-' . $active['revision']
-    . ($active['included'] || isset($active['selection_revision']) ? '-' . $contentRevision : '') . '"';
+    . ($active['included'] || isset($active['selection_revision']) ? '-' . $contentRevision : '')
+    . ($additions !== null ? '-add-' . substr($additions['revision'], 0, 16) : '') . '"';
 header('ETag: ' . $etag);
 if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
     avian_bundle_close_included_table_read_lock($tableLock);
@@ -88,6 +93,13 @@ if (!$active['included']) {
     sort($actual, SORT_STRING);
     if ($expected !== $actual) {
         avian_bundle_assets_fail(503, 'active bundle inventory is inconsistent');
+    }
+    $additions = avian_bundle_additions($active, $index);
+    if ($additions !== null) {
+        foreach (array_keys($additions['assets']) as $slug) $species[$slug] = true;
+        $dims += $additions['dims'];
+        $masks += $additions['masks'];
+        $poseCount = count($dims);
     }
 } else {
     foreach (array_keys($dims) as $key) {

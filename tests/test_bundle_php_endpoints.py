@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -28,6 +29,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.webroot = self.temp / "www"
         for relative in [
             "avian/api/bundle-assets.php",
+            "avian/api/bundle-additions.php",
             "avian/api/bundle-runtime.php",
             "avian/api/cutout.php",
             "avian/frontend/dims.json",
@@ -59,6 +61,8 @@ class BundlePhpEndpoints(unittest.TestCase):
         env["AVIAN_BUNDLE_ROOT"] = str(self.library)
         env["AVIAN_GENERATION_LOCK"] = str(self.generation_lock)
         env["AVIAN_ART_REVISION_STATE"] = str(self.art_revision_state)
+        self.additions = self.temp / "additions"
+        env["AVIAN_BUNDLE_ADDITIONS_ROOT"] = str(self.additions)
         self.server = subprocess.Popen(
             ["php", "-S", f"127.0.0.1:{self.port}", "-t", str(self.webroot)],
             stdout=subprocess.DEVNULL,
@@ -175,6 +179,127 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(head_body, b"")
         for header in ("Content-Type", "Content-Length", "Cache-Control", "ETag", "X-Content-Type-Options"):
             self.assertEqual(head_headers.get(header), headers.get(header), header)
+
+    def _add_additions(self, pack_id: str, birds: dict[str, dict[str, str]]) -> dict[str, bytes]:
+        """birds: {slug: {pose: source illustration slug}}. Returns the PNGs."""
+        directory = self.additions / pack_id
+        directory.mkdir(parents=True, exist_ok=True, mode=0o750)
+        self.additions.chmod(0o750)
+        directory.chmod(0o750)
+        record = {"schema_version": 1, "bundle_id": pack_id, "assets": {}, "dims": {}, "masks": {}}
+        pngs = {}
+        for slug, poses in birds.items():
+            record["assets"][slug] = {}
+            for pose, source in poses.items():
+                data = (ROOT / "avian/assets/illustrations" / f"{source}.png").read_bytes()
+                digest = hashlib.sha256(data).hexdigest()
+                (directory / f"{digest}.png").write_bytes(data)
+                (directory / f"{digest}.png").chmod(0o640)
+                record["assets"][slug][pose] = {"sha256": digest, "bytes": len(data)}
+                key = slug + ("-2" if pose == "flight" else "")
+                record["dims"][key] = [560, 400]
+                record["masks"][key] = {"w": 1, "h": 1, "bits": "gA=="}
+                pngs[key] = data
+        self._json(directory / "additions.json", record)
+        return pngs
+
+    def test_additions_fill_birds_the_bundle_lacks(self) -> None:
+        _, _, before = self.request("/avian/api/bundle-assets.php")
+        pngs = self._add_additions("test-pack", {
+            "calypte-anna": {"perched": "corvus-brachyrhynchos-2", "flight": "corvus-brachyrhynchos"},
+        })
+        status, body, headers = self.request("/avian/api/bundle-assets.php")
+        self.assertEqual(status, 200, body)
+        data = json.loads(body)
+        self.assertEqual(set(data["dims"]), {"corvus-brachyrhynchos", "calypte-anna", "calypte-anna-2"})
+        self.assertEqual(set(data["masks"]), set(data["dims"]))
+        self.assertEqual(data["active"]["species_count"], 2)
+        self.assertEqual(data["active"]["pose_count"], 3)
+        # identity is the bundle's own, so open pages and the frame keep working
+        self.assertEqual(data["active"]["content_revision"], self.revision_one)
+        # but the tag moves, so the frame redraws
+        self.assertNotEqual(headers["ETag"], before["ETag"])
+        self.assertEqual(self.request("/avian/api/bundle-assets.php", {"If-None-Match": headers["ETag"]})[0], 304)
+
+        base = "/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one
+        status, body, headers = self.request(base)
+        self.assertEqual(status, 200)
+        self.assertEqual(body, pngs["calypte-anna"])
+        self.assertEqual(headers["Content-Type"], "image/png")
+        self.assertEqual(headers["Cache-Control"], "public, no-cache")
+        self.assertEqual(self.request(base, {"If-None-Match": headers["ETag"]})[0], 304)
+        self.assertEqual(self.request(base + "&pose=2")[1], pngs["calypte-anna-2"])
+        self.assertEqual(self.request(base + "&pose=3")[0], 404)
+        # still needs the bundle revision, like the bundle's own art
+        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna")[0], 404)
+
+    def test_additions_never_replace_the_bundles_own_art(self) -> None:
+        self._add_additions("test-pack", {"corvus-brachyrhynchos": {"perched": "corvus-brachyrhynchos-2"}})
+        data = json.loads(self.request("/avian/api/bundle-assets.php")[1])
+        self.assertEqual(data["dims"], {"corvus-brachyrhynchos": [560, 400]})
+        self.assertEqual(data["active"]["pose_count"], 1)
+        base = "/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + self.revision_one
+        self.assertEqual(self.request(base)[1], (ROOT / "avian/assets/illustrations/corvus-brachyrhynchos.png").read_bytes())
+        self.assertEqual(self.request(base + "&pose=2")[0], 404, "nor add a pose to a bird it draws")
+
+    def test_bad_additions_leave_the_bundle_as_it_was(self) -> None:
+        pngs = self._add_additions("test-pack", {"calypte-anna": {"perched": "corvus-brachyrhynchos-2"}})
+        directory = self.additions / "test-pack"
+        base = "/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one
+        # a PNG that no longer matches its hash is not served
+        digest = hashlib.sha256(pngs["calypte-anna"]).hexdigest()
+        (directory / f"{digest}.png").write_bytes(pngs["calypte-anna"][:-1] + b"\0")
+        self.assertEqual(self.request(base)[0], 404)
+        # malformed records are ignored
+        for broken in ('{"schema_version": 1}', "not json", ""):
+            with self.subTest(broken=broken):
+                (directory / "additions.json").write_text(broken)
+                status, body, _ = self.request("/avian/api/bundle-assets.php")
+                self.assertEqual(status, 200, body)
+                self.assertEqual(list(json.loads(body)["dims"]), ["corvus-brachyrhynchos"])
+        # a writable folder is not trusted
+        self._add_additions("test-pack", {"calypte-anna": {"perched": "corvus-brachyrhynchos-2"}})
+        directory.chmod(0o777)
+        self.assertEqual(list(json.loads(self.request("/avian/api/bundle-assets.php")[1])["dims"]),
+                         ["corvus-brachyrhynchos"])
+        directory.chmod(0o750)
+        self.assertEqual(self.request(base)[0], 200)
+
+    def test_additions_belong_to_one_bundle(self) -> None:
+        self._add_additions("other-pack", {"calypte-anna": {"perched": "corvus-brachyrhynchos-2"}})
+        self.assertEqual(list(json.loads(self.request("/avian/api/bundle-assets.php")[1])["dims"]),
+                         ["corvus-brachyrhynchos"])
+        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one)[0], 404)
+
+    def test_install_tool_writes_additions_the_site_serves(self) -> None:
+        pack = self.library / "packs/test-pack/1.0.0"
+        self._json(pack / "manifest.json", {"id": "test-pack", "species": [
+            {"scientific_name": "Corvus brachyrhynchos", "common_name": "American Crow", "poses": []}]})
+        drawings = self.temp / "drawings"
+        drawings.mkdir()
+        bird = (ROOT / "avian/assets/illustrations/corvus-brachyrhynchos-2.png").read_bytes()
+        (drawings / "calypte-anna.png").write_bytes(bird)
+        (drawings / "corvus-brachyrhynchos.png").write_bytes(bird)
+        env = os.environ | {"AVIAN_BUNDLE_ROOT": str(self.library),
+                            "AVIAN_BUNDLE_ADDITIONS_ROOT": str(self.additions)}
+        tool = [sys.executable, str(ROOT / "dev/bundle-addon.py")]
+
+        refused = subprocess.run(tool + ["add", "test-pack", str(drawings / "corvus-brachyrhynchos.png")],
+                                 env=env, capture_output=True, text=True)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("already draws it", refused.stderr)
+
+        subprocess.run(tool + ["add", "test-pack", str(drawings / "calypte-anna.png")], env=env, check=True,
+                       capture_output=True)
+        data = json.loads(self.request("/avian/api/bundle-assets.php")[1])
+        self.assertIn("calypte-anna", data["dims"])
+        self.assertEqual(data["masks"]["calypte-anna"]["w"], 93)
+        base = "/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one
+        self.assertEqual(self.request(base)[1], bird)
+
+        subprocess.run(tool + ["remove", "test-pack", "calypte-anna"], env=env, check=True, capture_output=True)
+        self.assertEqual(self.request(base)[0], 404)
+        self.assertEqual(list((self.additions / "test-pack").glob("*.png")), [], "unused drawings are deleted")
 
     def test_numbered_cutout_is_exact_and_rejects_malformed_choices(self) -> None:
         path = self.library / 'packs/test-pack/1.0.0/index.json'

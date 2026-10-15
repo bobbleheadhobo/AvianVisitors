@@ -155,6 +155,29 @@ if (!$artBundle['included']) {
         ? null
         : avian_bundle_resolve_object($bundleIndex, $slug, $pose);
     $openedObject = $bundleObject === null ? null : avian_bundle_open_object($bundleObject);
+    if ($openedObject === null && $bundleIndex !== null && !isset($bundleIndex['assets'][$slug])) {
+        // A drawing the station added in this bundle's style for a bird the
+        // bundle lacks (bundle-additions.php). Its URL does not change when
+        // it is redrawn, so it revalidates instead of caching for a year.
+        require_once __DIR__ . '/bundle-additions.php';
+        $addition = avian_bundle_open_addition($artBundle, $bundleIndex, $slug, $pose);
+        if ($addition !== null) {
+            $tag = '"avian-addition-' . $addition[2] . '"';
+            header('Content-Type: image/png');
+            header('Cache-Control: public, no-cache');
+            header('X-Content-Type-Options: nosniff');
+            header('ETag: ' . $tag);
+            if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $tag) {
+                fclose($addition[0]);
+                http_response_code(304);
+                exit;
+            }
+            header('Content-Length: ' . (string)$addition[1]['size']);
+            fpassthru($addition[0]);
+            fclose($addition[0]);
+            exit;
+        }
+    }
     if ($openedObject === null) {
         http_response_code(404);
         echo 'no artwork in active bundle for ' . htmlspecialchars($sci);
