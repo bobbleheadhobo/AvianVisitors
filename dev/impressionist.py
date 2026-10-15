@@ -99,7 +99,7 @@ def marker(rgb):
     mx, mn = max(r, g, b), min(r, g, b)
     l = (mx + mn) / 2
     s = 0 if mx == mn else (mx - mn) / (1 - abs(2 * l - 1))
-    if l < 0.25:
+    if l < 0.25 and s < 0.3:     # near-black goes black; dark browns stay brown
         l *= 0.55
     s = min(1, s * 1.35)
     # back to rgb keeping hue

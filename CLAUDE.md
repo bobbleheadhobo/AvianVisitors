@@ -199,8 +199,9 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   own art always wins; a malformed or writable record is ignored. Add or
   remove with `birdnet/bin/python dev/bundle-addon.py add <bundle-id>
   <slug>.png <slug>-2.png` (refuses birds the bundle's manifest draws). The
-  frame redraws by itself at its next poll. Installed so far: Ladder-backed
-  Woodpecker in `official-western-us-impressionist`. Impressionist-style
+  frame redraws by itself at its next poll. Installed so far, all in
+  `official-western-us-impressionist`: Ladder-backed Woodpecker, Black-billed
+  Magpie, Curve-billed Thrasher (`dev/bundle-addon.py list`). Impressionist-style
   drawings come from `dev/impressionist.py <woodblock png> <out> --seed N`
   (redraws our Woodblock art; try a few seeds, show the owner, then add).
   Birds of America additions the owner draws by hand.
