@@ -1,4 +1,5 @@
 """Real Chromium regression for PNGs that stall after their first rows."""
+import base64
 import functools
 import http.server
 import importlib.util
@@ -37,7 +38,7 @@ def station():
     started = threading.Event()
     state = {"release_after": None, "malformed": False, "many": False, "requests": [],
              "auth": False, "redirect": False, "once": False, "empty": False,
-             "recent_requests": 0, "stats_delay": 0, "stats_finished": False}
+             "recent_requests": 0, "stats_delay": 0, "stats_finished": False, "masks": None}
     bird = ROOT / "avian/assets/illustrations/corvus-brachyrhynchos.png"
 
     class Handler(http.server.SimpleHTTPRequestHandler):
@@ -130,6 +131,10 @@ def station():
                 return self.send((bird.parent / Path(url.path).name).read_bytes(), "image/png")
             if url.path.startswith("/avian/api/"):
                 return self.send(b"{}", "application/json")
+            if url.path in ("/masks.json", "/avian/frontend/masks.json") and state["masks"]:
+                masks = json.loads((ROOT / "avian/frontend/masks.json").read_text())
+                masks.update(state["masks"])
+                return self.send(json.dumps(masks).encode(), "application/json")
             self.path = self.path.removeprefix("/avian/frontend")
             return super().do_GET()
 
@@ -654,3 +659,35 @@ def test_capture_failure_does_not_advance_real_display_state(shooter, station, t
     assert output.read_bytes() == b"last good"
     after = output.stat()
     assert (after.st_mode, after.st_uid, after.st_gid) == (before.st_mode, before.st_uid, before.st_gid)
+
+
+def _mask(w, h, ink):
+    bits = bytearray((w * h + 7) // 8)
+    for y in range(h):
+        for x in range(w):
+            if ink(x, y):
+                i = y * w + x
+                bits[i >> 3] |= 0x80 >> (i & 7)
+    return {"w": w, "h": h, "bits": base64.b64encode(bytes(bits)).decode()}
+
+
+def test_sketchy_silhouette_still_gets_its_name(shooter, station, tmp_path):
+    # Sketchy bundle art (Red-breasted Nuthatch, Evolutionary Impressionist):
+    # a stray speck first in reading order, and the bird's top edge a
+    # one-pixel stroke whose left end joins the body diagonally. Tracing the
+    # speck, or stopping when the walk first came back along that stroke to
+    # its start, left a few points, so the bird got no name and every
+    # names-on frame failed for the rest of the day.
+    url, _started, state, _bird = station
+
+    def ink(x, y):
+        stroke = y == 10 and 30 <= x <= 35
+        hook = 22 <= x < 30 and y == 10 + (30 - x)
+        body = ((x - 30) / 28) ** 2 + ((y - 45) / 28) ** 2 <= 1
+        return (x, y) == (3, 1) or stroke or hook or body
+
+    state["masks"] = {"corvus-brachyrhynchos": _mask(93, 82, ink)}
+    state["release_after"] = 0
+    output = tmp_path / "shot.png"
+    shooter.shoot(url, str(output), bird_names=True, timeout_ms=15000, dsf=1)
+    assert output.exists()

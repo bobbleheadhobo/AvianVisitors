@@ -739,7 +739,8 @@ def render(cfg, geo, species=None, bird_names=None, bundle=None, *, capture=None
 
 def _export_both(cfg, geo, species, sig, bundle=None, art=None):
     """ESPHome output: render names off and names on. The plain image is the
-    one that must exist; a names render that fails keeps its last export.
+    one that must exist; a names render that fails is replaced by the plain
+    one, since an old names image leaves off every bird heard after it.
     Returns the signature of what the plain render actually drew."""
     capture = {}
     images = {"plain": render(cfg, geo, species, bird_names=False, bundle=bundle, capture=capture)}
@@ -748,7 +749,8 @@ def _export_both(cfg, geo, species, sig, bundle=None, art=None):
     try:
         images["names"] = render(cfg, geo, species, bird_names=True, bundle=bundle)
     except Exception as e:
-        print(f"names render failed, keeping the last one: {e}", file=sys.stderr)
+        print(f"names render failed, showing the birds without names: {e}", file=sys.stderr)
+        images["names"] = images["plain"]
     check = {part: int(cfg[f"check_{part}"]) * 60 for part in ("dawn", "day", "night")}
     meta = export_esphome(images, cfg["export_dir"], sig, ink_look(cfg), check)
     print(f"exported to {cfg['export_dir']}: sig {meta.get('sig')} names {meta.get('sig_names')}")

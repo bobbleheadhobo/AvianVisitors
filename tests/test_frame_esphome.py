@@ -196,7 +196,9 @@ class FrameEsphomeExportTests(unittest.TestCase):
             self.display.run(self.config())
         meta = json.loads((self.dir / "web" / "frame.json").read_text())
         self.assertIn("sig", meta)
-        self.assertNotIn("sig_names", meta)
+        # Names on shows today's birds without names, not an older names
+        # image missing every bird heard since (it froze at 09:20 one day).
+        self.assertEqual(meta["sig_names"], meta["sig"])
 
     def test_run_skips_when_birds_are_unchanged(self):
         species = [{"sci": "Passer domesticus", "n": 3}]

@@ -1930,27 +1930,48 @@
     var w = mask.w, h = mask.h, g = new Uint8Array(w * h), i;
     for (i = 0; i < mask.cells.length; i++) g[mask.cells[i][1] * w + mask.cells[i][0]] = 1;
     var at = function (x, y) { return (x < 0 || y < 0 || x >= w || y >= h) ? 0 : g[y * w + x]; };
-    var sx = -1, sy = -1, x, y;
-    for (y = 0; y < h && sx < 0; y++) for (x = 0; x < w; x++) if (g[y * w + x]) { sx = x; sy = y; break; }
-    if (sx < 0) { edgeFitCache[slug] = false; return false; }
     var NB = [[-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1]];  // clockwise from west
+    // Trace the biggest piece of ink. The first pixel in reading order can be
+    // a stray speck off a sketchy drawing, whose edge is a few points long.
+    var comp = new Int32Array(w * h), stack = [], best = 0, sx = -1, sy = -1, x, y, k;
+    for (i = 0; i < w * h; i++) {
+      if (!g[i] || comp[i]) continue;
+      var id = i + 1, size = 0;
+      comp[i] = id; stack.push(i);
+      while (stack.length) {
+        var p = stack.pop(), px = p % w, py = (p - px) / w;
+        size++;
+        for (k = 0; k < 8; k++) {
+          var qx = px + NB[k][0], qy = py + NB[k][1], q = qy * w + qx;
+          if (at(qx, qy) && !comp[q]) { comp[q] = id; stack.push(q); }
+        }
+      }
+      // i is the piece's first pixel in reading order, so nothing lies
+      // west of it or above it: the trace below starts there facing west.
+      if (size > best) { best = size; sx = i % w; sy = (i - sx) / w; }
+    }
+    if (sx < 0) { edgeFitCache[slug] = false; return false; }
     var idxOf = function (dx, dy) {
       for (var k = 0; k < 8; k++) if (NB[k][0] === dx && NB[k][1] === dy) return k;
       return 0;
     };
+    // Stop on the start pixel only when the next step repeats the first
+    // one (Jacob's criterion). Stopping on any return to it ended the walk
+    // early wherever the edge ran out along a one-pixel line and came back
+    // through the start, which left those birds without a name.
     var pts = [[sx, sy]], bx = sx, by = sy, cx = sx - 1, cy = sy, guard = 0;
     while (guard++ < 20000) {
       var k0 = idxOf(cx - bx, cy - by), found = false;
       for (var t = 1; t <= 8; t++) {
         var j = (k0 + t) % 8, nx = bx + NB[j][0], ny = by + NB[j][1];
         if (at(nx, ny)) {
+          if (bx === sx && by === sy && pts.length > 1 && nx === pts[1][0] && ny === pts[1][1]) break;
           cx = bx + NB[(j + 7) % 8][0]; cy = by + NB[(j + 7) % 8][1];
           bx = nx; by = ny; found = true; break;
         }
       }
       if (!found) break;
-      if (bx === sx && by === sy && pts.length > 2) break;
-      pts.push([bx, by]);
+      if (bx !== sx || by !== sy) pts.push([bx, by]);
     }
     if (pts.length < 20) { edgeFitCache[slug] = false; return false; }
     // even spacing, then a light smooth so single-pixel stair-steps do not
