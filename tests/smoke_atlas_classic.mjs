@@ -92,8 +92,9 @@ assert.match(rowContext.markup, />Classic Atlas cards</, 'Settings uses the requ
 assert.match(rowContext.markup, /data-atlas-classic/, 'Settings exposes a dedicated local switch');
 assert.match(rowContext.markup, /aria-checked="true"/, 'the switch reflects the saved preference');
 assert.doesNotMatch(rowContext.markup, /hint/, 'the preference adds no helper-copy clutter');
-assert.match(apt, /atlasAlwaysAllRow\(\)\s*\+ atlasClassicRow\(\)\s*\+ settingsText\('SITE_NAME', 'Station name'/,
-  'Classic Atlas cards stays in the first preference group immediately above Station name');
+// This fork groups Settings: the Atlas switches sit in "this device".
+assert.match(apt, /settingsHead\('this device'\)[^]*?atlasAlwaysAllRow\(\)\s*\+ atlasClassicRow\(\)[^]*?settingsHead\('station'\)/,
+  'Classic Atlas cards stays with the per-device preferences, after Always all');
 assert.match(apt, /\.switch:not\(\[data-labels-switch\]\):not\(\[data-atlas-always-all\]\):not\(\[data-atlas-classic\]\)/,
   'the local preference is excluded from Pi config autosave');
 
@@ -227,6 +228,7 @@ const renderContext = {
   slugify(value) { return value; },
   justGenerated: {},
   wikiUrl(sci) { return `https://example.test/wiki/${encodeURIComponent(sci)}`; },
+  birdIdUrl(com, sci) { return `https://example.test/id/${encodeURIComponent(sci)}`; },
   ebirdUrl() { return 'https://example.test/ebird'; },
   escHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); },
   ICON_PLAY: '<svg class="play-icon"></svg>',
@@ -613,7 +615,9 @@ assert.match(css, /#atlasGrid\[data-layout="classic"\][\s\S]*?repeat\(auto-fill,
   'Classic mode restores the historical responsive desktop grid');
 assert.match(css, /#atlasGrid\[data-layout="classic"\][\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/,
   'Classic mode restores the historical two-up mobile grid');
-assert.match(html, /styles\.css\?v=r196/, 'Classic Atlas styles have a fresh cache key');
-assert.match(html, /apt\.js\?v=r241/, 'Classic Atlas and admin recovery behavior have a fresh cache key');
+// The fork bumps these on its own schedule, so only require at least these.
+const cacheKey = (file) => Number(html.match(new RegExp(`${file.replace('.', '\\.')}\\?v=r(\\d+)`))[1]);
+assert.ok(cacheKey('styles.css') >= 196, 'Classic Atlas styles have a fresh cache key');
+assert.ok(cacheKey('apt.js') >= 241, 'Classic Atlas and admin recovery behavior have a fresh cache key');
 
 console.log('classic Atlas smoke: ok');

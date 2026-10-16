@@ -139,6 +139,12 @@ function settingsHarness() {
     'var autoSaveT = null;',
     'var settingsSaveBusy = false;',
     'function setSaveState() {}',
+    'function syncSaveBar() {}',
+    'var settingsBaseline = {};',
+    'function saveNotifyPart() { return Promise.resolve(); }',
+    'function saveFramePart() { return Promise.resolve(); }',
+    extractFunction('isNotifyKey'),
+    extractFunction('isFrameKey'),
     'function adminAuthCancelled(error) { return !!(error && error.adminAuthCancelled); }',
     'function adminFetch(url, options) {',
     '  var request = new Promise(function (resolve, reject) {',
@@ -273,6 +279,8 @@ async function settle() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+  // The Settings save chains notification and frame writes before config.php.
+  await new Promise(function (resolve) { setImmediate(resolve); });
 }
 
 async function main() {
@@ -444,6 +452,7 @@ async function main() {
   settings = settingsHarness();
   settings.context.setPending({ CONFIDENCE: 0.5 });
   settings.context.saveSettings();
+  await settle();
   assert.strictEqual(settings.requests[0].body, '{"CONFIDENCE":0.5}',
     'an issued Settings request owns a fixed submitted snapshot');
   settings.context.setPending({ CONFIDENCE: 0.7 });
@@ -458,6 +467,7 @@ async function main() {
   settings = settingsHarness();
   settings.context.setPending({ CONFIDENCE: 0.5, SITE_NAME: 'Old' });
   settings.context.saveSettings();
+  await settle();
   settings.requests[0].resolve({
     ok: false,
     json: function () { return Promise.resolve({ ok: false }); },
@@ -469,6 +479,7 @@ async function main() {
   settings = settingsHarness();
   settings.context.setPending({ CONFIDENCE: 0.5, SITE_NAME: 'Old' });
   settings.context.saveSettings();
+  await settle();
   settings.context.setPending({ CONFIDENCE: 0.7 });
   settings.requests[0].resolve({
     ok: false,
@@ -481,6 +492,7 @@ async function main() {
   settings = settingsHarness();
   settings.context.setPending({ LATITUDE: 37.7 });
   settings.context.saveSettings();
+  await settle();
   settings.requests[0].reject(new Error('network down'));
   await settle();
   assert.strictEqual(settings.context.pendingJson(), '{"LATITUDE":37.7}',

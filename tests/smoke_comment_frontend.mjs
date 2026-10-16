@@ -33,7 +33,7 @@ const render = {
   DATA: { recent: { species: [bird], frame_capture_id: 3 } },
   tablesReady: true, labelFontReady: true, collagePose: {},
   DIMS: { 'corvus-brachyrhynchos': [100, 100] },
-  FLY_PROB: 0, COLLAGE_PAD: 1, currentHours: 24,
+  FLY_PROB: 0, COLLAGE_PAD: 1, currentHours: 24, labelParam: null, PHONE_BUDGET_BOOST: 1,
   EMPTY_WINDOW_COPY: 'No birds heard',
   labelsOn() { return false; }, loadMask() { return {}; },
   slugify(sci) { return sci.toLowerCase().replaceAll(' ', '-'); },
