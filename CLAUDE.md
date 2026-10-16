@@ -155,6 +155,13 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   `LABEL_MIN_PX`). If those lines change shape it refuses to render and the
   frame quietly goes stale (it did for two days); `tests/test_frame_shoot.py`
   checks them. Frame logs: `journalctl -u birdframe-server`.
+  With names on, every bird must get a label or the names render fails
+  ("frame labels missing for: ..."); `display.py` then exports the plain image
+  for names-on too (it used to keep the old names image, and the frame sat on
+  a 09:20 picture all day). Labels ride `outline()` in `apt.js`, a trace of
+  the mask's biggest piece with Jacob's stop; sketchy bundle art (specks, one-
+  pixel strokes) broke the old trace. `tests/test_frame_capture_browser.py`
+  `test_sketchy_silhouette_still_gets_its_name` covers it.
 - Bird art (`avian/assets/illustrations/<slug>.png`, `-2` = flight) is served
   by `cutout.php` with a day of cache, under a URL that only changes with the
   species' entry in `ART_REVISIONS` in `apt.js`; `dims.json`/`masks.json`
