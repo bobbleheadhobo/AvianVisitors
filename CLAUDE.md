@@ -65,7 +65,9 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
 ## Workflow
 
 - Work directly on `avian-visitors` (the fork's default branch). No
-  feature branches or PRs, and there is no CI on the fork.
+  feature branches or PRs. Upstream's GitHub Actions do run on every push to
+  the fork (`.github/workflows/python-app.yml` runs plain `pytest` with Node
+  installed), and the owner gets a "run failed" email when they go red.
 - git has no identity on the station: commit with
   `git -c user.name=bobbleheadhobo -c user.email=supersoup4@gmail.com commit ...`.
 - The station serves straight from this checkout (the webroot
@@ -74,7 +76,13 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
 
 ## Checking your work
 
-- `birdnet/bin/python -m pytest -q tests`. One failure is expected on the
+- `PATH=$HOME/.cache/avian-dev-venv/lib/python3.11/site-packages/nodejs_wheel/bin:$PATH
+  birdnet/bin/python -m pytest -q tests`. Without Node on the PATH a handful
+  of frontend tests (`smoke_*.mjs`, `test_admin_frontend_auth.js`) skip here
+  but run in CI; they lift functions out of `apt.js` into a `vm` with stubbed
+  globals, so a fork change that makes such a function call a new helper or
+  global breaks them (CI went red on 2026-10-13 this way). Add a stub to the
+  test's context, don't bend `apt.js`. One failure is expected on the
   station: `test_diagnostic_redaction.py::...stale_logs` (the user can't read
   `/etc/caddy/Caddyfile`). The bundle-manager tests point
   `STATION_RUNTIME_PATH` at a missing file, and their job workers start
@@ -87,9 +95,9 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   download another browser without asking. Options: `--click <selector>`,
   `--scroll-to <selector>`, `--theme dark`, `--full`; shots go to
   `/tmp/avian-shots`.
-- There is no Node, so a page error from `dev/shot.sh` is the main JS check.
-  For a pure syntax check: `pip install esprima` into the dev venv and
-  `esprima.parseScript(open('avian/frontend/apt.js').read())`.
+- Node comes from the `nodejs-wheel-binaries` wheel in the dev venv (path
+  above; not on the PATH by default): `node --check avian/frontend/apt.js`
+  for syntax. A page error from `dev/shot.sh` is the main runtime JS check.
 - Never run heavy builds here (4 GB LXC; `/tmp` is RAM). The frame firmware is
   built in Home Assistant via `frame/esphome/push-to-ha.sh`.
 
