@@ -4580,7 +4580,12 @@
     }
     var total = rowsArr.length;
     var hourCount = rng.to - rng.from + 1;
-    var html = '<table class="heatmap-table' + (hourCount > 8 ? ' heatmap-compressed' : '') + '"><thead><tr><th class="heatmap-corner" aria-label="species"></th>';
+    // Two-digit counts don't fit a 24-column desktop row either (7D and ALL
+    // run to thousands), so a long ledger with them reads by shade alone; the
+    // exact count is the cell's tooltip.
+    var dense = hourCount > 8 && maxN >= 10;
+    var html = '<table class="heatmap-table' + (hourCount > 8 ? ' heatmap-compressed' : '')
+      + (dense ? ' heatmap-dense' : '') + '"><thead><tr><th class="heatmap-corner" aria-label="species"></th>';
     for (var hh = rng.from; hh <= rng.to; hh++) {
       var majorHour = hourCount <= 12 || hh % 3 === 0 || hh === rng.to;
       html += '<th class="heatmap-hour' + (majorHour ? ' heatmap-hour-major' : '') + '">' + pad(hh) + '</th>';
@@ -4596,7 +4601,8 @@
           // Ink weight mixed from the theme's ink variable; capped so
           // the count stays readable on the heaviest cell.
           var mix = Math.round(6 + 39 * (c / maxN));
-          html += '<td style="background:color-mix(in srgb, var(--ink) ' + mix + '%, transparent)">' + c + '</td>';
+          html += '<td style="background:color-mix(in srgb, var(--ink) ' + mix + '%, transparent)"'
+            + ' title="' + pad(h) + ':00 · ' + c + '">' + c + '</td>';
         } else {
           html += '<td></td>';
         }
@@ -6214,7 +6220,7 @@
       scopedFetchJson('firstseen', { limit: 10, date: forDate }, request),
       scopedFetchJson('recent', { hours: forHours, date: forDate }, request),
       scopedFetchJson('rhythm', { hours: forHours, date: forDate }, request),
-      scopedFetchJson('hourly', { date: forDate }, request),
+      scopedFetchJson('hourly', { hours: forHours, date: forDate }, request),
     ]).then(function (parts) {
       if (!educatorBatchIsCurrent(parts, request)
         || seq !== statsContextSeq
@@ -6273,7 +6279,7 @@
       liveStats ? tolerate(scopedFetchJson('firstseen', { limit: 10 }, request)) : Promise.resolve(null),
       tolerate(recent),
       liveStats ? tolerate(scopedFetchJson('rhythm', { hours: forHours }, request)) : Promise.resolve(null),
-      liveStats ? tolerate(scopedFetchJson('hourly', {}, request)) : Promise.resolve(null),
+      liveStats ? tolerate(scopedFetchJson('hourly', { hours: forHours }, request)) : Promise.resolve(null),
       calendarNeeded ? tolerate(scopedFetchJson('calendar', {}, request)) : Promise.resolve(null),
     ]).then(function (parts) {
       if (!educatorBatchIsCurrent(parts, request)) {
@@ -6295,9 +6301,11 @@
         if (stillLiveStats) DATA.statsRecent = parts[4];
         if (typeof parts[4].site_name === 'string') applySiteName(parts[4].site_name);
       }
-      // A failed rhythm poll keeps the last-known chart rather than blanking it.
-      if (stillLiveStats && parts[5]) DATA.rhythm = parts[5];
-      if (stillLiveStats && parts[6]) DATA.hourly = parts[6];
+      // A failed rhythm poll keeps the last-known chart rather than blanking
+      // it; both follow the window, so a poll from an older one is dropped.
+      var sameWindow = forHours === (educatorScopeId() ? 1000000 : currentHours);
+      if (stillLiveStats && sameWindow && parts[5]) DATA.rhythm = parts[5];
+      if (stillLiveStats && sameWindow && parts[6]) DATA.hourly = parts[6];
       if (parts[7]) {
         DATA.calendar = parts[7];
         var cal = document.getElementById('statsCalendar');

@@ -4373,6 +4373,8 @@ body.av-local #dd-items  { display: block; }
   transition: color 140ms ease, text-decoration-color 140ms ease; }
 .heatmap-row[data-sci]:hover .heatmap-name .com { color: var(--accent); text-decoration-color: currentColor; }
 .heatmap-table td.heatmap-name { text-align: left; white-space: nowrap; padding-right: 12px; }
+/* Counts too wide for 24 desktop columns: the ledger reads by shade. */
+.heatmap-table.heatmap-dense td:not(.heatmap-name):not(.heatmap-total) { color: transparent; font-size: 0; }
 .heatmap-name .com { display: block; font: 600 15px/1.3 ui-serif, Georgia, serif; color: var(--ink); }
 .heatmap-name .sci { display: block; font: italic 12px/1.25 ui-serif, Georgia, serif; color: var(--stats-quiet); }
 .heatmap-total { font-variant-numeric: tabular-nums; color: var(--stats-quiet); padding-left: 10px; }

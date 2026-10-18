@@ -150,6 +150,49 @@ function recentWindow(
     ];
 }
 
+// Species-by-hour ledger: the top species, each with per-hour-of-day counts.
+// A day-sized window (1H-24H, or an educator scope) covers the context's one
+// date; 7D and ALL (hours > 24) sum each hour of the day across that window
+// instead, since a one-day ledger read empty under them every morning before
+// the first bird.
+function hourlyLedger(SQLite3 $db, array $ctx, int $hours, bool $scoped, int $limit): array {
+    if ($hours > 24 && !$scoped) {
+        $where = windowClause($hours);
+        $bind = [':anchor' => $ctx['anchor'], ':lim' => $limit];
+        $span = $hours >= 1000000 ? 'all' : 'window';
+    } else {
+        $where = 'Date = :d';
+        $bind = [':d' => $ctx['date'], ':lim' => $limit];
+        $span = 'day';
+    }
+    $rs = rows($db,
+      "WITH top AS ( "
+    . "  SELECT Sci_Name FROM detections WHERE $where "
+    . "  GROUP BY Sci_Name ORDER BY COUNT(*) DESC, Sci_Name ASC LIMIT :lim "
+    . "), win AS (SELECT Sci_Name, Com_Name, Time FROM detections WHERE $where) "
+    . "SELECT d.Sci_Name AS sci, d.Com_Name AS com, "
+    . "       CAST(strftime('%H', d.Time) AS INT) AS hour, COUNT(*) AS n "
+    . "FROM win d JOIN top ON top.Sci_Name = d.Sci_Name "
+    . "GROUP BY d.Sci_Name, hour",
+      $bind
+    );
+    // Pivot to one entry per species, ordered by its total.
+    $species = [];
+    foreach ($rs as $r) {
+        $sci = $r['sci'];
+        if (!isset($species[$sci])) {
+            $species[$sci] = ['sci' => $sci, 'com' => $r['com'], 'total' => 0, 'hours' => []];
+        }
+        $species[$sci]['hours'][] = ['hour' => (int)$r['hour'], 'n' => (int)$r['n']];
+        $species[$sci]['total'] += (int)$r['n'];
+    }
+    $species = array_values($species);
+    usort($species, function ($a, $b) {
+        return $b['total'] <=> $a['total'] ?: strcmp($a['sci'], $b['sci']);
+    });
+    return ['span' => $span, 'species' => $species];
+}
+
 if (defined('AVIAN_BIRDNET_API_LIBRARY_ONLY')) return;
 
 $RESET_AT_MIDNIGHT = publicConfigFlag($CONF_PATH, 'RESET_AT_MIDNIGHT');
@@ -611,35 +654,16 @@ switch ($action) {
         $today = $ctx['today'];
         $date = $ctx['date'];
         $limit = max(1, min(30, (int)($_GET['limit'] ?? 15)));
-        $rs = rows($db,
-          "WITH top AS ( "
-        . "  SELECT Sci_Name FROM detections WHERE Date = :d "
-        . "  GROUP BY Sci_Name ORDER BY COUNT(*) DESC, Sci_Name ASC LIMIT :lim "
-        . ") "
-        . "SELECT d.Sci_Name AS sci, d.Com_Name AS com, "
-        . "       CAST(strftime('%H', d.Time) AS INT) AS hour, COUNT(*) AS n "
-        . "FROM detections d JOIN top ON top.Sci_Name = d.Sci_Name "
-        . "WHERE d.Date = :d GROUP BY d.Sci_Name, hour",
-          [':d' => $date, ':lim' => $limit]
-        );
-        // Pivot to one entry per species, ordered by the day's total.
-        $species = [];
-        foreach ($rs as $r) {
-            $sci = $r['sci'];
-            if (!isset($species[$sci])) {
-                $species[$sci] = ['sci' => $sci, 'com' => $r['com'], 'total' => 0, 'hours' => []];
-            }
-            $species[$sci]['hours'][] = ['hour' => (int)$r['hour'], 'n' => (int)$r['n']];
-            $species[$sci]['total'] += (int)$r['n'];
-        }
-        $species = array_values($species);
-        usort($species, function ($a, $b) {
-            return $b['total'] <=> $a['total'] ?: strcmp($a['sci'], $b['sci']);
-        });
+        $hours = max(1, min(1000000, (int)($_GET['hours'] ?? 24)));
+        $ledger = hourlyLedger($db, $ctx, $hours, $educatorScope !== null, $limit);
+        $span = $ledger['span'];
+        $species = $ledger['species'];
         birdnetRespond($db, $educatorScope, [
             'date'    => $date,
             'station_date' => $today,
             'is_today' => $date === $today,
+            'hours' => $span === 'day' ? min($hours, 24) : $hours,
+            'span' => $span,
             'anchor_hour' => $date === $today
                 ? (int)(one($db, "SELECT CAST(strftime('%H','now','localtime') AS INT) AS h")['h'] ?? 23)
                 : 23,
