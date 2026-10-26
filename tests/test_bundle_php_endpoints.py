@@ -229,9 +229,9 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(headers["Cache-Control"], "public, no-cache")
         self.assertEqual(self.request(base, {"If-None-Match": headers["ETag"]})[0], 304)
         self.assertEqual(self.request(base + "&pose=2")[1], pngs["calypte-anna-2"])
-        self.assertEqual(self.request(base + "&pose=3")[0], 404)
+        self.assertEqual(self.request(base + "&pose=3")[0], 204)
         # still needs the bundle revision, like the bundle's own art
-        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna")[0], 404)
+        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna")[0], 204)
 
     def test_additions_never_replace_the_bundles_own_art(self) -> None:
         self._add_additions("test-pack", {"corvus-brachyrhynchos": {"perched": "corvus-brachyrhynchos-2"}})
@@ -240,7 +240,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(data["active"]["pose_count"], 1)
         base = "/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + self.revision_one
         self.assertEqual(self.request(base)[1], (ROOT / "avian/assets/illustrations/corvus-brachyrhynchos.png").read_bytes())
-        self.assertEqual(self.request(base + "&pose=2")[0], 404, "nor add a pose to a bird it draws")
+        self.assertEqual(self.request(base + "&pose=2")[0], 204, "nor add a pose to a bird it draws")
 
     def test_bad_additions_leave_the_bundle_as_it_was(self) -> None:
         pngs = self._add_additions("test-pack", {"calypte-anna": {"perched": "corvus-brachyrhynchos-2"}})
@@ -249,7 +249,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         # a PNG that no longer matches its hash is not served
         digest = hashlib.sha256(pngs["calypte-anna"]).hexdigest()
         (directory / f"{digest}.png").write_bytes(pngs["calypte-anna"][:-1] + b"\0")
-        self.assertEqual(self.request(base)[0], 404)
+        self.assertEqual(self.request(base)[0], 204)
         # malformed records are ignored
         for broken in ('{"schema_version": 1}', "not json", ""):
             with self.subTest(broken=broken):
@@ -269,7 +269,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         self._add_additions("other-pack", {"calypte-anna": {"perched": "corvus-brachyrhynchos-2"}})
         self.assertEqual(list(json.loads(self.request("/avian/api/bundle-assets.php")[1])["dims"]),
                          ["corvus-brachyrhynchos"])
-        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one)[0], 404)
+        self.assertEqual(self.request("/avian/api/cutout.php?sci=Calypte%20anna&bundle=" + self.revision_one)[0], 204)
 
     def test_install_tool_writes_additions_the_site_serves(self) -> None:
         pack = self.library / "packs/test-pack/1.0.0"
@@ -298,7 +298,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(self.request(base)[1], bird)
 
         subprocess.run(tool + ["remove", "test-pack", "calypte-anna"], env=env, check=True, capture_output=True)
-        self.assertEqual(self.request(base)[0], 404)
+        self.assertEqual(self.request(base)[0], 204)
         self.assertEqual(list((self.additions / "test-pack").glob("*.png")), [], "unused drawings are deleted")
 
     def test_numbered_cutout_is_exact_and_rejects_malformed_choices(self) -> None:
@@ -309,7 +309,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         self._json(path, index)
         base = '/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=' + self.revision_one + '&pose='
         self._assert_cutout_head_matches_get(base + '11', (ROOT / 'avian/assets/illustrations/corvus-brachyrhynchos.png').read_bytes())
-        self.assertEqual(self.request(base + '12')[0], 404)
+        self.assertEqual(self.request(base + '12')[0], 204)
         for choice in ('0', '33', '01', '11suffix', '-1', '1.5', '&pose[]=11'):
             with self.subTest(choice=choice):
                 self.assertEqual(self.request(base + choice)[0], 400)
@@ -383,7 +383,7 @@ class BundlePhpEndpoints(unittest.TestCase):
                 "/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + revision + "&content=" + content,
                 method="HEAD",
             )
-            self.assertEqual(status, 404)
+            self.assertEqual(status, 204)
             self.assertEqual(body, b"")
 
     def test_assets_expose_only_exact_active_inventory(self) -> None:
@@ -448,8 +448,8 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(list(json.loads(body)["dims"]), ["corvus-corax"])
         url = "/avian/api/cutout.php?bundle=" + self.revision_one + "&sci=Corvus%20brachyrhynchos"
         self.assertEqual(self.request(url + "&content=" + first["selection_revision"])[0], 200)
-        self.assertEqual(self.request(url + "&content=" + second["selection_revision"])[0], 404)
-        self.assertEqual(self.request(url + "&content=" + "f" * 64)[0], 404)
+        self.assertEqual(self.request(url + "&content=" + second["selection_revision"])[0], 204)
+        self.assertEqual(self.request(url + "&content=" + "f" * 64)[0], 204)
 
     def test_selection_receipt_tampering_fails_closed(self) -> None:
         reference = self._selection_fixture("Corvus brachyrhynchos", "corvus-brachyrhynchos")
@@ -469,13 +469,16 @@ class BundlePhpEndpoints(unittest.TestCase):
         self.assertEqual(body, (ROOT / "avian/assets/illustrations/corvus-brachyrhynchos.png").read_bytes())
 
         status, _, _ = self.request(base + "&sci=Corvus%20brachyrhynchos&pose=2")
-        self.assertEqual(status, 404, "missing flight must not use perched or built-in flight")
-        status, _, _ = self.request(base + "&sci=Calypte%20anna")
-        self.assertEqual(status, 404, "missing species must not use built-in artwork")
+        self.assertEqual(status, 204, "missing flight must not use perched or built-in flight")
+        status, body, headers = self.request(base + "&sci=Calypte%20anna")
+        self.assertEqual(status, 204, "missing species must not use built-in artwork")
+        self.assertEqual(body, b"")
+        self.assertEqual(headers["X-Avian-No-Art"], "no artwork in active bundle for Calypte anna")
+        self.assertEqual(headers["Cache-Control"], "no-store")
         status, _, _ = self.request("/avian/api/cutout.php?sci=Corvus%20brachyrhynchos")
-        self.assertEqual(status, 404, "custom art requires its geometry revision")
+        self.assertEqual(status, 204, "custom art requires its geometry revision")
         status, _, _ = self.request("/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + "f" * 64)
-        self.assertEqual(status, 404)
+        self.assertEqual(status, 204)
 
     def test_maximum_scientific_name_and_hyphen_runs_resolve_exact_external_assets(self) -> None:
         scientific_name = "A" + "a" * 39 + " " + "b" * 40 + " " + "c" * 40 + " " + "d" * 40
@@ -550,7 +553,7 @@ class BundlePhpEndpoints(unittest.TestCase):
 
         current_missing = "/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + self.revision_two
         status, _, _ = self.request(current_missing)
-        self.assertEqual(status, 404)
+        self.assertEqual(status, 204)
 
     def test_corrupt_active_state_fails_closed(self) -> None:
         (self.library / "active.json").write_text("{broken\n", encoding="utf-8")
@@ -561,7 +564,7 @@ class BundlePhpEndpoints(unittest.TestCase):
         status, _, _ = self.request(
             "/avian/api/cutout.php?sci=Corvus%20brachyrhynchos&bundle=" + self.revision_one
         )
-        self.assertEqual(status, 404)
+        self.assertEqual(status, 204)
 
     def test_included_active_preserves_existing_resolver(self) -> None:
         self._json(self.library / "active.json", {

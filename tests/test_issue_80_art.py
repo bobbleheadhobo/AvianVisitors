@@ -121,3 +121,12 @@ def test_cache_revision_is_narrow_and_reaches_every_image_builder():
     assert '"/assets/cutouts/$slug.png"' in cutout
     assert "serve_png($bundled);" in cutout
     assert "serve_png($cutout);" in cutout
+
+
+def test_missing_art_is_never_a_404():
+    # The owner's proxy runs CrowdSec, whose http-probing rule bans an address
+    # that collects 404s; a page of birds without art did exactly that. Missing
+    # art answers 204 (the <img> still fails over to the nest) instead.
+    cutout = (ROOT / "avian/api/cutout.php").read_text(encoding="utf-8")
+    assert "http_response_code(404)" not in cutout
+    assert "http_response_code(204);" in cutout

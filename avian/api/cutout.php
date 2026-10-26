@@ -2,7 +2,7 @@
 // AvianVisitors - bird image resolver.
 //
 // With an external bundle revision, resolution is exact: that bundle's named
-// species and requested pose, or 404. The included Japanese Woodblock revision
+// species and requested pose, or 204 (see avian_no_art). The included Japanese Woodblock revision
 // keeps the legacy chain:
 //   1. ../assets/illustrations/<slug>.png   (333 bundled species, two poses each)
 //   2. ../assets/cutouts/<slug>.png         (background-removed photo)
@@ -17,6 +17,18 @@
 // and only for a detected species.
 
 declare(strict_types=1);
+
+// No picture for this bird (or this tab's bundle is gone) is a normal answer,
+// not an error: 204 rather than 404, so the browser's <img> still fails over
+// to the egg nest while a proxy's ban rules (CrowdSec's http-probing counts
+// 404s) don't take a page of missing birds for a scan. The reason travels in
+// a header, since a 204 has no body.
+function avian_no_art(string $reason): never {
+    http_response_code(204);
+    header('Cache-Control: no-store');
+    header('X-Avian-No-Art: ' . preg_replace('/[^ -~]/', '', $reason));
+    exit;
+}
 
 $sci = trim((string)($_GET['sci'] ?? ''));
 if ($sci === '') {
@@ -48,27 +60,20 @@ $poseSuffix = $pose === 1 ? '' : "-$pose";
 require_once __DIR__ . '/bundle-runtime.php';
 $activeBundle = avian_bundle_active_state();
 if ($activeBundle['status'] !== 'ok') {
-    http_response_code(404);
-    echo 'active bundle unavailable';
-    exit;
+    avian_no_art('active bundle unavailable');
 }
 $requestedRevision = $_GET['bundle'] ?? null;
 if ($requestedRevision !== null) {
     if (!is_string($requestedRevision) || strlen($requestedRevision) > 80) {
-        http_response_code(404);
-        echo 'bundle revision is invalid';
-        exit;
+        avian_no_art('bundle revision is invalid');
     }
     $requestedContent = $_GET['content'] ?? null;
     if ($requestedContent !== null && !is_string($requestedContent)) {
-        http_response_code(404);
-        exit('bundle content is invalid');
+        avian_no_art('bundle content is invalid');
     }
     $artBundle = avian_bundle_state_for_revision($requestedRevision, $requestedContent);
     if ($artBundle['status'] !== 'ok') {
-        http_response_code(404);
-        echo 'bundle revision is unavailable';
-        exit;
+        avian_no_art('bundle revision is unavailable');
     }
 } else {
     $artBundle = $activeBundle;
@@ -139,16 +144,14 @@ function serve_bundle_png($handle, array $stat, string $revision, string $digest
 }
 
 // A selected external bundle is a complete visual boundary. Missing species
-// and missing poses intentionally return 404 so the collage omits them and the
+// and missing poses intentionally return no art (204) so the collage omits them and the
 // Atlas keeps its existing no-art nest. Never mix in the included woodblock,
 // photos, cached cutouts, or Wikipedia artwork. The revision query binds this
 // image to the exact geometry inventory already loaded by the browser.
 if (!$artBundle['included']) {
     if (!is_string($requestedRevision)
         || !hash_equals($artBundle['revision'], $requestedRevision)) {
-        http_response_code(404);
-        echo 'bundle revision required';
-        exit;
+        avian_no_art('bundle revision required');
     }
     $bundleIndex = avian_bundle_index_for_state($artBundle);
     $bundleObject = $bundleIndex === null
@@ -179,9 +182,7 @@ if (!$artBundle['included']) {
         }
     }
     if ($openedObject === null) {
-        http_response_code(404);
-        echo 'no artwork in active bundle for ' . htmlspecialchars($sci);
-        exit;
+        avian_no_art('no artwork in active bundle for ' . htmlspecialchars($sci));
     }
     serve_bundle_png(
         $openedObject[0],
@@ -222,33 +223,25 @@ if (is_file($cachePath) && filesize($cachePath) > 1024) {
 }
 
 // 4. Fresh Wikipedia fetch + rembg. Skipped if rembg-cli isn't on
-//    PATH - the resolver returns a 404 in that case rather than
+//    PATH - the resolver returns no art (204) in that case rather than
 //    burning a Wikipedia request we can't use.
 require_once __DIR__ . '/admin-auth.php';
 if (avian_lan_admin_auth_required()) {
-    http_response_code(404);
-    echo 'no cached illustration for ' . htmlspecialchars($sci);
-    exit;
+    avian_no_art('no cached illustration for ' . htmlspecialchars($sci));
 }
 
 $rembg = '/usr/local/bin/rembg-cli';
 if (!is_executable($rembg)) {
-    http_response_code(404);
-    echo 'no illustration bundled for ' . htmlspecialchars($sci) . ' (install rembg-cli to enable Wikipedia fallback)';
-    exit;
+    avian_no_art('no illustration bundled for ' . htmlspecialchars($sci) . ' (install rembg-cli to enable Wikipedia fallback)');
 }
 
 if (!avian_is_direct_local_request($_SERVER)) {
-    http_response_code(404);
-    echo 'no cached illustration for ' . htmlspecialchars($sci);
-    exit;
+    avian_no_art('no cached illustration for ' . htmlspecialchars($sci));
 }
 
 $dbPath = dirname(__DIR__, 2) . '/scripts/birds.db';
 if (!is_file($dbPath)) {
-    http_response_code(404);
-    echo 'species is not in this station';
-    exit;
+    avian_no_art('species is not in this station');
 }
 $db = new SQLite3($dbPath, SQLITE3_OPEN_READONLY);
 $db->busyTimeout(1000);
@@ -258,9 +251,7 @@ $result = $statement->execute();
 $detected = $result instanceof SQLite3Result && $result->fetchArray(SQLITE3_NUM) !== false;
 $db->close();
 if (!$detected) {
-    http_response_code(404);
-    echo 'species is not in this station';
-    exit;
+    avian_no_art('species is not in this station');
 }
 
 if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
@@ -296,9 +287,7 @@ if ($srcUrl !== null) {
     }
 }
 if (!$srcUrl) {
-    http_response_code(404);
-    echo 'no Wikipedia photo for ' . htmlspecialchars($sci);
-    exit;
+    avian_no_art('no Wikipedia photo for ' . htmlspecialchars($sci));
 }
 
 $imgBytes = @file_get_contents($srcUrl, false, $ctx, 0, 12 * 1024 * 1024);

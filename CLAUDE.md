@@ -174,7 +174,10 @@ a test, a `dev/sync-live.sh` check, or a line in this list.
   by `cutout.php` with a day of cache, under a URL that only changes with the
   species' entry in `ART_REVISIONS` in `apt.js`; `dims.json`/`masks.json`
   with `TABLE_VERSION`. Changing art without bumping these leaves browsers on
-  the old picture (`dev/sync-live.sh` warns). New art from outside the
+  the old picture (`dev/sync-live.sh` warns). A bird with no art (or a
+  stale tab's bundle revision) answers **204, never 404**: the owner's proxy
+  runs CrowdSec, whose http-probing rule banned them over a page of 404s.
+  The reason is in the `X-Avian-No-Art` header. New art from outside the
   generator: run it through `generate_one.chroma_cut`, then
   `build_masks.py --add <slug>` as `caddy`. Included art keeps its plain
   `cutout.php` URL keyed by `ART_REVISIONS` (no `bundle=`/`content=`):
