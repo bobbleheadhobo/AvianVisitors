@@ -41,7 +41,9 @@ themselves, almost all from the first four gaps here):
 3. **Made it live.** `dev/sync-live.sh` installs changed root helpers,
    regenerates Caddy when its generator changed (and shows the diff), and
    warns about a missing `?v=` bump, an endpoint missing from the Caddy
-   allow-list, a broken `birdnet.conf` symlink, or leftover fake detections.
+   allow-list, a broken `birdnet.conf` symlink, or leftover fake detections,
+   and makes the species-list files group-writable for Tools > species lists
+   (they were 0644 here, so add/remove failed).
    It must print "live copy matches the checkout".
 4. **Test data gone.** `birdnet/bin/python dev/fake-detection.py clean`.
 5. Tests pass (`birdnet/bin/python -m pytest -q tests`), with the one known

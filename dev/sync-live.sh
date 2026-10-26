@@ -121,6 +121,20 @@ fi
 # --- birdnet.conf ------------------------------------------------------------
 [ -L /etc/birdnet/birdnet.conf ] || problem "/etc/birdnet/birdnet.conf is no longer a symlink to the repo copy"
 
+# --- files the web server rewrites in place ----------------------------------
+# Tools > species lists edits these as caddy through the group bit, which only
+# install_avian_controls sets; without it add and remove fail ("not writable").
+for list in exclude include whitelist; do
+  file=${list}_species_list.txt
+  [ -f "$file" ] || { problem "$file is missing; Tools > species lists can't edit it"; continue; }
+  sudo -n -u caddy test -w "$file" && continue
+  if [ "$check" = 1 ]; then
+    problem "$file is not writable by the web server (needs chmod g+rw)"
+  else
+    chmod g+rw "$file" && note "made $file group-writable for Tools > species lists"
+  fi
+done
+
 # --- runtime files in /run (emptied at boot) ----------------------------------
 grep -qs avian-generation.lock /etc/tmpfiles.d/avian-bundle-locks.conf && [ -f /run/lock/avian-generation.lock ] \
   || problem "illustration generation lock or its tmpfiles.d entry is missing (Atlas generate fails); rerun install_avian_controls (see CLAUDE.md)"
